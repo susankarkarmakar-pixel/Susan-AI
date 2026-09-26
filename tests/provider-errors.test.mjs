@@ -5,6 +5,11 @@ import { mapProviderError } from "../lib/provider-errors.mjs";
 
 const providerSource = await readFile(new URL("../lib/ai-providers.ts", import.meta.url), "utf8");
 
+test("NVIDIA uses a currently listed hosted model ID", () => {
+  assert.match(providerSource, /nvidia:\s*\{[^\n]*model:\s*"nvidia\/nemotron-3\.5-lightning-30b-a3b"/);
+  assert.doesNotMatch(providerSource, /model:\s*"meta\/llama-3\.3-70b-instruct"/);
+});
+
 test("Kimi metadata uses the current K3 model and matching international API platform", () => {
   assert.match(providerSource, /kimi:\s*\{[^\n]*model:\s*"kimi-k3"/);
   assert.match(providerSource, /setupUrl:\s*"https:\/\/platform\.kimi\.ai\/console\/api-keys"/);
@@ -67,4 +72,12 @@ test("other providers keep actionable generic authentication/model diagnostics",
   assert.equal(mapProviderError({ status: 401 }, "openai").status, 401);
   assert.equal(mapProviderError({ statusCode: 404 }, "openai").status, 404);
   assert.equal(mapProviderError({ statusCode: 429 }, "openai").status, 429);
+});
+
+test("NVIDIA HTTP 410 identifies endpoint/model availability without leaking upstream details", () => {
+  const result = mapProviderError({ statusCode: 410, responseBody: JSON.stringify({ message: "private upstream response" }) }, "nvidia");
+  assert.equal(result.status, 410);
+  assert.match(result.message, /endpoint or model may be retired or unavailable/);
+  assert.match(result.message, /build\.nvidia\.com/);
+  assert.doesNotMatch(result.message, /private upstream response/);
 });

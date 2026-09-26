@@ -25,6 +25,8 @@ export async function POST(request: Request) {
     selectedProvider = provider;
     const apiKey = typeof input.apiKey === "string" ? input.apiKey.trim() : "";
     if (apiKey.length < 8 || apiKey.length > 500) return jsonError("A valid provider API key is required.", 400);
+    const cloudflareAccountId = typeof input.cloudflareAccountId === "string" ? input.cloudflareAccountId.trim() : "";
+    if (provider === "cloudflare" && !/^[a-f0-9]{32}$/i.test(cloudflareAccountId)) return jsonError("A valid 32-character Cloudflare Account ID is required. Add it in Settings.", 400);
     if (!(await enforceRateLimit(getClientIdentifier(request)))) return jsonError("Too many provider tests. Please wait and try again.", 429, { "Retry-After": String(RATE_LIMIT_RETRY_AFTER_SECONDS) });
 
     const isCustom = provider.startsWith("custom_");
@@ -34,7 +36,7 @@ export async function POST(request: Request) {
       model = getCustomModelConfig(input.customProvider, apiKey);
     } else {
       if (!isInstantChatProvider(provider)) return jsonError("This provider does not support an instant connection test.", 400);
-      model = getModelConfig(provider as ModelProvider, apiKey);
+      model = getModelConfig(provider as ModelProvider, apiKey, { cloudflareAccountId });
     }
 
     await generateText({

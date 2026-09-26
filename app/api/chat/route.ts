@@ -23,11 +23,12 @@ export async function POST(req: Request) {
     const parsedBodyBytes = new TextEncoder().encode(JSON.stringify(body)).byteLength;
     if (parsedBodyBytes > MAX_BODY_BYTES) return jsonError("Request is too large. Keep attachments under 20 MB total.", 413);
     if (!body || typeof body !== "object") return jsonError("Invalid request body.", 400);
-    const { messages, provider, apiKey, language, customProvider } = body as { messages?: unknown; provider?: unknown; apiKey?: unknown; language?: unknown; customProvider?: unknown };
+    const { messages, provider, apiKey, language, customProvider, cloudflareAccountId } = body as { messages?: unknown; provider?: unknown; apiKey?: unknown; language?: unknown; customProvider?: unknown; cloudflareAccountId?: unknown };
     requestedProvider = typeof provider === "string" ? provider : "";
     const isCustom = typeof provider === "string" && provider.startsWith("custom_");
     if (typeof provider !== "string" || (!isInstantChatProvider(provider) && !isCustom)) return jsonError("This provider is not available for instant chat.", 400);
     if (typeof apiKey !== "string" || apiKey.trim().length < 8 || apiKey.length > 500) return jsonError("A valid API key is required.", 400);
+    if (provider === "cloudflare" && (typeof cloudflareAccountId !== "string" || !/^[a-f0-9]{32}$/i.test(cloudflareAccountId.trim()))) return jsonError("A valid 32-character Cloudflare Account ID is required. Add it in Settings.", 400);
     if (!Array.isArray(messages) || messages.length === 0 || messages.length > MAX_MESSAGES) return jsonError("Messages must contain between 1 and 100 items.", 400);
 
     const validMessages = messages.filter(isUIMessage).slice(-MAX_MESSAGES);
@@ -49,7 +50,7 @@ export async function POST(req: Request) {
       if (!isValidCustomProvider(customProvider, provider)) return jsonError("Custom provider configuration is invalid.", 400);
       model = getCustomModelConfig(customProvider, apiKey.trim());
     } else {
-      model = getModelConfig(provider as ModelProvider, apiKey.trim());
+      model = getModelConfig(provider as ModelProvider, apiKey.trim(), { cloudflareAccountId: typeof cloudflareAccountId === "string" ? cloudflareAccountId : undefined });
     }
     const result = streamText({ model, messages: languageInstruction ? [{ role: "system", content: languageInstruction }, ...modelMessages] : modelMessages });
     const anyResult = result as unknown as { toUIMessageStreamResponse?: (options?: { onError?: (error: unknown) => string }) => Response; toDataStreamResponse?: () => Response; toTextStreamResponse?: () => Response };

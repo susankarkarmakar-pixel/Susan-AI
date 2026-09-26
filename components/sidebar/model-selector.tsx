@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { ChevronDown, Bot, Sparkles, BrainCircuit, Globe, Cpu, Hexagon, Zap, Shield, Code2, type LucideIcon } from "lucide-react";
+import { ChevronDown, Bot, Sparkles, BrainCircuit, Globe, Cpu, Hexagon, Zap, Shield, Code2, Flame, Network, Cloud, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { INSTANT_CHAT_PROVIDERS, MODELS_METADATA, ModelProvider } from "@/lib/ai-providers";
 import { getApiKey, getKeys, ApiKeys } from "@/lib/key-storage";
@@ -26,6 +26,12 @@ const MODEL_ICONS: Record<Exclude<ModelProvider, "manus">, LucideIcon> = {
   kimi: Zap,
   sarvam: Shield,
   openrouter: Globe,
+  groq: Flame,
+  cerebras: Network,
+  mistral: Sparkles,
+  nvidia: Cpu,
+  cloudflare: Cloud,
+  sambanova: Globe,
   jules: Code2,
 };
 

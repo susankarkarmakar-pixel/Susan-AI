@@ -4,7 +4,7 @@ import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { LanguageModel } from "ai";
 import { CustomProvider } from "@/lib/custom-providers";
 
-export type ModelProvider = "deepseek" | "anthropic" | "huggingface" | "google" | "openai" | "qwen" | "kimi" | "manus" | "jules" | "sarvam" | "openrouter";
+export type ModelProvider = "deepseek" | "anthropic" | "huggingface" | "google" | "openai" | "qwen" | "kimi" | "manus" | "jules" | "sarvam" | "openrouter" | "groq" | "cerebras" | "mistral" | "nvidia" | "cloudflare" | "sambanova";
 
 export type ProviderTransport = "openai-compatible" | "anthropic" | "google" | "async";
 
@@ -44,6 +44,12 @@ export const MODELS_METADATA: Record<ModelProvider, ProviderMetadata> = {
   jules: { name: "Google Jules", description: "Google's asynchronous coding agent", color: "text-blue-600", icon: "J", model: "jules", tier: "async", setupUrl: "https://jules.google.com/settings", transport: "async", chatAvailable: false, capabilities: { text: false, vision: false, files: true, streaming: false, tools: true, reasoning: true, async: true } },
   sarvam: { name: "Sarvam 105B", description: "Indian-language chat model", color: "text-teal-400", icon: "S", model: "sarvam-105b-conversations", tier: "paid-or-trial", setupUrl: "https://dashboard.sarvam.ai/", transport: "openai-compatible", baseURL: "https://api.sarvam.ai/v1", chatAvailable: true, capabilities: { text: true, vision: false, files: false, streaming: true, tools: false, reasoning: false, async: false } },
   openrouter: { name: "OpenRouter Free Router", description: "Automatically routes to available free models", color: "text-violet-500", icon: "R", model: "openrouter/free", tier: "free-tier", setupUrl: "https://openrouter.ai/settings/keys", transport: "openai-compatible", baseURL: "https://openrouter.ai/api/v1", chatAvailable: true, capabilities: { text: true, vision: false, files: false, streaming: true, tools: false, reasoning: true, async: false } },
+  groq: { name: "Groq · GPT-OSS 120B", description: "Fast inference · free plan quota applies", color: "text-orange-500", icon: "G", model: "openai/gpt-oss-120b", tier: "free-tier", setupUrl: "https://console.groq.com/keys", transport: "openai-compatible", baseURL: "https://api.groq.com/openai/v1", chatAvailable: true, capabilities: { text: true, vision: false, files: false, streaming: true, tools: false, reasoning: true, async: false } },
+  cerebras: { name: "Cerebras · GPT-OSS 120B", description: "High-speed inference · $5 trial requires verified payment method", color: "text-sky-600", icon: "C", model: "gpt-oss-120b", tier: "paid-or-trial", setupUrl: "https://cloud.cerebras.ai/", transport: "openai-compatible", baseURL: "https://api.cerebras.ai/v1", chatAvailable: true, capabilities: { text: true, vision: false, files: false, streaming: true, tools: false, reasoning: true, async: false } },
+  mistral: { name: "Mistral Small 4", description: "Mistral free mode · limited monthly usage", color: "text-amber-500", icon: "M", model: "mistral-small-2603", tier: "free-tier", setupUrl: "https://console.mistral.ai/api-keys", transport: "openai-compatible", baseURL: "https://api.mistral.ai/v1", chatAvailable: true, capabilities: { text: true, vision: false, files: false, streaming: true, tools: false, reasoning: true, async: false } },
+  nvidia: { name: "NVIDIA NIM · Nemotron 3.5 Lightning", description: "Hosted NIM API · free to prototype; evaluation use only", color: "text-green-600", icon: "N", model: "nvidia/nemotron-3.5-lightning-30b-a3b", tier: "paid-or-trial", setupUrl: "https://build.nvidia.com/settings/api-keys", transport: "openai-compatible", baseURL: "https://integrate.api.nvidia.com/v1", chatAvailable: true, capabilities: { text: true, vision: false, files: false, streaming: true, tools: false, reasoning: true, async: false } },
+  cloudflare: { name: "Cloudflare Workers AI", description: "10,000 free Neurons/day · Cloudflare account ID required", color: "text-orange-400", icon: "C", model: "@cf/meta/llama-3.1-8b-instruct", tier: "free-tier", setupUrl: "https://dash.cloudflare.com/profile/api-tokens", transport: "openai-compatible", chatAvailable: true, capabilities: { text: true, vision: false, files: false, streaming: true, tools: false, reasoning: false, async: false } },
+  sambanova: { name: "SambaNova · DeepSeek V3.1", description: "Free tier: 20 requests/day when no payment method is linked", color: "text-red-500", icon: "S", model: "DeepSeek-V3.1", tier: "free-tier", setupUrl: "https://cloud.sambanova.ai/apis", transport: "openai-compatible", baseURL: "https://api.sambanova.ai/v1", chatAvailable: true, capabilities: { text: true, vision: false, files: false, streaming: true, tools: false, reasoning: true, async: false } },
 };
 
 export const PROVIDERS = Object.keys(MODELS_METADATA) as ModelProvider[];
@@ -53,18 +59,25 @@ export function isInstantChatProvider(value: string): value is Exclude<ModelProv
   return INSTANT_CHAT_PROVIDERS.includes(value as Exclude<ModelProvider, "manus">);
 }
 
-export function getModelConfig(provider: ModelProvider, apiKey: string): LanguageModel {
+export function getModelConfig(provider: ModelProvider, apiKey: string, options: { cloudflareAccountId?: string } = {}): LanguageModel {
   const metadata = MODELS_METADATA[provider];
   if (!metadata.chatAvailable) throw new Error(`${metadata.name} is not available for instant chat yet.`);
   if (metadata.transport === "anthropic") return createAnthropic({ apiKey })(metadata.model);
   if (metadata.transport === "google") return createGoogleGenerativeAI({ apiKey })(metadata.model);
   if (metadata.transport === "openai-compatible") {
+    const cloudflareAccountId = options.cloudflareAccountId?.trim();
+    if (provider === "cloudflare" && !/^[a-f0-9]{32}$/i.test(cloudflareAccountId || "")) {
+      throw new Error("Enter the 32-character Cloudflare Account ID from your dashboard in Settings.");
+    }
+    const baseURL = provider === "cloudflare"
+      ? `https://api.cloudflare.com/client/v4/accounts/${cloudflareAccountId}/ai/v1`
+      : metadata.baseURL;
     const headers: Record<string, string> | undefined = provider === "sarvam"
       ? { "api-subscription-key": apiKey }
       : provider === "openrouter"
         ? { "HTTP-Referer": "https://susan-ai.app", "X-Title": "Susan AI" }
         : undefined;
-    return createOpenAI({ ...(metadata.baseURL ? { baseURL: metadata.baseURL } : {}), apiKey, ...(headers ? { headers } : {}) })(metadata.model);
+    return createOpenAI({ ...(baseURL ? { baseURL } : {}), apiKey, ...(headers ? { headers } : {}) })(metadata.model);
   }
   throw new Error(`Unsupported provider transport: ${metadata.transport}`);
 }
@@ -77,4 +90,9 @@ export const FREE_TIER_DIRECTORY: Array<{ provider: ModelProvider; title: string
   { provider: "google", title: "Google AI Studio", model: "Gemini 3.5 Flash-Lite", note: "Free-tier availability and quotas depend on region and account." },
   { provider: "openrouter", title: "OpenRouter Free Router", model: "openrouter/free", note: "Routes to currently available free models; availability can change." },
   { provider: "huggingface", title: "Hugging Face Inference", model: "Open models", note: "Free credits or access depend on the account and selected model." },
+  { provider: "groq", title: "GroqCloud", model: "openai/gpt-oss-120b", note: "Free plan: currently 30 requests/min, 1,000/day and 200,000 tokens/day; account limits can vary." },
+  { provider: "mistral", title: "Mistral La Plateforme", model: "mistral-small-2603", note: "Free mode requires no card; limited evaluation/prototyping usage with monthly credits and account-specific limits." },
+  { provider: "nvidia", title: "NVIDIA API Catalog (hosted NIM)", model: "nvidia/nemotron-3.5-lightning-30b-a3b", note: "Free to prototype; up to 40 RPM for most models, but limits vary by account/model. Trial terms restrict use to testing/evaluation, not production." },
+  { provider: "cloudflare", title: "Cloudflare Workers AI", model: "@cf/meta/llama-3.1-8b-instruct", note: "10,000 Neurons/day free; needs an Account ID. Workers Paid can bill usage above the free allocation." },
+  { provider: "sambanova", title: "SambaNova SambaCloud", model: "DeepSeek-V3.1", note: "Free tier applies without a payment method; model limit is 20 requests/day and 200,000 tokens/day." },
 ];

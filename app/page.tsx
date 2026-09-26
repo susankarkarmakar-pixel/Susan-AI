@@ -22,6 +22,7 @@ import { planAgentTask } from "@/lib/agent/planner";
 import { AgentExecutionOutcome, executeFirstToolStep } from "@/lib/agent/executor";
 import { useAgentTasks } from "@/hooks/use-agent-tasks";
 import { WorkspaceHub, WorkspaceSection } from "@/components/workspace/workspace-hub";
+import { HistoryWorkspace } from "@/components/workspace/history-workspace";
 import { JulesWorkspace } from "@/components/agent/jules-workspace";
 
 export default function Home() {
@@ -50,7 +51,7 @@ export default function Home() {
     if (getApiKey(selectedModel, keys)) return;
     const preferred = getApiKey("google", keys)
       ? "google"
-      : ["openai", "anthropic", "deepseek", "qwen", "kimi", "sarvam", "openrouter", "huggingface", "jules"].find((provider) => getApiKey(provider, keys));
+      : ["openai", "anthropic", "deepseek", "qwen", "kimi", "sarvam", "openrouter", "huggingface", "groq", "cerebras", "mistral", "nvidia", "cloudflare", "sambanova", "jules"].find((provider) => getApiKey(provider, keys));
     if (preferred && preferred !== selectedModel) {
       // This effect synchronizes the selected model with externally stored BYOK keys.
       // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -64,6 +65,7 @@ export default function Home() {
     body: () => ({
       provider: selectedModel,
       apiKey: keys[selectedModel] || "",
+      cloudflareAccountId: keys.cloudflareAccountId || "",
       customProvider: typeof window !== "undefined" ? getCustomProviders().find((provider) => provider.id === selectedModel) || null : null,
       keyVersion,
       language: settings.language,
@@ -106,7 +108,7 @@ export default function Home() {
     const conversation = loadSavedConversation(id);
     if (conversation) {
       if (conversation.model === "manus" || conversation.model === "jules") {
-        const fallback = ["google", "openrouter", "openai", "anthropic", "deepseek", "qwen", "kimi", "sarvam", "huggingface"].find((provider) => getApiKey(provider, keys)) || "google";
+        const fallback = ["google", "openrouter", "openai", "anthropic", "deepseek", "qwen", "kimi", "sarvam", "huggingface", "groq", "cerebras", "mistral", "nvidia", "cloudflare", "sambanova"].find((provider) => getApiKey(provider, keys)) || "google";
         setSelectedModel(fallback);
       } else setSelectedModel(conversation.model as ModelOption);
       setMode("chat");
@@ -134,7 +136,7 @@ export default function Home() {
   };
   const ensureInstantChatModel = () => {
     if (selectedModel !== "jules") return;
-    const fallback = ["google", "openrouter", "openai", "anthropic", "deepseek", "qwen", "kimi", "sarvam", "huggingface"].find((provider) => getApiKey(provider, keys)) || "google";
+    const fallback = ["google", "openrouter", "openai", "anthropic", "deepseek", "qwen", "kimi", "sarvam", "huggingface", "groq", "cerebras", "mistral", "nvidia", "cloudflare", "sambanova"].find((provider) => getApiKey(provider, keys)) || "google";
     setSelectedModel(fallback);
   };
   const handleNewChat = () => {
@@ -325,7 +327,9 @@ export default function Home() {
         currentConversationId={currentConversationId}
         onOpenAbout={() => { setIsSettingsOpen(false); setIsAboutOpen(true); }}
       />
-      {activeSection === "projects" || activeSection === "workflows" || activeSection === "knowledge" || activeSection === "plugins" || activeSection === "documents" ? (
+      {activeSection === "history" ? (
+        <HistoryWorkspace onLoadConversation={handleLoadConversation} onOpenSidebar={() => setIsSidebarOpen(true)} />
+      ) : activeSection === "projects" || activeSection === "workflows" || activeSection === "knowledge" || activeSection === "plugins" || activeSection === "documents" ? (
         <WorkspaceHub
           section={activeSection}
           onStartAgent={handleStartWorkspaceAgent}

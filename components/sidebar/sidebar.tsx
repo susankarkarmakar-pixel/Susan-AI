@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Settings, X, Trash2, Download, Upload, Trash, Info, Home, MessageSquare, Bot, FolderKanban, Workflow, Network, Puzzle, FileText, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { Plus, Settings, X, Trash2, Download, Upload, Trash, Info, Home, MessageSquare, Bot, FolderKanban, Workflow, Network, Puzzle, FileText, History, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ModelSelector, ModelOption } from "./model-selector";
 import { PwaInstallButton } from "@/components/pwa/pwa-install-button";
@@ -11,7 +11,7 @@ import { MODELS_METADATA } from "@/lib/ai-providers";
 interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
-  activeSection: "home" | "chat" | "agent" | "projects" | "workflows" | "knowledge" | "plugins" | "documents";
+  activeSection: "home" | "chat" | "agent" | "projects" | "workflows" | "knowledge" | "plugins" | "documents" | "history";
   onNavigate: (section: SidebarProps["activeSection"]) => void;
   onSelectPinnedAgent: (agent: "General Assistant" | "Data & Report Agent" | "Study & Research Agent") => void;
   onOpenSettings: () => void;
@@ -169,6 +169,7 @@ export function Sidebar({
             <SidebarNavItem icon={<Network className="h-4 w-4" />} label="Knowledge Base" active={activeSection === "knowledge"} collapsed={collapsed} onClick={() => navigate("knowledge")} />
             <SidebarNavItem icon={<Puzzle className="h-4 w-4" />} label="Plugins" active={activeSection === "plugins"} collapsed={collapsed} onClick={() => navigate("plugins")} />
             <SidebarNavItem icon={<FileText className="h-4 w-4" />} label="Documents" active={activeSection === "documents"} collapsed={collapsed} onClick={() => navigate("documents")} />
+            <SidebarNavItem icon={<History className="h-4 w-4" />} label="History" active={activeSection === "history"} collapsed={collapsed} onClick={() => navigate("history")} />
           </nav>
           {!collapsed && <div className="mb-3 flex items-center justify-between px-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/45"><span>Pinned agents</span><span>⌃</span></div>}
           <div className={cn("mb-4 space-y-1", collapsed && "mb-2")}>

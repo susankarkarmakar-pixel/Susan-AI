@@ -11,6 +11,13 @@ export interface ApiKeys {
   sarvam?: string;
   openrouter?: string;
   jules?: string;
+  groq?: string;
+  cerebras?: string;
+  mistral?: string;
+  nvidia?: string;
+  cloudflare?: string;
+  cloudflareAccountId?: string;
+  sambanova?: string;
 }
 
 const STORAGE_KEY = "susan_api_keys_v1";

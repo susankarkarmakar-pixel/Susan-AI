@@ -162,7 +162,7 @@ test("provider connection route validates content type, keys, and instant-chat s
 });
 
 test("chat route recognizes every instant-chat provider before credential validation", async () => {
-  const providers = ["deepseek", "anthropic", "huggingface", "google", "openai", "qwen", "kimi", "sarvam", "openrouter"];
+  const providers = ["deepseek", "anthropic", "huggingface", "google", "openai", "qwen", "kimi", "sarvam", "openrouter", "groq", "cerebras", "mistral", "nvidia", "cloudflare", "sambanova"];
   for (const provider of providers) {
     const response = await fetch(`${baseUrl}/api/chat`, {
       method: "POST",
@@ -172,6 +172,16 @@ test("chat route recognizes every instant-chat provider before credential valida
     assert.equal(response.status, 400, `${provider} should reach credential validation`);
     assert.deepEqual(await response.json(), { error: "A valid API key is required." });
   }
+});
+
+test("Cloudflare connection tests require its separate account ID before any upstream call", async () => {
+  const response = await fetch(`${baseUrl}/api/providers/test`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ provider: "cloudflare", apiKey: "placeholder-test-key" }),
+  });
+  assert.equal(response.status, 400);
+  assert.deepEqual(await response.json(), { error: "A valid 32-character Cloudflare Account ID is required. Add it in Settings." });
 });
 
 test("chat route rejects malformed message parts", async () => {
