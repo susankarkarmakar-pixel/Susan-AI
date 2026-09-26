@@ -17,6 +17,7 @@ import { MessageInput } from "./message-input";
 import { getApiKey } from "@/lib/key-storage";
 import { MODELS_METADATA } from "@/lib/ai-providers";
 import { getCustomProviders } from "@/lib/custom-providers";
+import { getChatErrorAction } from "@/lib/chat-error-actions.mjs";
 
 interface ChatAreaProps {
   mode: AgentMode;
@@ -122,15 +123,12 @@ function ModeButton({ mode, activeMode, onSelect, icon, label }: { mode: AgentMo
 
 function ErrorRecovery({ error, onRetry, onOpenSettings, onOpenModels }: { error: Error; onRetry: () => void; onOpenSettings: () => void; onOpenModels: () => void }) {
   const message = error.message || "The provider could not complete the request.";
-  const normalized = message.toLowerCase();
-  const isKeyError = normalized.includes("api key") || normalized.includes("unauthorized") || normalized.includes("forbidden");
-  const isRetryable = normalized.includes("rate limit") || normalized.includes("quota") || normalized.includes("busy") || normalized.includes("try again");
-  const isModelError = normalized.includes("model") || normalized.includes("provider");
-  const action = isKeyError
-    ? { label: "Open Settings", onClick: onOpenSettings }
-    : isRetryable
+  const actionType = getChatErrorAction(message);
+  const action = actionType === "settings"
+    ? { label: "Manage API key / access", onClick: onOpenSettings }
+    : actionType === "retry"
       ? { label: "Retry", onClick: onRetry }
-      : isModelError
+      : actionType === "models"
         ? { label: "Choose another model", onClick: onOpenModels }
         : null;
 

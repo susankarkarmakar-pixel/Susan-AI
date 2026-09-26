@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { X, Lock, Trash2, ExternalLink, Settings2, Cpu, KeyRound, Palette, Files, SlidersHorizontal, Database, Bell, Zap, Monitor } from "lucide-react";
+import { Activity, X, Lock, Trash2, ExternalLink, Settings2, Cpu, KeyRound, Palette, Files, SlidersHorizontal, Database, Bell, Zap, Monitor } from "lucide-react";
 import { ApiKeyInput } from "./api-key-input";
+import type { ApiKeyConnectionTest } from "./api-key-input";
 import { saveKeys, getKeys, clearKeys, getKeyStorageMode, ApiKeys, KeyStorageMode } from "@/lib/key-storage";
 import { FREE_TIER_DIRECTORY, INSTANT_CHAT_PROVIDERS, MODELS_METADATA } from "@/lib/ai-providers";
 import { AppSettings, getAppSettings, resetAppSettings, updateAppSettings } from "@/lib/app-settings";
@@ -39,6 +40,7 @@ export function SettingsModal({ isOpen, onClose, initialTab = "general" }: Setti
   const [customModel, setCustomModel] = useState("");
   const [customBaseUrl, setCustomBaseUrl] = useState("");
   const [customError, setCustomError] = useState<string | null>(null);
+  const [connectionTests, setConnectionTests] = useState<Record<string, ApiKeyConnectionTest>>({});
   const modalRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -109,6 +111,28 @@ export function SettingsModal({ isOpen, onClose, initialTab = "general" }: Setti
 
   const handleKeyChange = (provider: keyof ApiKeys, value: string) => {
     setKeys(prev => ({ ...prev, [provider]: value }));
+    setConnectionTests((current) => { const next = { ...current }; delete next[provider]; return next; });
+  };
+
+  const testConnection = async (provider: "openai" | "google" | "anthropic" | "deepseek") => {
+    const apiKey = keys[provider]?.trim();
+    if (!apiKey || connectionTests[provider]?.state === "testing") return;
+    setConnectionTests((current) => ({ ...current, [provider]: { state: "testing", message: "" } }));
+    try {
+      const response = await fetch("/api/providers/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+        body: JSON.stringify({ provider, apiKey }),
+      });
+      const result: unknown = await response.json().catch(() => ({}));
+      const message = result && typeof result === "object" && typeof (result as { error?: unknown; message?: unknown }).error === "string"
+        ? (result as { error: string }).error
+        : response.ok ? "Connection verified with a small test request." : `Connection test failed (HTTP ${response.status}).`;
+      setConnectionTests((current) => ({ ...current, [provider]: { state: response.ok ? "connected" : "failed", message } }));
+    } catch {
+      setConnectionTests((current) => ({ ...current, [provider]: { state: "failed", message: "Could not reach the provider test route. Check your connection and try again." } }));
+    }
   };
 
   const handleAddCustomProvider = () => {
@@ -154,6 +178,11 @@ export function SettingsModal({ isOpen, onClose, initialTab = "general" }: Setti
           <nav className="flex shrink-0 gap-1 overflow-x-auto border-b border-border-main/50 bg-[#FAF5EC] px-2 py-2 md:hidden" aria-label="Settings sections">{SETTINGS_TABS.map((tab) => { const Icon = tab.icon; return <button key={tab.id} type="button" onClick={() => setActiveTab(tab.id)} aria-current={activeTab === tab.id ? "page" : undefined} className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold ${activeTab === tab.id ? "bg-cream-highlight text-text-main" : "text-text-muted hover:bg-black/5"}`}><Icon className="h-4 w-4" />{tab.label}</button>; })}</nav>
           <main className="min-h-0 min-w-0 flex-1 overflow-y-auto p-4 sm:p-6 md:p-8">
             {activeTab === "keys" ? <>
+        <section className="mb-4 rounded-2xl border border-border-main/70 bg-surface p-4 shadow-sm" aria-labelledby="key-manager-heading">
+          <div className="flex items-start gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-cream-highlight text-accent"><KeyRound className="h-5 w-5" /></span><div><h3 id="key-manager-heading" className="font-semibold text-text-main">Add / Manage API Keys</h3><p className="mt-1 text-xs leading-5 text-text-muted">Add a provider key, run a small connection test, then save. Keys stay in this browser and are never shown back in full.</p></div></div>
+          <div className="mt-3 flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-[11px] leading-5 text-amber-950"><Activity className="h-4 w-4 shrink-0" />Testing sends a tiny request that can use provider quota or incur a small charge.</div>
+        </section>
+
         <div role="alert" className="mb-5 rounded-xl border border-amber-500/40 bg-amber-50 p-3 text-sm text-amber-950">
           <p className="font-semibold">Important: browser-local BYOK storage</p>
           <p className="mt-1 text-xs leading-relaxed">
@@ -208,6 +237,8 @@ export function SettingsModal({ isOpen, onClose, initialTab = "general" }: Setti
             value={keys.deepseek || ""}
             onChange={(val) => handleKeyChange("deepseek", val)}
             isSaved={!!savedKeys.deepseek}
+            onTest={() => void testConnection("deepseek")}
+            connectionTest={connectionTests.deepseek}
           />
           <ApiKeyInput
             label="Anthropic (Claude) API Key"
@@ -217,6 +248,8 @@ export function SettingsModal({ isOpen, onClose, initialTab = "general" }: Setti
             value={keys.anthropic || ""}
             onChange={(val) => handleKeyChange("anthropic", val)}
             isSaved={!!savedKeys.anthropic}
+            onTest={() => void testConnection("anthropic")}
+            connectionTest={connectionTests.anthropic}
           />
           <ApiKeyInput
             label="Hugging Face API Token"
@@ -235,6 +268,8 @@ export function SettingsModal({ isOpen, onClose, initialTab = "general" }: Setti
             value={keys.google || ""}
             onChange={(val) => handleKeyChange("google", val)}
             isSaved={!!savedKeys.google}
+            onTest={() => void testConnection("google")}
+            connectionTest={connectionTests.google}
           />
           <ApiKeyInput
             label="Google Jules Coding Agent API Key"
@@ -254,6 +289,8 @@ export function SettingsModal({ isOpen, onClose, initialTab = "general" }: Setti
             value={keys.openai || ""}
             onChange={(val) => handleKeyChange("openai", val)}
             isSaved={!!savedKeys.openai}
+            onTest={() => void testConnection("openai")}
+            connectionTest={connectionTests.openai}
           />
           <ApiKeyInput
             label="Qwen API Key"

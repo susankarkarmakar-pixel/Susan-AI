@@ -52,9 +52,7 @@ export function MessageBubble({ role, content, isStreaming, isResearchResponse, 
           {isUser ? (
             <>
               {content}
-              {isStreaming && (
-                <span className="inline-block w-2 h-4 ml-1 bg-text-main/50 animate-pulse align-middle" />
-              )}
+              {isStreaming && <span aria-hidden="true" className="ml-1 inline-block h-4 w-2 animate-pulse bg-text-main/50 align-middle motion-reduce:animate-none" />}
             </>
           ) : (
             <div className="markdown-prose w-full overflow-hidden text-text-main">
@@ -127,9 +125,8 @@ export function MessageBubble({ role, content, isStreaming, isResearchResponse, 
                 {content}
               </ReactMarkdown>
               {isResearchResponse && !isStreaming && <ResearchReferences content={content} />}
-              {isStreaming && (
-                <span className="inline-block w-2 h-4 ml-1 bg-text-main/50 animate-pulse align-middle" />
-              )}
+              {isStreaming && !content && <span role="status" aria-live="polite" className="inline-flex items-center gap-2 text-sm text-text-muted"><span>Thinking</span><span className="inline-flex gap-1" aria-hidden="true"><span className="h-1.5 w-1.5 animate-bounce rounded-full bg-accent motion-reduce:animate-none" /><span className="h-1.5 w-1.5 animate-bounce rounded-full bg-accent/70 motion-reduce:animate-none" style={{ animationDelay: "120ms" }} /><span className="h-1.5 w-1.5 animate-bounce rounded-full bg-accent/40 motion-reduce:animate-none" style={{ animationDelay: "240ms" }} /></span></span>}
+              {isStreaming && content && <><span className="sr-only" role="status" aria-live="polite">Streaming response</span><span aria-hidden="true" className="ml-1 inline-block h-4 w-2 animate-pulse bg-text-main/50 align-middle motion-reduce:animate-none" /></>}
               {!isStreaming && content && (
                 <div className="mt-3 flex items-center gap-1 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
                   <button

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Settings, X, Trash2, Download, Upload, Trash, Info, Home, MessageSquare, Bot, FolderKanban, Workflow, Network, Puzzle, FileText, History, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { Plus, Settings, X, Trash2, Download, Upload, Trash, Info, Home, MessageSquare, Bot, FolderKanban, Workflow, Network, Puzzle, FileText, History, PanelLeftClose, PanelLeftOpen, CircleHelp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ModelSelector, ModelOption } from "./model-selector";
 import { PwaInstallButton } from "@/components/pwa/pwa-install-button";
@@ -21,6 +21,7 @@ interface SidebarProps {
   onLoadConversation: (id: string) => void;
   currentConversationId: string | null;
   onOpenAbout: () => void;
+  onOpenTour: () => void;
   collapsed: boolean;
   onToggleCollapsed: () => void;
 }
@@ -38,6 +39,7 @@ export function Sidebar({
   onLoadConversation,
   currentConversationId,
   onOpenAbout,
+  onOpenTour,
   collapsed,
   onToggleCollapsed
 }: SidebarProps) {
@@ -238,6 +240,14 @@ export function Sidebar({
           >
             <Settings className="w-4 h-4" />
             {!collapsed && <span>Settings</span>}
+          </button>
+          <button
+            onClick={onOpenTour}
+            title="Quick tour"
+            className={cn("flex items-center gap-2 text-white/75 hover:text-white transition-colors p-2 rounded-xl hover:bg-white/10 text-sm font-medium", collapsed ? "justify-center" : "w-full")}
+          >
+            <CircleHelp className="w-4 h-4" />
+            {!collapsed && <span>Quick tour</span>}
           </button>
           <button
             onClick={onOpenAbout}

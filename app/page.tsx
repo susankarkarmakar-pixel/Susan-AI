@@ -24,6 +24,7 @@ import { useAgentTasks } from "@/hooks/use-agent-tasks";
 import { WorkspaceHub, WorkspaceSection } from "@/components/workspace/workspace-hub";
 import { HistoryWorkspace } from "@/components/workspace/history-workspace";
 import { JulesWorkspace } from "@/components/agent/jules-workspace";
+import { FirstUseTour } from "@/components/onboarding/first-use-tour";
 
 export default function Home() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -97,7 +98,7 @@ export default function Home() {
   });
 
   useEffect(() => {
-    const handleOpenSettings = () => { setSettingsTab("general"); setIsSettingsOpen(true); };
+    const handleOpenSettings = () => { setSettingsTab("keys"); setIsSettingsOpen(true); };
     document.addEventListener("open-settings", handleOpenSettings);
     return () => {
       document.removeEventListener("open-settings", handleOpenSettings);
@@ -313,7 +314,7 @@ export default function Home() {
         activeSection={activeSection}
         onNavigate={handleSidebarNavigate}
         onSelectPinnedAgent={handleSelectPinnedAgent}
-        onOpenSettings={() => { setSettingsTab("general"); setIsSettingsOpen(true); }}
+        onOpenSettings={() => { setSettingsTab("keys"); setIsSettingsOpen(true); }}
         collapsed={isSidebarCollapsed}
         onToggleCollapsed={() => setIsSidebarCollapsed((collapsed) => !collapsed)}
         selectedModel={selectedModel}
@@ -326,6 +327,7 @@ export default function Home() {
         onLoadConversation={handleLoadConversation}
         currentConversationId={currentConversationId}
         onOpenAbout={() => { setIsSettingsOpen(false); setIsAboutOpen(true); }}
+        onOpenTour={() => document.dispatchEvent(new Event("open-first-use-tour"))}
       />
       {activeSection === "history" ? (
         <HistoryWorkspace onLoadConversation={handleLoadConversation} onOpenSidebar={() => setIsSidebarOpen(true)} />
@@ -334,7 +336,7 @@ export default function Home() {
           section={activeSection}
           onStartAgent={handleStartWorkspaceAgent}
           onOpenChat={handleOpenWorkspaceChat}
-          onOpenSettings={() => { setSettingsTab("providers"); setIsSettingsOpen(true); }}
+          onOpenSettings={() => { setSettingsTab("keys"); setIsSettingsOpen(true); }}
           onOpenSection={(section) => setActiveSection(section)}
           onOpenSidebar={() => setIsSidebarOpen(true)}
         />
@@ -377,6 +379,7 @@ export default function Home() {
       )}
       <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} initialTab={settingsTab} />
       <AboutModal isOpen={isAboutOpen} onClose={() => setIsAboutOpen(false)} />
+      <FirstUseTour onNavigate={handleSidebarNavigate} />
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { conversationToMarkdown, groupConversationHistory } from "../lib/conversation-history.mjs";
+import { conversationToMarkdown, createConversationFolder, groupConversationHistory, normalizeConversationOrganization, sortConversationsPinnedFirst, updateConversationOrganization } from "../lib/conversation-history.mjs";
 
 const localDate = (year, month, day, hour = 12) => new Date(year, month, day, hour).getTime();
 
@@ -37,4 +37,23 @@ test("history exporter formats readable Markdown and excludes non-chat data mess
   assert.match(markdown, /### You\n\nHello/);
   assert.match(markdown, /### Susan AI\n\nHi there\./);
   assert.doesNotMatch(markdown, /internal/);
+});
+
+test("history folders validate names and reject case-insensitive duplicates", () => {
+  const folders = createConversationFolder([], "  Client   Work  ");
+  assert.deepEqual(folders, ["Client Work"]);
+  assert.throws(() => createConversationFolder(folders, "client work"), /already exists/);
+  assert.throws(() => createConversationFolder(folders, "   "), /folder name/);
+});
+
+test("history pins sort before recent chats and folder assignment round-trips safely", () => {
+  const chats = [
+    { id: "new", title: "New", date: 200, model: "google" },
+    { id: "old", title: "Old", date: 100, model: "openai" },
+  ];
+  const organization = { folders: ["Work"], items: {} };
+  const withFolder = updateConversationOrganization(organization, "old", { pinned: true, folder: "Work" });
+  assert.deepEqual(sortConversationsPinnedFirst(chats, withFolder).map(({ id }) => id), ["old", "new"]);
+  assert.deepEqual(normalizeConversationOrganization(JSON.parse(JSON.stringify(withFolder))), withFolder);
+  assert.throws(() => updateConversationOrganization(organization, "new", { folder: "Missing" }), /existing folder/);
 });
