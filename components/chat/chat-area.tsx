@@ -135,9 +135,9 @@ function ErrorRecovery({ error, onRetry, onOpenSettings, onOpenModels }: { error
         : null;
 
   return (
-    <div role="alert" className="absolute left-1/2 top-20 z-30 flex max-w-[92%] -translate-x-1/2 items-center gap-3 rounded-lg bg-red-500/95 px-4 py-2.5 text-sm font-medium text-white shadow-lg backdrop-blur-sm">
-      <span>{message}</span>
-      {action && <button type="button" onClick={action.onClick} className="shrink-0 rounded-md bg-white/15 px-2.5 py-1 text-xs font-semibold hover:bg-white/25">{action.label}</button>}
+    <div role="alert" className="absolute left-1/2 top-20 z-30 flex w-[calc(100%-1.5rem)] max-w-xl -translate-x-1/2 flex-col items-start gap-3 rounded-lg bg-red-500/95 px-4 py-3 text-sm font-medium text-white shadow-lg backdrop-blur-sm">
+      <span className="min-w-0 max-w-full whitespace-pre-wrap break-words">{message}</span>
+      {action && <button type="button" onClick={action.onClick} className="rounded-md bg-white/15 px-3 py-2 text-xs font-semibold hover:bg-white/25">{action.label}</button>}
     </div>
   );
 }

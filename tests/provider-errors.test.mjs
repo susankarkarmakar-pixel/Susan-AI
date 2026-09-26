@@ -5,10 +5,10 @@ import { mapProviderError } from "../lib/provider-errors.mjs";
 
 const providerSource = await readFile(new URL("../lib/ai-providers.ts", import.meta.url), "utf8");
 
-test("Kimi metadata uses the current K3 model and matching China API platform", () => {
+test("Kimi metadata uses the current K3 model and matching international API platform", () => {
   assert.match(providerSource, /kimi:\s*\{[^\n]*model:\s*"kimi-k3"/);
-  assert.match(providerSource, /setupUrl:\s*"https:\/\/platform\.moonshot\.cn\/console\/api-keys"/);
-  assert.match(providerSource, /baseURL:\s*"https:\/\/api\.moonshot\.cn\/v1"/);
+  assert.match(providerSource, /setupUrl:\s*"https:\/\/platform\.kimi\.ai\/console\/api-keys"/);
+  assert.match(providerSource, /baseURL:\s*"https:\/\/api\.moonshot\.ai\/v1"/);
   assert.doesNotMatch(providerSource, /moonshot-v1-8k/);
 });
 
@@ -18,7 +18,7 @@ test("AI SDK statusCode and structured Kimi authentication errors get region-spe
     responseBody: JSON.stringify({ error: { type: "incorrect_api_key_error", message: "Incorrect API key provided" } }),
   }, "kimi");
   assert.equal(result.status, 401);
-  assert.match(result.message, /platform\.moonshot\.cn/);
+  assert.match(result.message, /platform\.kimi\.ai/);
   assert.match(result.message, /keys from other regional platforms.*not interchangeable/);
 });
 
