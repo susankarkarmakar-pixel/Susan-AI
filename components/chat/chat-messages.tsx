@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { Code2, FileText, Lightbulb, PenLine, Sparkles } from "lucide-react";
+import { BookOpenText, Check, Code2, FileSearch, FileText, Lightbulb, Link2, PenLine, Sparkles } from "lucide-react";
 import { MessageBubble } from "./message-bubble";
+import { isResearchIntent } from "@/lib/research-intent.mjs";
 
 // Use the built-in Message type or structure it explicitly to avoid ai sdk version issues
 export type Message = {
@@ -71,6 +72,8 @@ export function ChatMessages({ messages, isStreaming, onRetry, onPrompt, hideWel
     >
       <div className="max-w-3xl mx-auto flex flex-col w-full pb-4">
         {messages.map((msg, index) => {
+          const lastUserMessage = getPreviousUserMessage(messages, index);
+          const isResearchResponse = msg.role === "assistant" && isResearchIntent(lastUserMessage?.content || "");
           if (msg.role === "system") {
             return (
               <div key={msg.id || index} className="w-full flex justify-center my-6 animate-in fade-in">
@@ -86,19 +89,68 @@ export function ChatMessages({ messages, isStreaming, onRetry, onPrompt, hideWel
               key={msg.id || index}
               role={msg.role as "user" | "assistant"}
               content={msg.content}
+              isResearchResponse={isResearchResponse}
               isStreaming={isStreaming && index === messages.length - 1 && msg.role === "assistant"}
               onRetry={onRetry && msg.role === "assistant" && index === messages.length - 1 ? onRetry : undefined}
             />
           );
         })}
         {isStreaming && messages[messages.length - 1]?.role === "user" && (
-          <MessageBubble
-            role="assistant"
-            content=""
-            isStreaming={true}
-          />
+          isResearchIntent(messages[messages.length - 1]?.content || "")
+            ? <ResearchLoadingCard />
+            : <MessageBubble role="assistant" content="" isStreaming={true} />
         )}
       </div>
     </div>
   );
+}
+
+function ResearchLoadingCard() {
+  const previewItems = [
+    { label: "Key takeaways", icon: Check, width: "w-4/5" },
+    { label: "Helpful context", icon: BookOpenText, width: "w-3/5" },
+    { label: "Sources & links", icon: Link2, width: "w-2/3" },
+  ];
+
+  return (
+    <div role="status" aria-live="polite" aria-label="Preparing a research-style response" className="my-1 w-full overflow-hidden rounded-[1.6rem] border border-accent/15 bg-gradient-to-br from-white via-surface to-cream-highlight/45 shadow-xl shadow-accent/[0.07]">
+      <div className="h-1 bg-gradient-to-r from-cream-highlight via-accent/80 to-cream-highlight" />
+      <div className="p-4 sm:p-5">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-sidebar-cocoa text-cream-highlight shadow-md shadow-sidebar-cocoa/15"><FileSearch className="h-5 w-5" /></span>
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-accent">Research response</p>
+              <p className="mt-0.5 truncate text-sm font-semibold text-text-main">Preparing a thoughtful answer</p>
+            </div>
+          </div>
+          <span className="inline-flex shrink-0 items-center gap-2 rounded-full border border-accent/10 bg-white/80 px-2.5 py-1 text-[10px] font-semibold text-accent">
+            <span className="relative flex h-2 w-2"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent/40 motion-reduce:animate-none" /><span className="relative inline-flex h-2 w-2 rounded-full bg-accent" /></span>
+            Working
+          </span>
+        </div>
+
+        <p className="ml-[3.25rem] mt-1 text-xs leading-5 text-text-muted">Organizing the key ideas and useful context for your question.</p>
+
+        <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
+          {previewItems.map(({ label, icon: Icon, width }, index) => (
+            <div key={label} className="rounded-2xl border border-border-main/55 bg-white/65 p-3 shadow-sm shadow-black/[0.02]">
+              <div className="flex items-center gap-2 text-[10px] font-semibold text-text-muted"><Icon className="h-3.5 w-3.5 text-accent/80" />{label}</div>
+              <div className="mt-3 space-y-1.5" aria-hidden="true">
+                <div className={`h-1.5 ${width} animate-pulse rounded-full bg-accent/10 motion-reduce:animate-none`} style={{ animationDelay: `${index * 180}ms` }} />
+                <div className="h-1.5 w-2/5 animate-pulse rounded-full bg-cream-highlight motion-reduce:animate-none" style={{ animationDelay: `${index * 180 + 90}ms` }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function getPreviousUserMessage(messages: Message[], index: number) {
+  for (let current = index - 1; current >= 0; current -= 1) {
+    if (messages[current].role === "user") return messages[current];
+  }
+  return undefined;
 }

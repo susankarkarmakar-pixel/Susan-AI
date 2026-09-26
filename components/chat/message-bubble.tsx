@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Copy, RefreshCw } from "lucide-react";
+import { ArrowUpRight, Check, Copy, Link2, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -12,10 +12,11 @@ interface MessageBubbleProps {
   role: "user" | "assistant" | "system" | "data";
   content: string;
   isStreaming?: boolean;
+  isResearchResponse?: boolean;
   onRetry?: () => void;
 }
 
-export function MessageBubble({ role, content, isStreaming, onRetry }: MessageBubbleProps) {
+export function MessageBubble({ role, content, isStreaming, isResearchResponse, onRetry }: MessageBubbleProps) {
   const [copied, setCopied] = useState(false);
   // If it's a system message, we don't render it here (chat-messages handles it)
   // or if we must, just return null to avoid breaking layout
@@ -125,6 +126,7 @@ export function MessageBubble({ role, content, isStreaming, onRetry }: MessageBu
               >
                 {content}
               </ReactMarkdown>
+              {isResearchResponse && !isStreaming && <ResearchReferences content={content} />}
               {isStreaming && (
                 <span className="inline-block w-2 h-4 ml-1 bg-text-main/50 animate-pulse align-middle" />
               )}
@@ -164,4 +166,40 @@ export function MessageBubble({ role, content, isStreaming, onRetry }: MessageBu
       </div>
     </div>
   );
+}
+
+function ResearchReferences({ content }: { content: string }) {
+  const links = collectReferences(content);
+  if (links.length === 0) return null;
+
+  return (
+    <section aria-label="Research links" className="mt-4 rounded-2xl border border-accent/10 bg-gradient-to-br from-cream-highlight/45 to-bg-main/70 p-3 sm:p-3.5">
+      <div className="mb-2.5 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-accent"><Link2 className="h-3.5 w-3.5" />Sources & links</div>
+      <div className="flex flex-wrap gap-2">
+        {links.map((link) => (
+          <a key={link.url} href={link.url} target="_blank" rel="noopener noreferrer" title={link.title} className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-border-main/70 bg-white/85 px-3 py-1.5 text-xs font-medium text-text-main shadow-sm transition hover:-translate-y-0.5 hover:border-accent/30 hover:text-accent">
+            <span className="max-w-[13rem] truncate">{link.title}</span><ArrowUpRight className="h-3 w-3 shrink-0 text-text-muted" />
+          </a>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function collectReferences(content: string) {
+  const links = new Map<string, string>();
+  const expression = /\[([^\]]{1,100})\]\((https?:\/\/[^)\s]+)(?:\s+"[^"]*")?\)|(https?:\/\/[^\s<>\])]+)/g;
+  for (const match of content.matchAll(expression)) {
+    const url = match[2] || match[3];
+    if (!url || links.has(url)) continue;
+    try {
+      const parsed = new URL(url);
+      if (parsed.protocol !== "https:" && parsed.protocol !== "http:") continue;
+      links.set(url, (match[1] || parsed.hostname.replace(/^www\./, "")).slice(0, 100));
+    } catch {
+      // Ignore malformed links; the Markdown renderer handles the visible answer.
+    }
+    if (links.size >= 5) break;
+  }
+  return Array.from(links, ([url, title]) => ({ url, title }));
 }
