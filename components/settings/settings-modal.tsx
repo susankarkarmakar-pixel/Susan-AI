@@ -268,7 +268,7 @@ export function SettingsModal({ isOpen, onClose, initialTab = "general" }: Setti
             label="Kimi API Key"
             provider="kimi"
             placeholder="sk-..."
-            helpUrl="https://platform.moonshot.cn/console/api-keys"
+            helpUrl="https://platform.kimi.ai/console/api-keys"
             value={keys.kimi || ""}
             onChange={(val) => handleKeyChange("kimi", val)}
             isSaved={!!savedKeys.kimi}

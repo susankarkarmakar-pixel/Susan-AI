@@ -2,6 +2,7 @@ import { convertToModelMessages, streamText } from "ai";
 import { getCustomModelConfig, getModelConfig, isInstantChatProvider, MODELS_METADATA, ModelProvider } from "@/lib/ai-providers";
 import { CustomProvider, isAllowedBaseUrl } from "@/lib/custom-providers";
 import { enforceRateLimit, getClientIdentifier, RateLimitUnavailableError, RATE_LIMIT_RETRY_AFTER_SECONDS } from "@/lib/rate-limit";
+import { mapProviderError } from "@/lib/provider-errors.mjs";
 import { NextResponse } from "next/server";
 
 const MAX_MESSAGES = 100;
@@ -10,6 +11,7 @@ const MAX_MESSAGE_PARTS = 24;
 const MAX_BODY_BYTES = 20_000_000;
 const MAX_FILE_DATA_URL_LENGTH = 16_000_000;
 export async function POST(req: Request) {
+  let requestedProvider = "";
   try {
     if (!req.headers.get("content-type")?.toLowerCase().includes("application/json")) return jsonError("Content-Type must be application/json.", 415);
     const contentLength = Number(req.headers.get("content-length") || 0);
@@ -22,6 +24,7 @@ export async function POST(req: Request) {
     if (parsedBodyBytes > MAX_BODY_BYTES) return jsonError("Request is too large. Keep attachments under 20 MB total.", 413);
     if (!body || typeof body !== "object") return jsonError("Invalid request body.", 400);
     const { messages, provider, apiKey, language, customProvider } = body as { messages?: unknown; provider?: unknown; apiKey?: unknown; language?: unknown; customProvider?: unknown };
+    requestedProvider = typeof provider === "string" ? provider : "";
     const isCustom = typeof provider === "string" && provider.startsWith("custom_");
     if (typeof provider !== "string" || (!isInstantChatProvider(provider) && !isCustom)) return jsonError("This provider is not available for instant chat.", 400);
     if (typeof apiKey !== "string" || apiKey.trim().length < 8 || apiKey.length > 500) return jsonError("A valid API key is required.", 400);
@@ -50,22 +53,18 @@ export async function POST(req: Request) {
     }
     const result = streamText({ model, messages: languageInstruction ? [{ role: "system", content: languageInstruction }, ...modelMessages] : modelMessages });
     const anyResult = result as unknown as { toUIMessageStreamResponse?: (options?: { onError?: (error: unknown) => string }) => Response; toDataStreamResponse?: () => Response; toTextStreamResponse?: () => Response };
-    const response = anyResult.toUIMessageStreamResponse?.({ onError: providerStreamError }) ?? anyResult.toDataStreamResponse?.() ?? anyResult.toTextStreamResponse?.() ?? jsonError("Streaming is unavailable.", 500);
+    const response = anyResult.toUIMessageStreamResponse?.({ onError: (error) => providerStreamError(error, requestedProvider) }) ?? anyResult.toDataStreamResponse?.() ?? anyResult.toTextStreamResponse?.() ?? jsonError("Streaming is unavailable.", 500);
     response.headers.set("Cache-Control", "no-store");
     return response;
   } catch (error: unknown) {
-    const err = error as Record<string, unknown>;
-    const status = typeof err.status === "number" ? err.status : 500;
-    const rawMessage = typeof err.message === "string" ? err.message : "";
-    const message = rawMessage.toLowerCase();
     if (error instanceof RateLimitUnavailableError) return jsonError("Security rate limiting is temporarily unavailable. Please try again shortly.", 503, { "Retry-After": "30" });
-    if (message.includes("json") || message.includes("unexpected end")) return jsonError("Invalid JSON request body.", 400);
+    const rawMessage = error && typeof error === "object" && "message" in error && typeof error.message === "string" ? error.message : "";
+    if (rawMessage.toLowerCase().includes("json") || rawMessage.toLowerCase().includes("unexpected end")) return jsonError("Invalid JSON request body.", 400);
     if (rawMessage.includes("asynchronous") || rawMessage.includes("instant chat")) return jsonError(rawMessage, 400);
-    if (status === 401 || status === 403) return jsonError("The API key was rejected by the provider.", 401);
-    if (status === 429) return jsonError("The provider rate limit or quota was exceeded.", 429, { "Retry-After": String(RATE_LIMIT_RETRY_AFTER_SECONDS) });
-    if (status === 402 || message.includes("credit") || message.includes("balance")) return jsonError("The provider account has insufficient credits.", 402);
-    if (message.includes("loading") || message.includes("queue")) return jsonError("The model is currently busy. Please try again shortly.", 503);
-    return jsonError(rawMessage && rawMessage.length < 240 ? rawMessage : "The provider could not complete this request. Check your key, model quota, and provider status.", 502);
+    const diagnosis = mapProviderError(error, requestedProvider);
+    const headers: Record<string, string> = {};
+    if (diagnosis.retryAfterSeconds) headers["Retry-After"] = String(diagnosis.retryAfterSeconds || RATE_LIMIT_RETRY_AFTER_SECONDS);
+    return jsonError(diagnosis.message, diagnosis.status, headers);
   }
 }
 
@@ -102,13 +101,6 @@ function jsonError(error: string, status: number, headers: Record<string, string
   return NextResponse.json({ error }, { status, headers: { "Cache-Control": "no-store", ...headers } });
 }
 
-function providerStreamError(error: unknown): string {
-  const candidate = error as { status?: number; message?: string; responseBody?: string };
-  const status = candidate?.status;
-  const raw = typeof candidate?.message === "string" ? candidate.message.toLowerCase() : "";
-  if (status === 401 || status === 403 || raw.includes("invalid api key") || raw.includes("unauthorized") || raw.includes("forbidden")) return "The API key was rejected. Check that you copied the provider key correctly and that it is active.";
-  if (status === 402 || raw.includes("credit") || raw.includes("balance") || raw.includes("quota")) return "The provider quota or credits are exhausted. Check the provider dashboard.";
-  if (status === 404 || raw.includes("model") || raw.includes("not found")) return "This model is unavailable for the selected provider. Try another model or provider.";
-  if (status === 429 || raw.includes("rate limit") || raw.includes("too many")) return "The provider rate limit was reached. Please wait and try again.";
-  return "The provider could not complete the request. Check the API key, model access, and provider status.";
+function providerStreamError(error: unknown, provider: string): string {
+  return mapProviderError(error, provider).message;
 }
