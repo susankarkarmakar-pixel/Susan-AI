@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
+import JSZip from "jszip";
 import test from "node:test";
-import { conversationToMarkdown, createConversationFolder, groupConversationHistory, normalizeConversationOrganization, sortConversationsPinnedFirst, updateConversationOrganization } from "../lib/conversation-history.mjs";
+import { conversationToMarkdown, createConversationFolder, groupConversationHistory, normalizeConversationOrganization, removeConversationOrganizationEntry, sortConversationsPinnedFirst, updateConversationOrganization } from "../lib/conversation-history.mjs";
+import { conversationToDocxBlob } from "../lib/conversation-docx.mjs";
 
 const localDate = (year, month, day, hour = 12) => new Date(year, month, day, hour).getTime();
 
@@ -56,4 +58,33 @@ test("history pins sort before recent chats and folder assignment round-trips sa
   assert.deepEqual(sortConversationsPinnedFirst(chats, withFolder).map(({ id }) => id), ["old", "new"]);
   assert.deepEqual(normalizeConversationOrganization(JSON.parse(JSON.stringify(withFolder))), withFolder);
   assert.throws(() => updateConversationOrganization(organization, "new", { folder: "Missing" }), /existing folder/);
+});
+
+test("deleting a chat removes its stale pin and folder metadata without touching other chats", () => {
+  const organization = { folders: ["Work"], items: { chat1: { pinned: true, folder: "Work" }, chat2: { pinned: true } } };
+  assert.deepEqual(removeConversationOrganizationEntry(organization, "chat1"), { folders: ["Work"], items: { chat2: { pinned: true } } });
+});
+
+test("single chat DOCX export is a valid Office archive", async () => {
+  const blob = await conversationToDocxBlob({
+    id: "docx-1",
+    title: "DOCX export",
+    date: localDate(2026, 8, 27),
+    model: "groq",
+    messages: [
+      { id: "u1", role: "user", content: "Hello" },
+      { id: "a1", role: "assistant", content: "Welcome to DOCX" },
+      { id: "d1", role: "data", content: "internal" },
+    ],
+  });
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  assert.equal(blob.type, "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+  assert.deepEqual(Array.from(bytes.slice(0, 2)), [0x50, 0x4b]);
+  assert.ok(bytes.byteLength > 1000);
+  const archive = await JSZip.loadAsync(bytes);
+  const documentXml = await archive.file("word/document.xml")?.async("string");
+  assert.ok(documentXml);
+  assert.match(documentXml, /DOCX export/);
+  assert.match(documentXml, /Welcome to DOCX/);
+  assert.doesNotMatch(documentXml, /internal/);
 });

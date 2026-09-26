@@ -25,6 +25,7 @@ import { WorkspaceHub, WorkspaceSection } from "@/components/workspace/workspace
 import { HistoryWorkspace } from "@/components/workspace/history-workspace";
 import { JulesWorkspace } from "@/components/agent/jules-workspace";
 import { FirstUseTour } from "@/components/onboarding/first-use-tour";
+import { clearConversations, deleteConversation } from "@/lib/chat-storage";
 
 export default function Home() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -115,6 +116,15 @@ export default function Home() {
       setMode("chat");
       setActiveSection("chat");
     }
+  };
+
+  const handleDeleteConversation = (id: string) => {
+    deleteConversation(id);
+    if (currentConversationId === id) startNewConversation();
+  };
+  const handleClearConversationHistory = () => {
+    clearConversations();
+    startNewConversation();
   };
 
   const handleSend = async (event: React.FormEvent<HTMLFormElement>, files: File[]) => {
@@ -324,13 +334,11 @@ export default function Home() {
           else if (selectedModel === "jules") { setMode("chat"); setActiveSection("chat"); }
         }}
         onNewChat={handleNewChat}
-        onLoadConversation={handleLoadConversation}
-        currentConversationId={currentConversationId}
         onOpenAbout={() => { setIsSettingsOpen(false); setIsAboutOpen(true); }}
         onOpenTour={() => document.dispatchEvent(new Event("open-first-use-tour"))}
       />
       {activeSection === "history" ? (
-        <HistoryWorkspace onLoadConversation={handleLoadConversation} onOpenSidebar={() => setIsSidebarOpen(true)} />
+        <HistoryWorkspace onLoadConversation={handleLoadConversation} onDeleteConversation={handleDeleteConversation} onClearConversations={handleClearConversationHistory} onOpenSidebar={() => setIsSidebarOpen(true)} />
       ) : activeSection === "projects" || activeSection === "workflows" || activeSection === "knowledge" || activeSection === "plugins" || activeSection === "documents" ? (
         <WorkspaceHub
           section={activeSection}

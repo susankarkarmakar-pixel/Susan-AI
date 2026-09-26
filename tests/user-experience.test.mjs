@@ -37,9 +37,21 @@ test("history searches chat content and offers pins, folders, exports, and a cle
   assert.match(history, /message\.content\.toLocaleLowerCase\(\)\.includes\(normalized\)/);
   assert.match(history, /Pinned/);
   assert.match(history, /Create folder/);
-  assert.match(history, /Export all JSON/);
+  assert.match(history, /Export all DOCX/);
+  assert.match(history, /DOCX<\/button>/);
+  assert.doesNotMatch(history, /Export all JSON|downloadJson|JSON<\/button>/);
+  assert.match(history, /Clear all chats/);
+  assert.match(history, /Delete \$\{/);
+  assert.match(history, /conversationToDocxBlob/);
   assert.match(history, /Clearing browser\/site data/);
-  assert.match(history, /Download JSON or Markdown copies/);
+  assert.match(history, /Download DOCX or Markdown copies/);
+});
+
+test("Sidebar no longer renders recent chats or chat export/delete controls", async () => {
+  const sidebar = await read("components/sidebar/sidebar.tsx");
+  assert.match(sidebar, /label="History"/);
+  assert.doesNotMatch(sidebar, /Today|Previous 7 days|No conversations yet|Export conversations|Import conversations|Delete all conversations/);
+  assert.doesNotMatch(sidebar, /getConversations|deleteConversation|exportConversations|importConversations/);
 });
 
 test("workspace empty states provide next steps and Plugins points users to key management", async () => {

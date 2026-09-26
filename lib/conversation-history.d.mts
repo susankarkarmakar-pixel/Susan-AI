@@ -16,4 +16,5 @@ export function normalizeConversationOrganization(value: unknown): ConversationO
 export function createConversationFolder(folders: string[], input: string): string[];
 export function updateConversationOrganization(organization: ConversationOrganization, id: string, patch: { pinned?: boolean; folder?: string | null }): ConversationOrganization;
 export function sortConversationsPinnedFirst(conversations: ConversationSummary[], organization: ConversationOrganization): ConversationSummary[];
+export function removeConversationOrganizationEntry(organization: ConversationOrganization, id: string): ConversationOrganization;
 export function conversationToMarkdown(conversation: Conversation): string;
