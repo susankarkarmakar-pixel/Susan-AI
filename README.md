@@ -129,7 +129,9 @@ Expected response:
 
 ## Data and security model
 
-API keys are stored in the browser's `localStorage` using Base64 encoding. Base64 is **not encryption**, so do not use this feature on shared or compromised devices. Keys are not persisted by Susan AI, but the selected key is sent through the app's `/api/chat` route for each request and then forwarded to the selected provider. Use provider-restricted keys with the minimum permissions and rotate them if a device is lost.
+API keys are stored locally and encrypted with **AES-GCM** through the Web Crypto API. A random 256-bit per-device key is generated and kept in the current browser profile; it never leaves the device. Existing legacy Base64 values are detected and migrated to the encrypted format on the next client hydration. The Settings screen includes masked key fields and a **Forget this device** control that removes the encrypted values and the device key together.
+
+This is encryption at rest, not a replacement for device or browser security: a compromised browser profile or a script running in the app's origin may access a key while the app is open. Use provider-restricted keys with the minimum permissions, avoid shared devices, and rotate keys if a device is lost. The selected key is sent through `/api/chat` for each request and forwarded to the selected provider.
 
 Conversation history also stays in browser storage unless the user exports it. Exported JSON files contain message content and should be treated as sensitive data.
 

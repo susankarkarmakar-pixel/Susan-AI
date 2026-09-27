@@ -51,15 +51,17 @@ test("usage is prominently labeled a rough text-only estimate, not provider bill
   assert.match(helper, /four UTF-16/);
 });
 
-test("keys have password masking, last-four display, and honest unencrypted-storage warning", async () => {
+test("keys have password masking, last-four display, and encrypted browser-local storage", async () => {
   const input = await read("components/settings/api-key-input.tsx");
   const settings = await read("components/settings/settings-modal.tsx");
   const storage = await read("lib/key-storage.ts");
   assert.match(input, /type=\{showPassword \? "text" : "password"\}/);
   assert.match(input, /ending \{value\.slice\(-4\)\}/);
   assert.match(input, /aria-label=\{showPassword \? `Hide/);
-  assert.match(settings, /browser-local storage is not encrypted/);
-  assert.match(storage, /btoa\(JSON\.stringify\(cleanedKeys\)\)/);
+  assert.match(settings, /Encrypted browser-local BYOK storage/);
+  assert.match(settings, /Forget this device/);
+  assert.match(storage, /AES-GCM/);
+  assert.match(storage, /hydrateKeys/);
 });
 
 test("code blocks provide a language label and an accessible copy action", async () => {

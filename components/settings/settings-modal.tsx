@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { Activity, X, Lock, Trash2, ExternalLink, Settings2, Cpu, KeyRound, Palette, Files, SlidersHorizontal, Database, Bell, Zap, Monitor } from "lucide-react";
 import { ApiKeyInput } from "./api-key-input";
 import type { ApiKeyConnectionTest } from "./api-key-input";
-import { saveKeys, getKeys, clearKeys, getKeyStorageMode, ApiKeys, KeyStorageMode } from "@/lib/key-storage";
+import { saveKeys, getKeys, clearKeys, forgetThisDevice, getKeyStorageMode, getKeyStorageSecurity, ApiKeys, KeyStorageMode } from "@/lib/key-storage";
 import { FREE_TIER_DIRECTORY, INSTANT_CHAT_PROVIDERS, MODELS_METADATA } from "@/lib/ai-providers";
 import { AppSettings, getAppSettings, resetAppSettings, updateAppSettings } from "@/lib/app-settings";
 import { addCustomProvider, CustomProvider, getCustomProviders, isAllowedBaseUrl, removeCustomProvider } from "@/lib/custom-providers";
@@ -113,8 +113,8 @@ export function SettingsModal({ isOpen, onClose, initialTab = "general" }: Setti
 
   if (!isOpen) return null;
 
-  const handleSave = () => {
-    saveKeys(keys, storageMode);
+  const handleSave = async () => {
+    await saveKeys(keys, storageMode);
     setSavedKeys(keys);
 
     // Show toast
@@ -199,11 +199,14 @@ export function SettingsModal({ isOpen, onClose, initialTab = "general" }: Setti
           <div className="mt-3 flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-[11px] leading-5 text-amber-950"><Activity className="h-4 w-4 shrink-0" />Testing sends a tiny request that can use provider quota or incur a small charge.</div>
         </section>
 
-        <div role="alert" className="mb-5 rounded-xl border border-amber-500/40 bg-amber-50 p-3 text-sm text-amber-950">
-          <p className="font-semibold">Important: browser-local BYOK storage</p>
-          <p className="mt-1 text-xs leading-relaxed">
-            Session-only keys are removed when the browser session ends. If you enable browser persistence, keys are stored using Base64 encoding; Base64 is <strong>not encryption</strong>. Use provider-restricted keys with minimal permissions, avoid shared devices, and clear your keys before handing this device to someone else.
-          </p>
+        <div role="status" className="mb-5 rounded-xl border border-emerald-500/30 bg-emerald-50 p-3 text-sm text-emerald-950">
+          <p className="font-semibold">Encrypted browser-local BYOK storage</p>
+          <p className="mt-1 text-xs leading-relaxed">Keys are encrypted with AES-GCM using a randomly generated per-device key. The key never leaves this browser profile. Existing legacy Base64 keys are migrated automatically when this screen loads.</p>
+        </div>
+
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border-main/60 bg-black/[.02] p-3">
+          <div><p className="text-sm font-semibold text-text-main">This device</p><p className="mt-1 text-xs text-text-muted">Storage status: <span className="font-semibold capitalize text-accent">{getKeyStorageSecurity()}</span></p></div>
+          <button type="button" onClick={() => { if (window.confirm("Forget this device and remove all encrypted API keys? You will need to enter them again.")) { forgetThisDevice(); setKeys({}); setSavedKeys({}); setStorageMode("session"); } }} className="flex items-center gap-1.5 rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-50"><Trash2 className="h-3.5 w-3.5" />Forget this device</button>
         </div>
 
         <label className="mb-5 flex cursor-pointer items-start gap-3 rounded-xl border border-border-main/50 bg-black/[.02] p-3">
@@ -380,7 +383,7 @@ export function SettingsModal({ isOpen, onClose, initialTab = "general" }: Setti
               Cancel
             </button>
             <button
-              onClick={handleSave}
+              onClick={() => void handleSave()}
               className="px-4 py-2 text-sm font-medium bg-accent text-white rounded-lg hover:opacity-90 transition-colors shadow-sm"
             >
               Save Keys
@@ -389,7 +392,7 @@ export function SettingsModal({ isOpen, onClose, initialTab = "general" }: Setti
 
           <div className="flex items-center justify-center gap-1.5 text-xs text-text-muted/70 text-center">
             <Lock className="w-4 h-4 shrink-0" />
-            <span>Your key values stay in this browser and appear masked by default. Masking is visual only: browser-local storage is not encrypted and can be read by scripts running on this site or anyone with access to this browser profile. Use session-only storage if available on this device; never enter a key on a shared device you do not trust.</span>
+            <span>Your key values stay in this browser and are masked by default. AES-GCM protects stored values against casual storage inspection, but a compromised browser profile or running site script can still access keys while the app is open.</span>
           </div>
         </div>
 
