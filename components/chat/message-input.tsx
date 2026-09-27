@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowUp, Paperclip, Square, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { AssistantProfile } from "@/lib/app-settings";
+import type { WorkspaceProject } from "@/lib/workspace-storage";
 
 const MAX_FILE_SIZE = 4 * 1024 * 1024;
 const MAX_FILES = 3;
@@ -19,9 +21,17 @@ interface MessageInputProps {
   canAttachFiles: boolean;
   attachmentSupportMessage?: string;
   modelName: string;
+  assistantProfile: AssistantProfile;
+  onAssistantProfileChange: (profile: AssistantProfile) => void;
+  projects: WorkspaceProject[];
+  selectedProjectId: string;
+  onSelectedProjectChange: (id: string) => void;
+  isEditingMessage: boolean;
+  onCancelEdit: () => void;
+  estimatedTokens: string;
 }
 
-export function MessageInput({ input, onInputChange, onSubmit, isLoading, stop, canAttachFiles, attachmentSupportMessage, modelName }: MessageInputProps) {
+export function MessageInput({ input, onInputChange, onSubmit, isLoading, stop, canAttachFiles, attachmentSupportMessage, modelName, assistantProfile, onAssistantProfileChange, projects, selectedProjectId, onSelectedProjectChange, isEditingMessage, onCancelEdit, estimatedTokens }: MessageInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
@@ -105,7 +115,7 @@ export function MessageInput({ input, onInputChange, onSubmit, isLoading, stop, 
           <button type="button" disabled={!canAttachFiles} onClick={() => fileInputRef.current?.click()} aria-label={canAttachFiles ? "Attach files" : "Attachments unavailable for this provider"} title={canAttachFiles ? "Attach files" : "Attachments unavailable for this provider"} className={cn("mb-1 flex shrink-0 items-center justify-center rounded-xl p-2.5 transition-colors", canAttachFiles ? "text-text-muted hover:bg-black/5 hover:text-text-main" : "cursor-not-allowed text-text-muted/40")}>
             <Paperclip className="h-4 w-4" />
           </button>
-          <textarea ref={textareaRef} value={input} onChange={onInputChange} onKeyDown={handleKeyDown} aria-label="Message Susan AI" placeholder="How can I help you today?" className="min-h-[48px] min-w-0 flex-1 resize-none overflow-y-auto break-words bg-transparent px-2 py-3 font-sans text-text-main outline-none placeholder:text-text-muted/60 sm:px-3" rows={1} />
+          <textarea id="message-composer" ref={textareaRef} value={input} onChange={onInputChange} onKeyDown={handleKeyDown} aria-label="Message Susan AI" aria-keyshortcuts="Enter Shift+Enter" placeholder={isEditingMessage ? "Edit your message…" : "How can I help you today?"} className="min-h-[48px] min-w-0 flex-1 resize-none overflow-y-auto break-words bg-transparent px-2 py-3 font-sans text-text-main outline-none placeholder:text-text-muted/60 sm:px-3" rows={1} />
           <div className="mb-1 hidden items-center gap-2 rounded-full bg-cream-highlight/70 px-3 py-2 text-xs font-medium text-text-main sm:flex">
             <span className="h-1.5 w-1.5 rounded-full bg-accent" />
             <span className="max-w-[120px] truncate">{modelName}</span>
@@ -121,8 +131,15 @@ export function MessageInput({ input, onInputChange, onSubmit, isLoading, stop, 
           )}
         </div>
       </form>
+      <div className="mx-auto mt-2 flex max-w-5xl flex-wrap items-center gap-2 px-2">
+        <label className="sr-only" htmlFor="assistant-profile">Assistant profile</label>
+        <select id="assistant-profile" value={assistantProfile} onChange={(event) => onAssistantProfileChange(event.target.value as AssistantProfile)} className="min-h-8 rounded-lg border border-border-main/70 bg-surface px-2 py-1 text-xs text-text-main focus-visible:outline-2 focus-visible:outline-accent"><option value="general">General</option><option value="coding">Coding</option><option value="research">Research</option></select>
+        {projects.length > 0 && <><label className="sr-only" htmlFor="chat-project">Project instructions</label><select id="chat-project" value={selectedProjectId} onChange={(event) => onSelectedProjectChange(event.target.value)} className="min-h-8 max-w-48 rounded-lg border border-border-main/70 bg-surface px-2 py-1 text-xs text-text-main focus-visible:outline-2 focus-visible:outline-accent"><option value="">No project</option>{projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select></>}
+        {isEditingMessage && <button type="button" onClick={onCancelEdit} className="rounded-md px-2 py-1 text-xs font-medium text-text-muted underline underline-offset-2">Cancel edit</button>}
+        <span className="ml-auto text-[10px] text-text-muted" title="Approximate text-only token count; provider counts and attachment tokens may differ">This chat {estimatedTokens} text tokens (estimate)</span>
+      </div>
       {fileError && <p role="alert" aria-live="polite" className="mx-auto mt-2 max-w-3xl text-center text-xs text-red-600">{fileError}</p>}
-      <div className="mx-auto mt-2 max-w-5xl text-center text-[11px] text-text-muted/60">{canAttachFiles ? "Attach images, PDFs, text, CSV, or JSON files." : (attachmentSupportMessage || "Attachments are unavailable for this provider.")} <span className="mx-1">·</span> Susan AI may produce inaccurate information.</div>
+      <div className="mx-auto mt-2 max-w-5xl text-center text-[11px] text-text-muted">Enter to send · Shift+Enter for a new line · Ctrl/Cmd+K new chat · / commands <span className="mx-1">·</span>{canAttachFiles ? "Attach images, PDFs, text, CSV, or JSON files." : (attachmentSupportMessage || "Attachments are unavailable for this provider.")} <span className="mx-1">·</span> Susan AI may produce inaccurate information.</div>
     </div>
   );
 }

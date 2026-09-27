@@ -3,6 +3,7 @@ import { getCustomModelConfig, getModelConfig, isInstantChatProvider, MODELS_MET
 import { CustomProvider, isAllowedBaseUrl } from "@/lib/custom-providers";
 import { enforceRateLimit, getClientIdentifier, RateLimitUnavailableError, RATE_LIMIT_RETRY_AFTER_SECONDS } from "@/lib/rate-limit";
 import { mapProviderError } from "@/lib/provider-errors.mjs";
+import { normalizeGenerationOptions, normalizeSystemPrompt } from "@/lib/generation-settings.mjs";
 import { NextResponse } from "next/server";
 
 const MAX_MESSAGES = 100;
@@ -23,12 +24,15 @@ export async function POST(req: Request) {
     const parsedBodyBytes = new TextEncoder().encode(JSON.stringify(body)).byteLength;
     if (parsedBodyBytes > MAX_BODY_BYTES) return jsonError("Request is too large. Keep attachments under 20 MB total.", 413);
     if (!body || typeof body !== "object") return jsonError("Invalid request body.", 400);
-    const { messages, provider, apiKey, language, customProvider, cloudflareAccountId } = body as { messages?: unknown; provider?: unknown; apiKey?: unknown; language?: unknown; customProvider?: unknown; cloudflareAccountId?: unknown };
+    const { messages, provider, apiKey, language, customProvider, cloudflareAccountId, temperature, maxOutputTokens, systemPrompt } = body as { messages?: unknown; provider?: unknown; apiKey?: unknown; language?: unknown; customProvider?: unknown; cloudflareAccountId?: unknown; temperature?: unknown; maxOutputTokens?: unknown; systemPrompt?: unknown };
     requestedProvider = typeof provider === "string" ? provider : "";
     const isCustom = typeof provider === "string" && provider.startsWith("custom_");
     if (typeof provider !== "string" || (!isInstantChatProvider(provider) && !isCustom)) return jsonError("This provider is not available for instant chat.", 400);
     if (typeof apiKey !== "string" || apiKey.trim().length < 8 || apiKey.length > 500) return jsonError("A valid API key is required.", 400);
     if (provider === "cloudflare" && (typeof cloudflareAccountId !== "string" || !/^[a-f0-9]{32}$/i.test(cloudflareAccountId.trim()))) return jsonError("A valid 32-character Cloudflare Account ID is required. Add it in Settings.", 400);
+    const generation = normalizeGenerationOptions({ temperature, maxOutputTokens });
+    const normalizedPrompt = normalizeSystemPrompt(systemPrompt);
+    if (!normalizedPrompt.valid) return jsonError("System instructions must be text under 6,000 characters.", 400);
     if (!Array.isArray(messages) || messages.length === 0 || messages.length > MAX_MESSAGES) return jsonError("Messages must contain between 1 and 100 items.", 400);
 
     const validMessages = messages.filter(isUIMessage).slice(-MAX_MESSAGES);
@@ -45,6 +49,7 @@ export async function POST(req: Request) {
     if (modelMessages.length === 0) return jsonError("No valid message content found.", 400);
 
     const languageInstruction = language === "bn" ? "Respond in Bengali unless the user asks for another language." : language === "en" ? "Respond in English unless the user asks for another language." : "";
+    const systemInstructions = [languageInstruction, normalizedPrompt.prompt].filter(Boolean);
     let model: ReturnType<typeof getModelConfig>;
     if (isCustom) {
       if (!isValidCustomProvider(customProvider, provider)) return jsonError("Custom provider configuration is invalid.", 400);
@@ -52,7 +57,7 @@ export async function POST(req: Request) {
     } else {
       model = getModelConfig(provider as ModelProvider, apiKey.trim(), { cloudflareAccountId: typeof cloudflareAccountId === "string" ? cloudflareAccountId : undefined });
     }
-    const result = streamText({ model, messages: languageInstruction ? [{ role: "system", content: languageInstruction }, ...modelMessages] : modelMessages });
+    const result = streamText({ model, messages: systemInstructions.length ? [...systemInstructions.map((content) => ({ role: "system" as const, content })), ...modelMessages] : modelMessages, ...generation });
     const anyResult = result as unknown as { toUIMessageStreamResponse?: (options?: { onError?: (error: unknown) => string }) => Response; toDataStreamResponse?: () => Response; toTextStreamResponse?: () => Response };
     const response = anyResult.toUIMessageStreamResponse?.({ onError: (error) => providerStreamError(error, requestedProvider) }) ?? anyResult.toDataStreamResponse?.() ?? anyResult.toTextStreamResponse?.() ?? jsonError("Streaming is unavailable.", 500);
     response.headers.set("Cache-Control", "no-store");

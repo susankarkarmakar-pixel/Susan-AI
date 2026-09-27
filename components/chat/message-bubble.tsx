@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
-import { ArrowUpRight, Check, Copy, Link2, RefreshCw } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ArrowUpRight, Check, Copy, Link2, Pencil, RefreshCw, ThumbsDown, ThumbsUp, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { estimateTextTokens, formatEstimatedTokens } from "@/lib/usage-estimates.mjs";
+import { getResponseFeedback, setResponseFeedback, type ResponseVote } from "@/lib/response-feedback.mjs";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
@@ -10,14 +12,22 @@ import { CodeBlock } from "./code-block";
 
 interface MessageBubbleProps {
   role: "user" | "assistant" | "system" | "data";
+  id?: string;
   content: string;
   isStreaming?: boolean;
   isResearchResponse?: boolean;
   onRetry?: () => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
 }
 
-export function MessageBubble({ role, content, isStreaming, isResearchResponse, onRetry }: MessageBubbleProps) {
+export function MessageBubble({ id, role, content, isStreaming, isResearchResponse, onRetry, onEdit, onDelete }: MessageBubbleProps) {
   const [copied, setCopied] = useState(false);
+  const [vote, setVote] = useState<ResponseVote | null>(null);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setVote(id ? getResponseFeedback(id) : null), 0);
+    return () => window.clearTimeout(timer);
+  }, [id]);
   // If it's a system message, we don't render it here (chat-messages handles it)
   // or if we must, just return null to avoid breaking layout
   if (role === "system" || role === "data") return null;
@@ -53,6 +63,7 @@ export function MessageBubble({ role, content, isStreaming, isResearchResponse, 
             <>
               {content}
               {isStreaming && <span aria-hidden="true" className="ml-1 inline-block h-4 w-2 animate-pulse bg-text-main/50 align-middle motion-reduce:animate-none" />}
+              {!isStreaming && onEdit && <div className="mt-2 flex justify-end"><button type="button" onClick={onEdit} aria-label="Edit last message" title="Edit last message" className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-text-muted hover:bg-black/5 hover:text-text-main focus-visible:outline-2 focus-visible:outline-accent"><Pencil className="h-3.5 w-3.5" />Edit</button></div>}
             </>
           ) : (
             <div className="markdown-prose w-full overflow-hidden text-text-main">
@@ -128,7 +139,7 @@ export function MessageBubble({ role, content, isStreaming, isResearchResponse, 
               {isStreaming && !content && <span role="status" aria-live="polite" className="inline-flex items-center gap-2 text-sm text-text-muted"><span>Thinking</span><span className="inline-flex gap-1" aria-hidden="true"><span className="h-1.5 w-1.5 animate-bounce rounded-full bg-accent motion-reduce:animate-none" /><span className="h-1.5 w-1.5 animate-bounce rounded-full bg-accent/70 motion-reduce:animate-none" style={{ animationDelay: "120ms" }} /><span className="h-1.5 w-1.5 animate-bounce rounded-full bg-accent/40 motion-reduce:animate-none" style={{ animationDelay: "240ms" }} /></span></span>}
               {isStreaming && content && <><span className="sr-only" role="status" aria-live="polite">Streaming response</span><span aria-hidden="true" className="ml-1 inline-block h-4 w-2 animate-pulse bg-text-main/50 align-middle motion-reduce:animate-none" /></>}
               {!isStreaming && content && (
-                <div className="mt-3 flex items-center gap-1 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
+                <div className="mt-3 flex flex-wrap items-center gap-1">
                   <button
                     type="button"
                     onClick={async () => {
@@ -152,11 +163,18 @@ export function MessageBubble({ role, content, isStreaming, isResearchResponse, 
                       className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-text-muted hover:bg-black/5 hover:text-text-main"
                     >
                       <RefreshCw className="h-3.5 w-3.5" />
-                      Retry
+                      Regenerate
                     </button>
                   )}
+                  {onDelete && <button type="button" onClick={onDelete} aria-label="Delete response" title="Delete response" className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-text-muted hover:bg-red-50 hover:text-red-700"><Trash2 className="h-3.5 w-3.5" /><span>Delete</span></button>}
                 </div>
               )}
+              {!isStreaming && content && id && <div className="mt-1 flex items-center gap-1" role="group" aria-label="Rate this response">
+                <button type="button" onClick={() => { setResponseFeedback(id, "up"); setVote(vote === "up" ? null : "up"); }} aria-label="Helpful response" aria-pressed={vote === "up"} title="Helpful" className={`rounded-md p-2 focus-visible:outline-2 focus-visible:outline-accent ${vote === "up" ? "bg-emerald-50 text-emerald-800" : "text-text-muted hover:bg-black/5 hover:text-text-main"}`}><ThumbsUp className="h-4 w-4" /></button>
+                <button type="button" onClick={() => { setResponseFeedback(id, "down"); setVote(vote === "down" ? null : "down"); }} aria-label="Unhelpful response" aria-pressed={vote === "down"} title="Not helpful" className={`rounded-md p-2 focus-visible:outline-2 focus-visible:outline-accent ${vote === "down" ? "bg-red-50 text-red-800" : "text-text-muted hover:bg-black/5 hover:text-text-main"}`}><ThumbsDown className="h-4 w-4" /></button>
+                <span className="ml-1 text-[10px] text-text-muted">Saved on this device</span>
+              </div>}
+              {!isStreaming && content && <p className="mt-2 text-[10px] text-text-muted">Estimated response usage: {formatEstimatedTokens(estimateTextTokens(content))} text tokens · rough estimate, not provider billing data</p>}
             </div>
           )}
         </div>

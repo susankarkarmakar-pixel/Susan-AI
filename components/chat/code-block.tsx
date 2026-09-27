@@ -27,9 +27,11 @@ export function CodeBlock({ language, children, value }: CodeBlockProps) {
     <div className="relative my-4 rounded-xl overflow-hidden bg-[#0D1117] border border-brand-gray/50 group">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-2 bg-brand-gray/30 border-b border-brand-gray/50 text-xs text-brand-white/70">
-        <span className="font-mono lowercase">{language || "text"}</span>
+        <span className="font-mono lowercase" aria-label={`Code language: ${language || "text"}`}>{language || "text"}</span>
         <button
+          type="button"
           onClick={copyToClipboard}
+          aria-label={isCopied ? "Code copied" : `Copy ${language || "text"} code`}
           className="flex items-center gap-1.5 hover:text-brand-white transition-colors p-1 -mr-1"
         >
           {isCopied ? (

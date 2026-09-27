@@ -8,11 +8,12 @@ import { saveKeys, getKeys, clearKeys, getKeyStorageMode, ApiKeys, KeyStorageMod
 import { FREE_TIER_DIRECTORY, INSTANT_CHAT_PROVIDERS, MODELS_METADATA } from "@/lib/ai-providers";
 import { AppSettings, getAppSettings, resetAppSettings, updateAppSettings } from "@/lib/app-settings";
 import { addCustomProvider, CustomProvider, getCustomProviders, isAllowedBaseUrl, removeCustomProvider } from "@/lib/custom-providers";
+import { getProjects, WorkspaceProject } from "@/lib/workspace-storage";
 
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  initialTab?: "general" | "providers" | "keys";
+  initialTab?: "general" | "providers" | "keys" | "chat";
 }
 
 type SettingsTab = "general" | "providers" | "keys" | "appearance" | "chat" | "advanced";
@@ -41,6 +42,13 @@ export function SettingsModal({ isOpen, onClose, initialTab = "general" }: Setti
   const [customBaseUrl, setCustomBaseUrl] = useState("");
   const [customError, setCustomError] = useState<string | null>(null);
   const [connectionTests, setConnectionTests] = useState<Record<string, ApiKeyConnectionTest>>({});
+  const [temperature, setTemperature] = useState(0.7);
+  const [maxOutputTokens, setMaxOutputTokens] = useState(2048);
+  const [assistantProfile, setAssistantProfile] = useState<AppSettings["assistantProfile"]>("general");
+  const [systemPrompts, setSystemPrompts] = useState<AppSettings["systemPrompts"]>({ general: "", coding: "", research: "" });
+  const [projectInstructions, setProjectInstructions] = useState<Record<string, string>>({});
+  const [projects, setProjects] = useState<WorkspaceProject[]>([]);
+  const [promptProjectId, setPromptProjectId] = useState("");
   const modalRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -56,10 +64,18 @@ export function SettingsModal({ isOpen, onClose, initialTab = "general" }: Setti
         setKeys(storedKeys);
         setSavedKeys(storedKeys);
         setStorageMode(storedMode);
-        const appSettings = JSON.parse(localStorage.getItem("susan_app_settings_v1") || "null") as Partial<AppSettings> | null;
+        const appSettings = getAppSettings();
         setAutoSave(appSettings?.autoSave ?? true);
         setStreaming(appSettings?.streaming ?? true);
         setNotifications(appSettings?.notifications ?? false);
+        setTemperature(appSettings.temperature);
+        setMaxOutputTokens(appSettings.maxOutputTokens);
+        setAssistantProfile(appSettings.assistantProfile);
+        setSystemPrompts(appSettings.systemPrompts);
+        setProjectInstructions(appSettings.projectInstructions);
+        const availableProjects = getProjects();
+        setProjects(availableProjects);
+        setPromptProjectId((current) => availableProjects.some((project) => project.id === current) ? current : availableProjects[0]?.id || "");
         setCustomProviders(getCustomProviders());
       }, 0);
       window.requestAnimationFrame(() => closeButtonRef.current?.focus());
@@ -373,11 +389,11 @@ export function SettingsModal({ isOpen, onClose, initialTab = "general" }: Setti
 
           <div className="flex items-center justify-center gap-1.5 text-xs text-text-muted/70 text-center">
             <Lock className="w-4 h-4 shrink-0" />
-            <span>Your keys are stored locally and used only to route requests to the selected provider. Review provider terms before entering production credentials.</span>
+            <span>Your key values stay in this browser and appear masked by default. Masking is visual only: browser-local storage is not encrypted and can be read by scripts running on this site or anyone with access to this browser profile. Use session-only storage if available on this device; never enter a key on a shared device you do not trust.</span>
           </div>
         </div>
 
-        </> : <SettingsTabContent activeTab={activeTab} autoSave={autoSave} setAutoSave={(value) => { setAutoSave(value); updateAppSettings({ autoSave: value }); }} streaming={streaming} setStreaming={(value) => { setStreaming(value); updateAppSettings({ streaming: value }); }} notifications={notifications} setNotifications={(value) => { setNotifications(value); updateAppSettings({ notifications: value }); }} />}
+        </> : <SettingsTabContent activeTab={activeTab} autoSave={autoSave} setAutoSave={(value) => { setAutoSave(value); updateAppSettings({ autoSave: value }); }} streaming={streaming} setStreaming={(value) => { setStreaming(value); updateAppSettings({ streaming: value }); }} notifications={notifications} setNotifications={(value) => { setNotifications(value); updateAppSettings({ notifications: value }); }} temperature={temperature} setTemperature={(value) => { setTemperature(value); updateAppSettings({ temperature: value }); }} maxOutputTokens={maxOutputTokens} setMaxOutputTokens={(value) => { setMaxOutputTokens(value); updateAppSettings({ maxOutputTokens: value }); }} assistantProfile={assistantProfile} setAssistantProfile={(value) => { setAssistantProfile(value); updateAppSettings({ assistantProfile: value }); }} systemPrompts={systemPrompts} setSystemPrompts={(value) => { setSystemPrompts(value); updateAppSettings({ systemPrompts: value }); }} projects={projects} projectInstructions={projectInstructions} promptProjectId={promptProjectId} setPromptProjectId={setPromptProjectId} setProjectInstructions={(value) => { setProjectInstructions(value); updateAppSettings({ projectInstructions: value }); }} />}
           </main>
         </div>
 
@@ -394,10 +410,61 @@ export function SettingsModal({ isOpen, onClose, initialTab = "general" }: Setti
 }
 
 
-function SettingsTabContent({ activeTab, autoSave, setAutoSave, streaming, setStreaming, notifications, setNotifications }: { activeTab: SettingsTab; autoSave: boolean; setAutoSave: (value: boolean) => void; streaming: boolean; setStreaming: (value: boolean) => void; notifications: boolean; setNotifications: (value: boolean) => void }) {
+interface SettingsTabContentProps {
+  activeTab: SettingsTab;
+  autoSave: boolean;
+  setAutoSave: (value: boolean) => void;
+  streaming: boolean;
+  setStreaming: (value: boolean) => void;
+  notifications: boolean;
+  setNotifications: (value: boolean) => void;
+  temperature: number;
+  setTemperature: (value: number) => void;
+  maxOutputTokens: number;
+  setMaxOutputTokens: (value: number) => void;
+  assistantProfile: AppSettings["assistantProfile"];
+  setAssistantProfile: (value: AppSettings["assistantProfile"]) => void;
+  systemPrompts: AppSettings["systemPrompts"];
+  setSystemPrompts: (value: AppSettings["systemPrompts"]) => void;
+  projects: WorkspaceProject[];
+  projectInstructions: Record<string, string>;
+  promptProjectId: string;
+  setPromptProjectId: (id: string) => void;
+  setProjectInstructions: (value: Record<string, string>) => void;
+}
+
+function SettingsTabContent({ activeTab, autoSave, setAutoSave, streaming, setStreaming, notifications, setNotifications, temperature, setTemperature, maxOutputTokens, setMaxOutputTokens, assistantProfile, setAssistantProfile, systemPrompts, setSystemPrompts, projects, projectInstructions, promptProjectId, setPromptProjectId, setProjectInstructions }: SettingsTabContentProps) {
   if (activeTab === "providers") return <SettingsPanel title="AI Providers" subtitle="View available providers and model capabilities"><InfoCard icon={Cpu} title="Provider selection" text="Choose your preferred model from the model selector in the workspace. Provider capabilities and file support are shown before you send a request." /><div className="grid gap-3 md:grid-cols-2">{INSTANT_CHAT_PROVIDERS.map((provider) => { const meta = MODELS_METADATA[provider]; const saved = getKeys(); const configured = Boolean(saved[provider] && (provider !== "cloudflare" || saved.cloudflareAccountId)); return <div key={provider} className="rounded-2xl border border-border-main/60 bg-surface p-4"><div className="flex items-start justify-between gap-3"><div><p className="font-semibold text-text-main">{meta.name}</p><p className="text-xs text-text-muted">{meta.model}</p></div><span className={`rounded-full px-2 py-1 text-[10px] font-semibold ${configured ? "bg-green-100 text-green-700" : "bg-black/5 text-text-muted"}`}>{configured ? "Ready" : "Needs key"}</span></div><div className="mt-3 flex flex-wrap gap-1.5 text-[10px] text-text-muted"><span className="rounded bg-black/5 px-2 py-1">Streaming</span>{meta.capabilities.files && <span className="rounded bg-black/5 px-2 py-1">Files</span>}{meta.capabilities.vision && <span className="rounded bg-black/5 px-2 py-1">Vision</span>}</div></div>; })}</div><div role="note" className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm leading-6 text-amber-950"><strong>GitHub Models is not available:</strong> GitHub retired its inference API, model catalog, and playground on July 30, 2026. See the <a className="underline" href="https://github.blog/changelog/2026-07-30-github-models-is-now-retired/" target="_blank" rel="noopener noreferrer">official notice</a>. OpenRouter is already supported above.</div></SettingsPanel>;
   if (activeTab === "appearance") return <SettingsPanel title="Appearance" subtitle="Theme and display preferences"><InfoCard icon={Palette} title="Warm cream theme" text="Susan AI uses a calm cream and cocoa palette designed for focused, comfortable sessions." /><label className="flex items-center justify-between rounded-2xl border border-border-main/60 bg-surface p-5"><span><b className="block text-sm">Compact interface</b><small className="text-xs text-text-muted">Use tighter spacing in the workspace</small></span><input defaultChecked={getAppSettings().compactMode} type="checkbox" className="h-5 w-5 accent-accent" onChange={(event) => updateAppSettings({ compactMode: event.target.checked })} /></label></SettingsPanel>;
-  if (activeTab === "chat") return <SettingsPanel title="Chat & Files" subtitle="Conversation and attachment preferences"><ToggleRow icon={Database} title="Auto-save conversations" text="Automatically save conversations to browser storage" value={autoSave} onChange={setAutoSave} /><ToggleRow icon={Zap} title="Enable streaming responses" text="Show AI responses as they are generated" value={streaming} onChange={setStreaming} /><InfoCard icon={Files} title="File limits" text="Up to 3 files, 4 MB each and 12 MB total. Provider support may vary." /></SettingsPanel>;
+  if (activeTab === "chat") return <SettingsPanel title="Chat & Files" subtitle="Tune generation, assistant behavior, and conversation preferences">
+    <ToggleRow icon={Database} title="Auto-save conversations" text="Automatically save conversations to browser storage" value={autoSave} onChange={setAutoSave} />
+    <ToggleRow icon={Zap} title="Enable streaming responses" text="Show AI responses as they are generated" value={streaming} onChange={setStreaming} />
+    <section className="rounded-2xl border border-border-main/60 bg-surface p-4 sm:p-5" aria-labelledby="generation-settings-heading">
+      <h2 id="generation-settings-heading" className="text-sm font-semibold text-text-main">Generation controls</h2>
+      <p className="mt-1 text-xs leading-5 text-text-muted">Applied to providers that support these settings. Their effect can vary by model.</p>
+      <div className="mt-4 grid gap-4 sm:grid-cols-2">
+        <label className="block text-sm font-medium text-text-main" htmlFor="temperature-setting">Temperature <output className="ml-2 font-normal text-text-muted">{temperature.toFixed(1)}</output>
+          <input id="temperature-setting" type="range" min="0" max="2" step="0.1" value={temperature} onChange={(event) => setTemperature(Number(event.target.value))} className="mt-3 w-full accent-accent" />
+          <span className="flex justify-between text-[10px] text-text-muted"><span>More focused</span><span>More varied</span></span>
+        </label>
+        <label className="block text-sm font-medium text-text-main" htmlFor="max-output-tokens">Maximum response tokens
+          <input id="max-output-tokens" type="number" inputMode="numeric" min="256" max="8192" step="256" value={maxOutputTokens} onChange={(event) => { const value = Number(event.target.value); if (Number.isFinite(value)) setMaxOutputTokens(Math.max(256, Math.min(8192, Math.round(value / 256) * 256))); }} className="mt-2 w-full rounded-xl border border-border-main bg-surface px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-accent" />
+          <span className="mt-1 block text-[10px] font-normal text-text-muted">256–8,192 · per response</span>
+        </label>
+      </div>
+    </section>
+    <section className="rounded-2xl border border-border-main/60 bg-surface p-4 sm:p-5" aria-labelledby="system-prompts-heading">
+      <h2 id="system-prompts-heading" className="text-sm font-semibold text-text-main">Assistant and project instructions</h2>
+      <p className="mt-1 text-xs leading-5 text-text-muted">Choose General, Coding, or Research in the composer. Custom instructions are sent with each chat request to the selected provider.</p>
+      <label className="mt-4 block text-xs font-semibold text-text-main" htmlFor="assistant-profile-setting">Profile to edit</label>
+      <select id="assistant-profile-setting" value={assistantProfile} onChange={(event) => setAssistantProfile(event.target.value as AppSettings["assistantProfile"])} className="mt-1.5 w-full rounded-xl border border-border-main bg-surface px-3 py-2.5 text-sm text-text-main focus-visible:outline-2 focus-visible:outline-accent"><option value="general">General</option><option value="coding">Coding</option><option value="research">Research</option></select>
+      <label className="mt-4 block text-xs font-semibold text-text-main" htmlFor="profile-prompt-setting">{assistantProfile === "general" ? "General" : assistantProfile === "coding" ? "Coding" : "Research"} profile system prompt</label>
+      <textarea id="profile-prompt-setting" maxLength={6000} rows={4} value={systemPrompts[assistantProfile]} onChange={(event) => setSystemPrompts({ ...systemPrompts, [assistantProfile]: event.target.value })} placeholder="Optional instructions for this assistant profile…" className="mt-1.5 w-full resize-y rounded-xl border border-border-main bg-surface px-3 py-2.5 text-sm text-text-main focus-visible:outline-2 focus-visible:outline-accent" />
+      <p className="mt-1 text-right text-[10px] text-text-muted">{systemPrompts[assistantProfile].length} / 6,000</p>
+      {projects.length > 0 ? <><label className="mt-4 block text-xs font-semibold text-text-main" htmlFor="project-prompt-select">Project-specific instructions</label><select id="project-prompt-select" value={promptProjectId} onChange={(event) => setPromptProjectId(event.target.value)} className="mt-1.5 w-full rounded-xl border border-border-main bg-surface px-3 py-2.5 text-sm text-text-main focus-visible:outline-2 focus-visible:outline-accent">{projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select><textarea maxLength={6000} rows={3} aria-label="Project-specific system instructions" value={projectInstructions[promptProjectId] || ""} onChange={(event) => setProjectInstructions({ ...projectInstructions, [promptProjectId]: event.target.value.slice(0, 6000) })} placeholder="Optional instructions applied when this project is selected in the chat composer…" className="mt-2 w-full resize-y rounded-xl border border-border-main bg-surface px-3 py-2.5 text-sm text-text-main focus-visible:outline-2 focus-visible:outline-accent" /></> : <p className="mt-4 rounded-xl bg-bg-main p-3 text-xs leading-5 text-text-muted">Create a project first to set project-specific system instructions.</p>}
+    </section>
+    <InfoCard icon={Files} title="File limits" text="Up to 3 files, 4 MB each and 12 MB total. Provider support may vary." />
+  </SettingsPanel>;
   if (activeTab === "advanced") return <SettingsPanel title="Advanced" subtitle="Developer options and diagnostics"><InfoCard icon={SlidersHorizontal} title="Runtime diagnostics" text="Use the production health endpoint and release smoke tests to verify deployment health." /><InfoCard icon={Bell} title="Browser notifications" text="Notifications are currently opt-in and remain disabled by default." /><button type="button" onClick={() => { if (window.confirm("Reset Susan AI preferences?")) resetAppSettings(); }} className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">Reset local preferences</button></SettingsPanel>;
   return <SettingsPanel title="General" subtitle="Basic preferences for your Susan AI experience"><div className="grid gap-4 md:grid-cols-2"><label className="rounded-2xl border border-border-main/60 bg-surface p-4"><span className="mb-2 block text-sm font-semibold">Default AI Provider</span><select defaultValue={getAppSettings().defaultProvider} onChange={(event) => updateAppSettings({ defaultProvider: event.target.value })} className="w-full rounded-xl border border-border-main bg-white px-3 py-2 text-sm"><option value="deepseek">DeepSeek Chat</option><option value="openai">OpenAI</option><option value="anthropic">Claude</option><option value="google">Gemini</option></select><small className="mt-2 block text-xs text-text-muted">Model to use when starting a new chat</small></label><label className="rounded-2xl border border-border-main/60 bg-surface p-4"><span className="mb-2 block text-sm font-semibold">Conversation Language</span><select defaultValue={getAppSettings().language} onChange={(event) => updateAppSettings({ language: event.target.value as AppSettings["language"] })} className="w-full rounded-xl border border-border-main bg-white px-3 py-2 text-sm"><option value="auto">Auto Detect</option><option value="en">English</option><option value="bn">বাংলা</option></select><small className="mt-2 block text-xs text-text-muted">Language for AI responses</small></label></div><ToggleRow icon={Monitor} title="Startup behavior" text="Show the welcome screen when Susan AI opens" value={true} onChange={() => updateAppSettings({ startupBehavior: "welcome" })} /><ToggleRow icon={Bell} title="Browser notifications" text="Show notifications when responses are ready" value={notifications} onChange={setNotifications} /><DataManagement /></SettingsPanel>;
 }

@@ -1,0 +1,74 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import test from "node:test";
+const read = (path) => readFile(new URL(`../${path}`, import.meta.url), "utf8");
+
+test("chat offers message edit, regenerate, delete, copy, and local response feedback", async () => {
+  const bubble = await read("components/chat/message-bubble.tsx");
+  const list = await read("components/chat/chat-messages.tsx");
+  const page = await read("app/page.tsx");
+  for (const label of ["Copy response", "Regenerate", "Delete response", "Helpful response", "Unhelpful response", "Edit last message"]) assert.ok(bubble.includes(label), label);
+  assert.match(list, /getLastUserMessageIndex/);
+  assert.ok(page.includes("await sendMessage({ text, files: [...originalFiles, ...fileParts], messageId });"));
+  assert.match(page, /useChatProps\.regenerate\(\{ messageId \}\)/);
+  assert.match(page, /setMessages\(\(current\) => current\.filter/);
+});
+
+test("slash command palette and Ctrl/Cmd+K shortcuts are keyboard-accessible", async () => {
+  const palette = await read("components/chat/command-palette.tsx");
+  const input = await read("components/chat/message-input.tsx");
+  assert.match(palette, /event\.metaKey \|\| event\.ctrlKey/);
+  assert.match(palette, /event\.key === "\/"/);
+  assert.match(palette, /role="dialog" aria-modal="true"/);
+  assert.match(palette, /ArrowDown/);
+  assert.match(input, /event\.key === "Enter" && !event\.shiftKey/);
+  assert.match(input, /aria-keyshortcuts="Enter Shift\+Enter"/);
+});
+
+test("model controls and scoped prompts are sent to the API with server-side bounds", async () => {
+  const settings = await read("components/settings/settings-modal.tsx");
+  const composer = await read("components/chat/message-input.tsx");
+  const page = await read("app/page.tsx");
+  const route = await read("app/api/chat/route.ts");
+  assert.match(settings, /id="temperature-setting"/);
+  assert.match(settings, /id="max-output-tokens"/);
+  assert.match(settings, /Project-specific instructions/);
+  assert.match(composer, /assistant-profile/);
+  assert.match(composer, /chat-project/);
+  assert.match(page, /temperature: settings\.temperature/);
+  assert.match(page, /settings\.projectInstructions\[selectedProjectId\]/);
+  assert.match(route, /normalizeGenerationOptions/);
+  assert.match(route, /normalizeSystemPrompt/);
+  assert.match(route, /maxOutputTokens/);
+});
+
+test("usage is prominently labeled a rough text-only estimate, not provider billing", async () => {
+  const composer = await read("components/chat/message-input.tsx");
+  const bubble = await read("components/chat/message-bubble.tsx");
+  const helper = await read("lib/usage-estimates.mjs");
+  assert.match(composer, /text tokens \(estimate\)/);
+  assert.match(bubble, /rough estimate, not provider billing data/);
+  assert.match(helper, /four UTF-16/);
+});
+
+test("keys have password masking, last-four display, and honest unencrypted-storage warning", async () => {
+  const input = await read("components/settings/api-key-input.tsx");
+  const settings = await read("components/settings/settings-modal.tsx");
+  const storage = await read("lib/key-storage.ts");
+  assert.match(input, /type=\{showPassword \? "text" : "password"\}/);
+  assert.match(input, /ending \{value\.slice\(-4\)\}/);
+  assert.match(input, /aria-label=\{showPassword \? `Hide/);
+  assert.match(settings, /browser-local storage is not encrypted/);
+  assert.match(storage, /btoa\(JSON\.stringify\(cleanedKeys\)\)/);
+});
+
+test("code blocks provide a language label and an accessible copy action", async () => {
+  const code = await read("components/chat/code-block.tsx");
+  const bubble = await read("components/chat/message-bubble.tsx");
+  const css = await read("app/globals.css");
+  assert.match(code, /Code language:/);
+  assert.match(code, /Copy \$\{language \|\| "text"\} code/);
+  assert.match(bubble, /rehypePlugins=\{\[rehypeHighlight\]\}/);
+  assert.match(css, /:focus-visible/);
+  assert.match(css, /prefers-reduced-motion/);
+});

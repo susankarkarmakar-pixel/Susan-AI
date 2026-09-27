@@ -18,6 +18,8 @@ import { getApiKey } from "@/lib/key-storage";
 import { MODELS_METADATA } from "@/lib/ai-providers";
 import { getCustomProviders } from "@/lib/custom-providers";
 import { getChatErrorAction } from "@/lib/chat-error-actions.mjs";
+import type { AssistantProfile } from "@/lib/app-settings";
+import type { WorkspaceProject } from "@/lib/workspace-storage";
 
 interface ChatAreaProps {
   mode: AgentMode;
@@ -45,12 +47,22 @@ interface ChatAreaProps {
   isLoading: boolean;
   stop: () => void;
   error: Error | undefined;
-  onRetry: () => void;
+  onRetry: (messageId?: string) => void;
+  onEditMessage: (id: string, content: string) => void;
+  onDeleteMessage: (id: string) => void;
+  assistantProfile: AssistantProfile;
+  onAssistantProfileChange: (profile: AssistantProfile) => void;
+  projects: WorkspaceProject[];
+  selectedProjectId: string;
+  onSelectedProjectChange: (id: string) => void;
+  isEditingMessage: boolean;
+  onCancelEdit: () => void;
+  estimatedTokens: string;
   conversationTitle: string | null;
   onPrompt: (prompt: string) => void;
 }
 
-export function ChatArea({ mode, onModeChange, activeAgentTask, agentExecution, executionEvents, onCreateAgentTask, onRunAgentTask, onApproveAgentStep, onRejectAgentStep, onRollbackAgentTask, onPauseAgentTask, onResumeAgentTask, onRetryAgentTask, onCancelAgentTask, onClearAgentTask, onOpenSidebar, selectedModel, messages, input, onInputChange, onSend, isLoading, stop, error, onRetry, conversationTitle, onPrompt }: ChatAreaProps) {
+export function ChatArea({ mode, onModeChange, activeAgentTask, agentExecution, executionEvents, onCreateAgentTask, onRunAgentTask, onApproveAgentStep, onRejectAgentStep, onRollbackAgentTask, onPauseAgentTask, onResumeAgentTask, onRetryAgentTask, onCancelAgentTask, onClearAgentTask, onOpenSidebar, selectedModel, messages, input, onInputChange, onSend, isLoading, stop, error, onRetry, onEditMessage, onDeleteMessage, assistantProfile, onAssistantProfileChange, projects, selectedProjectId, onSelectedProjectChange, isEditingMessage, onCancelEdit, estimatedTokens, conversationTitle, onPrompt }: ChatAreaProps) {
   const [toastError, setToastError] = useState<string | null>(null);
   const [isAgentPanelOpen, setIsAgentPanelOpen] = useState(false);
   const customProvider = getCustomProviders().find((provider) => provider.id === selectedModel);
@@ -97,14 +109,14 @@ export function ChatArea({ mode, onModeChange, activeAgentTask, agentExecution, 
       <div className="flex min-h-0 flex-1">
         <main className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
           {toastError && <div role="alert" className="absolute left-1/2 top-4 z-30 -translate-x-1/2 rounded-lg bg-red-500/90 px-4 py-2 text-sm font-medium text-white shadow-lg backdrop-blur-sm">{toastError}</div>}
-          {error && !toastError && <ErrorRecovery error={error} onRetry={onRetry} onOpenSettings={() => document.dispatchEvent(new CustomEvent("open-settings"))} onOpenModels={onOpenSidebar} />}
+          {error && !toastError && <ErrorRecovery error={error} onRetry={() => onRetry()} onOpenSettings={() => document.dispatchEvent(new CustomEvent("open-settings"))} onOpenModels={onOpenSidebar} />}
           {mode === "agent" && activeAgentTask?.status === "awaiting_approval" && activeAgentTask.steps.find((step) => step.status === "awaiting_approval") && <ApprovalModal task={activeAgentTask} step={activeAgentTask.steps.find((step) => step.status === "awaiting_approval")!} onApprove={onApproveAgentStep} onReject={onRejectAgentStep} />}
           {mode === "agent" && activeAgentTask && <AgentTaskComposer activeTask={activeAgentTask} execution={agentExecution} onCreateTask={onCreateAgentTask} onRunTask={onRunAgentTask} onRollbackTask={onRollbackAgentTask} onPauseTask={onPauseAgentTask} onResumeTask={onResumeAgentTask} onRetryTask={onRetryAgentTask} onCancelTask={onCancelAgentTask} onClearTask={onClearAgentTask} />}
           {mode === "agent" && activeAgentTask && <InlineAgentTaskCard task={activeAgentTask} execution={agentExecution} />}
           {mode === "agent" && activeAgentTask && <AgentOutputWorkspace task={activeAgentTask} execution={agentExecution} />}
-          <ChatMessages messages={messages} isStreaming={isLoading} onRetry={onRetry} onPrompt={onPrompt} hideWelcome={mode === "agent" && Boolean(activeAgentTask)} />
+          <ChatMessages messages={messages} isStreaming={isLoading} onRetry={onRetry} onEditMessage={onEditMessage} onDeleteMessage={onDeleteMessage} onPrompt={onPrompt} hideWelcome={mode === "agent" && Boolean(activeAgentTask)} />
           {mode === "agent" && <AgentBottomComposer onCreateTask={onCreateAgentTask} activeTask={Boolean(activeAgentTask)} />}
-          {mode === "chat" && <MessageInput key={selectedModel} input={input} onInputChange={onInputChange} onSubmit={handleSubmit} isLoading={isLoading} stop={stop} canAttachFiles={canAttachFiles} attachmentSupportMessage={attachmentSupportMessage} modelName={modelName} />}
+          {mode === "chat" && <MessageInput key={selectedModel} input={input} onInputChange={onInputChange} onSubmit={handleSubmit} isLoading={isLoading} stop={stop} canAttachFiles={canAttachFiles} attachmentSupportMessage={attachmentSupportMessage} modelName={modelName} assistantProfile={assistantProfile} onAssistantProfileChange={onAssistantProfileChange} projects={projects} selectedProjectId={selectedProjectId} onSelectedProjectChange={onSelectedProjectChange} isEditingMessage={isEditingMessage} onCancelEdit={onCancelEdit} estimatedTokens={estimatedTokens} />}
         </main>
         {mode === "agent" && <AgentSidePanel activeTask={activeAgentTask} execution={agentExecution} events={executionEvents} onRollback={onRollbackAgentTask} mobileOpen={isAgentPanelOpen} onClose={() => setIsAgentPanelOpen(false)} />}
       </div>

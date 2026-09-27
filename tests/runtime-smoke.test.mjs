@@ -81,6 +81,16 @@ test("chat route rejects non-JSON requests", async () => {
   assert.deepEqual(await response.json(), { error: "Content-Type must be application/json." });
 });
 
+test("chat route rejects oversized system prompts before calling a provider", async () => {
+  const response = await fetch(`${baseUrl}/api/chat`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ provider: "openai", apiKey: "dummy-test-key-123", systemPrompt: "x".repeat(6001), messages: [{ role: "user", content: "test" }] }),
+  });
+  assert.equal(response.status, 400);
+  assert.deepEqual(await response.json(), { error: "System instructions must be text under 6,000 characters." });
+});
+
 test("chat route rejects async-only providers", async () => {
   const response = await fetch(`${baseUrl}/api/chat`, {
     method: "POST",

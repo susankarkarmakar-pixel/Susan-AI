@@ -61,6 +61,27 @@ body {
   overscroll-behavior-x: none;
 }
 
+:where(a, button, input, textarea, select, [role="switch"], [role="option"]):focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: #f3e2c9;
+  color: #2a211d;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 @media (max-width: 640px) {
   input,
   textarea,

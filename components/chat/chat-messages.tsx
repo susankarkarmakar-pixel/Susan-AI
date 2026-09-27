@@ -15,12 +15,14 @@ export type Message = {
 interface ChatMessagesProps {
   messages: Message[];
   isStreaming?: boolean;
-  onRetry?: () => void;
+  onRetry?: (messageId?: string) => void;
+  onEditMessage?: (id: string, content: string) => void;
+  onDeleteMessage?: (id: string) => void;
   onPrompt?: (prompt: string) => void;
   hideWelcome?: boolean;
 }
 
-export function ChatMessages({ messages, isStreaming, onRetry, onPrompt, hideWelcome }: ChatMessagesProps) {
+export function ChatMessages({ messages, isStreaming, onRetry, onEditMessage, onDeleteMessage, onPrompt, hideWelcome }: ChatMessagesProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom when new messages arrive or while streaming
@@ -74,6 +76,7 @@ export function ChatMessages({ messages, isStreaming, onRetry, onPrompt, hideWel
         {messages.map((msg, index) => {
           const lastUserMessage = getPreviousUserMessage(messages, index);
           const isResearchResponse = msg.role === "assistant" && isResearchIntent(lastUserMessage?.content || "");
+          const lastUserMessageIndex = getLastUserMessageIndex(messages);
           if (msg.role === "system") {
             return (
               <div key={msg.id || index} className="w-full flex justify-center my-6 animate-in fade-in">
@@ -87,11 +90,14 @@ export function ChatMessages({ messages, isStreaming, onRetry, onPrompt, hideWel
           return (
             <MessageBubble
               key={msg.id || index}
+              id={msg.id}
               role={msg.role as "user" | "assistant"}
               content={msg.content}
               isResearchResponse={isResearchResponse}
               isStreaming={isStreaming && index === messages.length - 1 && msg.role === "assistant"}
-              onRetry={onRetry && msg.role === "assistant" && index === messages.length - 1 ? onRetry : undefined}
+              onRetry={onRetry && msg.role === "assistant" && msg.id ? () => onRetry(msg.id) : undefined}
+              onEdit={msg.role === "user" && index === lastUserMessageIndex && msg.id ? () => onEditMessage?.(msg.id!, msg.content) : undefined}
+              onDelete={msg.role === "assistant" && msg.id ? () => onDeleteMessage?.(msg.id!) : undefined}
             />
           );
         })}
@@ -146,6 +152,13 @@ function ResearchLoadingCard() {
       </div>
     </div>
   );
+}
+
+function getLastUserMessageIndex(messages: Message[]) {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    if (messages[index].role === "user") return index;
+  }
+  return -1;
 }
 
 function getPreviousUserMessage(messages: Message[], index: number) {

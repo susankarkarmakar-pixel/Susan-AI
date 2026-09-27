@@ -11,6 +11,7 @@ import { AboutModal } from "@/components/about/about-modal";
 import { useApiKeys } from "@/hooks/use-api-keys";
 import { useConversation } from "@/hooks/use-conversation";
 import { useAppSettings } from "@/hooks/use-app-settings";
+import { updateAppSettings } from "@/lib/app-settings";
 import { getApiKey } from "@/lib/key-storage";
 import { fileToUIPart } from "@/lib/file-attachments";
 import { Message } from "@/components/chat/chat-messages";
@@ -26,16 +27,22 @@ import { HistoryWorkspace } from "@/components/workspace/history-workspace";
 import { JulesWorkspace } from "@/components/agent/jules-workspace";
 import { FirstUseTour } from "@/components/onboarding/first-use-tour";
 import { clearConversations, deleteConversation } from "@/lib/chat-storage";
+import { CommandPalette } from "@/components/chat/command-palette";
+import { estimateConversationTokens, formatEstimatedTokens } from "@/lib/usage-estimates.mjs";
+import { getProjects, WorkspaceProject } from "@/lib/workspace-storage";
 
 export default function Home() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [activeSection, setActiveSection] = useState<WorkspaceSection>("home");
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [settingsTab, setSettingsTab] = useState<"general" | "providers" | "keys">("general");
+  const [settingsTab, setSettingsTab] = useState<"general" | "providers" | "keys" | "chat">("general");
   const [isAboutOpen, setIsAboutOpen] = useState(false);
   const [selectedModel, setSelectedModel] = useState<ModelOption>("google");
   const [input, setInput] = useState("");
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [projects, setProjects] = useState<WorkspaceProject[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState("");
   const { keys, keyVersion } = useApiKeys();
   const { settings } = useAppSettings();
   const { mode, setMode } = useAgentMode();
@@ -45,6 +52,13 @@ export default function Home() {
   const safeTaskSnapshot = useRef<AgentTask | null>(null);
   const { records, ready: tasksReady, save: saveAgentTask, remove: removeAgentTask } = useAgentTasks();
   const restoredTask = useRef(false);
+
+  useEffect(() => {
+    const refreshProjects = () => setProjects(getProjects());
+    const timer = window.setTimeout(refreshProjects, 0);
+    window.addEventListener("workspace-data-updated", refreshProjects);
+    return () => { window.clearTimeout(timer); window.removeEventListener("workspace-data-updated", refreshProjects); };
+  }, []);
 
   useEffect(() => {
     // Prefer Gemini by default, then fall back to the first provider whose key
@@ -72,14 +86,17 @@ export default function Home() {
       keyVersion,
       language: settings.language,
       streaming: settings.streaming,
+      temperature: settings.temperature,
+      maxOutputTokens: settings.maxOutputTokens,
+      systemPrompt: [settings.systemPrompts[settings.assistantProfile], settings.projectInstructions[selectedProjectId] || ""].filter(Boolean).join("\n\n"),
     }),
-  }), [selectedModel, keyVersion, keys, settings.language, settings.streaming]);
+  }), [selectedModel, keyVersion, keys, settings.language, settings.streaming, settings.temperature, settings.maxOutputTokens, settings.assistantProfile, settings.systemPrompts, settings.projectInstructions, selectedProjectId]);
 
   const useChatProps = useChat({ transport });
   const messages = useMemo(() => useChatProps.messages || [], [useChatProps.messages]);
   const setMessages = useChatProps.setMessages;
   const sendMessage = useChatProps.sendMessage;
-  const regenerate = useChatProps.regenerate;
+  const handleRegenerate = (messageId?: string) => messageId ? useChatProps.regenerate({ messageId }) : useChatProps.regenerate();
   const isLoading = useChatProps.status === "submitted" || useChatProps.status === "streaming";
   const stop = useChatProps.stop;
   const error = useChatProps.error;
@@ -133,8 +150,29 @@ export default function Home() {
     if (!text && files.length === 0) return;
     const fileParts = await Promise.all(files.map(fileToUIPart));
     setInput("");
-    await sendMessage({ text, files: fileParts });
+    const messageId = editingMessageId;
+    setEditingMessageId(null);
+    if (messageId) {
+      const originalFiles = (messages.find((message) => message.id === messageId)?.parts?.filter((part) => part.type === "file") || []) as typeof fileParts;
+      await sendMessage({ text, files: [...originalFiles, ...fileParts], messageId });
+    } else {
+      await sendMessage({ text, files: fileParts });
+    }
   };
+
+  const handleEditMessage = (id: string, content: string) => {
+    if (isLoading) return;
+    setEditingMessageId(id);
+    setInput(content.split("\n\nAttachments:")[0]);
+    requestAnimationFrame(() => document.getElementById("message-composer")?.focus());
+  };
+
+  const handleDeleteMessage = (id: string) => {
+    if (isLoading) return;
+    setMessages((current) => current.filter((message) => message.id !== id));
+  };
+
+  const handleCancelEdit = () => { setEditingMessageId(null); setInput(""); };
   const handleCreateAgentTask = (goal: string, attachments: AgentAttachment[]) => {
     const task = planAgentTask(createAgentTask(goal, undefined, undefined, attachments));
     setActiveAgentTask(task);
@@ -154,6 +192,7 @@ export default function Home() {
     ensureInstantChatModel();
     setActiveSection("chat");
     setMode("chat");
+    setEditingMessageId(null);
     startNewConversation();
   };
 
@@ -374,13 +413,23 @@ export default function Home() {
           onOpenSidebar={() => setIsSidebarOpen(true)}
           selectedModel={selectedModel}
           messages={displayMessages}
+          onEditMessage={handleEditMessage}
+          onDeleteMessage={handleDeleteMessage}
           input={input}
           onInputChange={(event) => setInput(event.target.value)}
+          assistantProfile={settings.assistantProfile}
+          onAssistantProfileChange={(assistantProfile) => updateAppSettings({ assistantProfile })}
+          projects={projects}
+          selectedProjectId={selectedProjectId}
+          onSelectedProjectChange={setSelectedProjectId}
+          isEditingMessage={!!editingMessageId}
+          onCancelEdit={handleCancelEdit}
+          estimatedTokens={formatEstimatedTokens(estimateConversationTokens(displayMessages))}
           onSend={handleSend}
           isLoading={isLoading}
           stop={stop}
           error={error}
-          onRetry={regenerate}
+          onRetry={handleRegenerate}
           conversationTitle={conversationTitle}
           onPrompt={setInput}
         />
@@ -388,6 +437,7 @@ export default function Home() {
       <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} initialTab={settingsTab} />
       <AboutModal isOpen={isAboutOpen} onClose={() => setIsAboutOpen(false)} />
       <FirstUseTour onNavigate={handleSidebarNavigate} />
+      <CommandPalette onNewChat={handleNewChat} onNavigate={handleSidebarNavigate} onOpenSettings={() => { setSettingsTab("chat"); setIsSettingsOpen(true); }} />
     </div>
   );
 }
