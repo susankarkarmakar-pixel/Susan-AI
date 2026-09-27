@@ -1,26 +1,18 @@
 "use client";
-
-import { CheckCircle2, CircleDot, ClipboardList, Clock3, Loader2, PauseCircle, PlayCircle, RotateCcw, Undo2, XCircle, Zap } from "lucide-react";
+import { CheckCircle2, CircleDot, ClipboardList, Clock3, Loader2, PauseCircle, PlayCircle, RotateCcw, Undo2, XCircle, Zap, ListFilter } from "lucide-react";
+import { useMemo, useState } from "react";
 import { ExecutionEvent } from "@/lib/agent/types";
 
 export function ExecutionTimeline({ events }: { events: ExecutionEvent[] }) {
+  const [showAll, setShowAll] = useState(false);
+  const orderedEvents = useMemo(() => [...events].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()), [events]);
+  const visibleEvents = showAll ? orderedEvents : orderedEvents.slice(-5);
   if (events.length === 0) return <div className="rounded-xl border border-dashed border-border-main bg-surface/60 p-4 text-center"><Clock3 className="mx-auto h-5 w-5 text-accent" /><p className="mt-2 text-xs text-text-muted">Execution activity will appear here.</p></div>;
-  return <div className="space-y-3">{events.map((event) => <div key={event.id} className="flex gap-2.5"><EventIcon type={event.type} /><div className="min-w-0 flex-1"><div className="flex items-start justify-between gap-2"><p className="text-xs font-semibold text-text-main">{event.message}</p><time className="shrink-0 text-[10px] text-text-muted">{formatTime(event.timestamp)}</time></div>{event.toolId && <p className="mt-0.5 text-[10px] text-text-muted">Tool: {event.toolId}</p>}</div></div>)}</div>;
+  const completed = events.filter((event) => ["tool-completed", "task-completed", "approval-granted"].includes(event.type)).length;
+  const active = events.some((event) => event.type === "tool-started");
+  return <div className="space-y-3"><div className="flex items-center justify-between rounded-lg bg-bg-main px-3 py-2"><div className="flex items-center gap-2"><ListFilter className="h-3.5 w-3.5 text-accent" /><span className="text-[10px] font-semibold uppercase tracking-wide text-text-muted">Live activity</span></div><div className="flex items-center gap-2 text-[10px] text-text-muted"><span>{completed} completed</span>{active && <span className="flex items-center gap-1 font-semibold text-accent"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" />Running</span>}</div></div><div className="space-y-3">{visibleEvents.map((event, index) => <ActivityRow key={event.id} event={event} previous={visibleEvents[index - 1]} />)}</div>{events.length > 5 && <button type="button" onClick={() => setShowAll((current) => !current)} className="w-full rounded-lg border border-border-main/70 px-3 py-2 text-[10px] font-semibold text-text-muted hover:bg-cream-highlight hover:text-accent">{showAll ? "Show recent activity" : `View all activity (${events.length})`}</button>}</div>;
 }
-
-function EventIcon({ type }: { type: ExecutionEvent["type"] }) {
-  if (type === "tool-completed" || type === "task-completed" || type === "approval-granted") return <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />;
-  if (type === "tool-failed" || type === "task-failed" || type === "task-cancelled" || type === "approval-rejected") return <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />;
-  if (type === "tool-started") return <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-accent" />;
-  if (type === "task-paused") return <PauseCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />;
-  if (type === "task-resumed") return <PlayCircle className="mt-0.5 h-4 w-4 shrink-0 text-accent" />;
-  if (type === "task-retried") return <RotateCcw className="mt-0.5 h-4 w-4 shrink-0 text-accent" />;
-  if (type === "task-rolled-back") return <Undo2 className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />;
-  if (type === "plan-created") return <ClipboardList className="mt-0.5 h-4 w-4 shrink-0 text-accent" />;
-  if (type === "task-created") return <Zap className="mt-0.5 h-4 w-4 shrink-0 text-accent" />;
-  return <CircleDot className="mt-0.5 h-4 w-4 shrink-0 text-text-muted" />;
-}
-
-function formatTime(timestamp: string): string {
-  return new Date(timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-}
+function ActivityRow({ event, previous }: { event: ExecutionEvent; previous?: ExecutionEvent }) { return <div className="relative flex gap-2.5">{previous && <span className="absolute left-[7px] top-[-13px] h-3 border-l border-border-main/70" />}{event.type === "tool-started" && <span className="absolute left-[3px] top-[3px] h-2.5 w-2.5 animate-ping rounded-full bg-accent/50" />}<EventIcon type={event.type} /><div className="min-w-0 flex-1"><div className="flex items-start justify-between gap-2"><p className="text-xs font-semibold text-text-main">{event.message}</p><time className="shrink-0 text-[10px] text-text-muted">{formatTime(event.timestamp)}</time></div><div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-text-muted">{event.toolId && <span>Tool: {event.toolId}</span>}{previous && <span className="text-accent">+{formatDuration(new Date(event.timestamp).getTime() - new Date(previous.timestamp).getTime())}</span>}</div></div></div>; }
+function EventIcon({ type }: { type: ExecutionEvent["type"] }) { if (type === "tool-completed" || type === "task-completed" || type === "approval-granted") return <CheckCircle2 className="relative z-10 mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />; if (type === "tool-failed" || type === "task-failed" || type === "task-cancelled" || type === "approval-rejected") return <XCircle className="relative z-10 mt-0.5 h-4 w-4 shrink-0 text-red-600" />; if (type === "tool-started") return <Loader2 className="relative z-10 mt-0.5 h-4 w-4 shrink-0 animate-spin text-accent" />; if (type === "task-paused") return <PauseCircle className="relative z-10 mt-0.5 h-4 w-4 shrink-0 text-amber-600" />; if (type === "task-resumed") return <PlayCircle className="relative z-10 mt-0.5 h-4 w-4 shrink-0 text-accent" />; if (type === "task-retried") return <RotateCcw className="relative z-10 mt-0.5 h-4 w-4 shrink-0 text-accent" />; if (type === "task-rolled-back") return <Undo2 className="relative z-10 mt-0.5 h-4 w-4 shrink-0 text-amber-600" />; if (type === "plan-created") return <ClipboardList className="relative z-10 mt-0.5 h-4 w-4 shrink-0 text-accent" />; if (type === "task-created") return <Zap className="relative z-10 mt-0.5 h-4 w-4 shrink-0 text-accent" />; return <CircleDot className="relative z-10 mt-0.5 h-4 w-4 shrink-0 text-text-muted" />; }
+function formatTime(timestamp: string): string { return new Date(timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }); }
+function formatDuration(milliseconds: number): string { if (milliseconds < 1000) return `${milliseconds}ms`; if (milliseconds < 60000) return `${(milliseconds / 1000).toFixed(1)}s`; return `${Math.floor(milliseconds / 60000)}m ${Math.round((milliseconds % 60000) / 1000)}s`; }
