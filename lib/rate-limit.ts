@@ -1,9 +1,11 @@
-import { createHash } from "node:crypto";
+import { Ratelimit } from "@upstash/ratelimit";
+import { Redis } from "@upstash/redis";
 
 const RATE_LIMIT_WINDOW_SECONDS = 60;
 const RATE_LIMIT_MAX_REQUESTS = Number(process.env.RATE_LIMIT_MAX_REQUESTS || 30);
 const MAX_RATE_LIMIT_KEYS = 10_000;
 const requestLog = new Map<string, number[]>();
+let upstashLimiter: Ratelimit | null | undefined;
 
 export class RateLimitUnavailableError extends Error {
   constructor() {
@@ -24,7 +26,13 @@ export function getClientIdentifier(request: Request): string {
 }
 
 export async function enforceRateLimit(clientId: string): Promise<boolean> {
-  const backend = process.env.RATE_LIMIT_BACKEND || (process.env.UPSTASH_REDIS_REST_URL ? "upstash" : "memory");
+  const hasUpstashConfig = Boolean(process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN);
+  const requestedBackend = process.env.RATE_LIMIT_BACKEND;
+  const backend = requestedBackend || (hasUpstashConfig ? "upstash" : "memory");
+
+  // Missing Redis configuration never blocks local development. The bounded memory
+  // limiter is the safe fallback; it is not suitable as the production multi-instance backend.
+  if (backend === "upstash" && !hasUpstashConfig) return isWithinMemoryRateLimit(clientId);
   if (backend === "upstash") return enforceUpstashLimit(clientId);
   if (backend === "memory") return isWithinMemoryRateLimit(clientId);
   throw new RateLimitUnavailableError();
@@ -33,24 +41,32 @@ export async function enforceRateLimit(clientId: string): Promise<boolean> {
 export const RATE_LIMIT_RETRY_AFTER_SECONDS = RATE_LIMIT_WINDOW_SECONDS;
 
 async function enforceUpstashLimit(clientId: string): Promise<boolean> {
-  const url = process.env.UPSTASH_REDIS_REST_URL?.replace(/\/$/, "");
+  const limiter = getUpstashLimiter();
+  if (!limiter) return isWithinMemoryRateLimit(clientId);
+  try {
+    const result = await limiter.limit(clientId);
+    return result.success;
+  } catch {
+    // Fail closed when Redis was configured but unavailable. This prevents an
+    // outage from silently removing protection on a public endpoint.
+    throw new RateLimitUnavailableError();
+  }
+}
+
+function getUpstashLimiter(): Ratelimit | null {
+  if (upstashLimiter !== undefined) return upstashLimiter;
+  const url = process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
-  if (!url || !token) throw new RateLimitUnavailableError();
-
-  const key = `susan-ai:rate:${createHash("sha256").update(clientId).digest("hex")}`;
-  const response = await fetch(`${url}/pipeline`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    body: JSON.stringify([["INCR", key], ["EXPIRE", key, RATE_LIMIT_WINDOW_SECONDS]]),
-    signal: AbortSignal.timeout(2_000),
-    cache: "no-store",
-  }).catch(() => null);
-  if (!response?.ok) throw new RateLimitUnavailableError();
-
-  const results = await response.json().catch(() => null) as Array<{ result?: number }> | null;
-  const count = results?.[0]?.result;
-  if (typeof count !== "number") throw new RateLimitUnavailableError();
-  return count <= RATE_LIMIT_MAX_REQUESTS;
+  if (!url || !token) {
+    upstashLimiter = null;
+    return upstashLimiter;
+  }
+  upstashLimiter = new Ratelimit({
+    redis: new Redis({ url, token }),
+    limiter: Ratelimit.slidingWindow(RATE_LIMIT_MAX_REQUESTS, `${RATE_LIMIT_WINDOW_SECONDS} s`),
+    prefix: "susan-ai:rate",
+  });
+  return upstashLimiter;
 }
 
 function isWithinMemoryRateLimit(clientId: string): boolean {

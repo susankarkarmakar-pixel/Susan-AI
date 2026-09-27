@@ -19,6 +19,8 @@
     "@ai-sdk/google": "^4.0.78",
     "@ai-sdk/openai": "^4.0.72",
     "@ai-sdk/react": "^4.0.114",
+    "@upstash/ratelimit": "^2.2.0",
+    "@upstash/redis": "^1.39.0",
     "ai": "^7.0.111",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
