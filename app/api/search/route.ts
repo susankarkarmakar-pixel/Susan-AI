@@ -92,12 +92,17 @@ async function searchBrave(query: string, apiKey: string): Promise<SearchResult[
 }
 
 async function searchDuckDuckGo(query: string): Promise<SearchResult[]> {
-  const response = await fetch(`https://lite.duckduckgo.com/lite/?q=${encodeURIComponent(query)}`, {
-    signal: AbortSignal.timeout(10000),
-    headers: { Accept: "text/html", "User-Agent": "Mozilla/5.0 (compatible; SusanAI/1.0)" },
-  });
-  if (!response.ok) throw new Error(`DuckDuckGo returned HTTP ${response.status}.`);
-  const html = await response.text();
+  let html = "";
+  try {
+    const response = await fetch(`https://lite.duckduckgo.com/lite/?q=${encodeURIComponent(query)}`, {
+      signal: AbortSignal.timeout(10000),
+      headers: { Accept: "text/html", "User-Agent": "Mozilla/5.0 (compatible; SusanAI/1.0)" },
+    });
+    if (response.ok) html = await response.text();
+  } catch {
+    // Shared server IPs, including some Vercel regions, may be blocked by DuckDuckGo.
+  }
+  if (!html) return searchDuckDuckGoViaReader(query);
   const links = [...html.matchAll(/<a\b([^>]*\bclass=["']result-link["'][^>]*)>([\s\S]*?)<\/a>/gi)];
   return links.slice(0, 10).flatMap((match, index) => {
     const href = match[1].match(/\bhref=["']([^"']+)["']/i)?.[1];
@@ -110,6 +115,20 @@ async function searchDuckDuckGo(query: string): Promise<SearchResult[]> {
     const snippetMatch = section.match(/class=["']result-snippet["'][^>]*>([\s\S]*?)<\//i);
     const timestamp = section.match(/class=["']timestamp["'][^>]*>([^<]+)/i)?.[1]?.trim();
     return [{ id: `duckduckgo-${index}-${url}`, title, url, snippet: snippetMatch ? cleanHtml(snippetMatch[1]) : "DuckDuckGo web result", source: "duckduckgo" as const, publishedAt: timestamp }];
+  });
+}
+
+async function searchDuckDuckGoViaReader(query: string): Promise<SearchResult[]> {
+  const response = await fetch(`https://r.jina.ai/http://lite.duckduckgo.com/lite/?q=${encodeURIComponent(query)}`, { signal: AbortSignal.timeout(15000), headers: { Accept: "text/plain" } });
+  if (!response.ok) throw new Error(`DuckDuckGo returned HTTP ${response.status}.`);
+  const markdown = await response.text();
+  const matches = [...markdown.matchAll(/^\d+\.\[([^\]]+)\]\(([^)]+)\)\s*\n([\s\S]*?)(?=^\d+\.\[|$)/gmi)];
+  return matches.slice(0, 10).flatMap((match, index) => {
+    const url = resolveDuckDuckGoUrl(match[2]);
+    if (!url) return [];
+    const lines = match[3].split("\n").map((line) => line.trim()).filter(Boolean);
+    const snippet = lines.find((line) => !/^https?:\/\//i.test(line) && !/^[\w.-]+\.[a-z]{2,}(\/.*)?$/i.test(line)) || "DuckDuckGo web result";
+    return [{ id: `duckduckgo-reader-${index}-${url}`, title: cleanHtml(match[1]), url, snippet: cleanHtml(snippet), source: "duckduckgo" as const }];
   });
 }
 
