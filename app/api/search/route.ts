@@ -92,10 +92,47 @@ async function searchBrave(query: string, apiKey: string): Promise<SearchResult[
 }
 
 async function searchDuckDuckGo(query: string): Promise<SearchResult[]> {
-  const data = await fetchJson(`https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&no_redirect=1`, undefined, true) as { AbstractText?: string; AbstractURL?: string; Heading?: string; RelatedTopics?: Array<{ Text?: string; FirstURL?: string; Topics?: Array<{ Text?: string; FirstURL?: string }> }> };
-  const results: SearchResult[] = [];
-  if (data.AbstractURL && (data.AbstractText || data.Heading)) results.push({ id: `duckduckgo-abstract-${data.AbstractURL}`, title: data.Heading || query, url: data.AbstractURL, snippet: data.AbstractText || "", source: "duckduckgo" });
-  const topics = (data.RelatedTopics || []).flatMap((topic) => topic.Topics || [topic]).filter((topic) => topic.FirstURL && topic.Text).slice(0, 10);
-  topics.forEach((topic, index) => results.push({ id: `duckduckgo-${index}-${topic.FirstURL}`, title: topic.Text!.split(" - ")[0], url: topic.FirstURL!, snippet: topic.Text!, source: "duckduckgo" }));
-  return results;
+  const response = await fetch(`https://lite.duckduckgo.com/lite/?q=${encodeURIComponent(query)}`, {
+    signal: AbortSignal.timeout(10000),
+    headers: { Accept: "text/html", "User-Agent": "Mozilla/5.0 (compatible; SusanAI/1.0)" },
+  });
+  if (!response.ok) throw new Error(`DuckDuckGo returned HTTP ${response.status}.`);
+  const html = await response.text();
+  const links = [...html.matchAll(/<a\b([^>]*\bclass=["']result-link["'][^>]*)>([\s\S]*?)<\/a>/gi)];
+  return links.slice(0, 10).flatMap((match, index) => {
+    const href = match[1].match(/\bhref=["']([^"']+)["']/i)?.[1];
+    const url = href ? resolveDuckDuckGoUrl(href) : null;
+    const title = cleanHtml(match[2]);
+    if (!url || !title) return [];
+    const start = match.index ?? 0;
+    const next = html.indexOf("result-link", start + match[0].length);
+    const section = html.slice(start, next === -1 ? html.length : next);
+    const snippetMatch = section.match(/class=["']result-snippet["'][^>]*>([\s\S]*?)<\//i);
+    const timestamp = section.match(/class=["']timestamp["'][^>]*>([^<]+)/i)?.[1]?.trim();
+    return [{ id: `duckduckgo-${index}-${url}`, title, url, snippet: snippetMatch ? cleanHtml(snippetMatch[1]) : "DuckDuckGo web result", source: "duckduckgo" as const, publishedAt: timestamp }];
+  });
+}
+
+function resolveDuckDuckGoUrl(value: string): string | null {
+  try {
+    const url = new URL(value.startsWith("//") ? `https:${value}` : value);
+    const redirected = url.searchParams.get("uddg");
+    const resolved = redirected ? decodeURIComponent(redirected) : url.toString();
+    return resolved.startsWith("https://") ? resolved : null;
+  } catch {
+    return null;
+  }
+}
+
+function cleanHtml(value: string): string {
+  return decodeHtml(value.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim());
+}
+
+function decodeHtml(value: string): string {
+  return value.replace(/&(#x?[0-9a-f]+|amp|lt|gt|quot|apos|nbsp);/gi, (entity, code: string) => {
+    const named: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " " };
+    if (named[code.toLowerCase()]) return named[code.toLowerCase()];
+    const numeric = code.toLowerCase().startsWith("#x") ? parseInt(code.slice(2), 16) : parseInt(code.slice(1), 10);
+    return Number.isFinite(numeric) ? String.fromCodePoint(numeric) : entity;
+  });
 }
