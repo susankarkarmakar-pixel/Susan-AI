@@ -23,6 +23,10 @@ RATE_LIMIT_MAX_REQUESTS=30
 
 `TRUST_PROXY=true` should only be enabled when the deployment platform is a trusted reverse proxy that sets `x-forwarded-for` or `x-real-ip`. Without Redis variables, the app safely falls back to the bounded in-memory limiter for local use. If configured Redis becomes unavailable, public API routes fail closed with a temporary `503` instead of silently disabling protection.
 
+## Research search
+
+Research-style prompts call `/api/search` before the selected BYOK model generates an answer. Set `BRAVE_SEARCH_API_KEY` for richer web results in production; when it is absent, local development uses DuckDuckGo's no-key instant-answer endpoint. Search results are bounded, passed to the model as a source packet, and rendered with inline citations and a Sources section. Never commit the Brave key.
+
 ## Validation
 
 Before opening a pull request, run:

@@ -135,6 +135,8 @@ This is encryption at rest, not a replacement for device or browser security: a 
 
 Conversation history also stays in browser storage unless the user exports it. Exported JSON files contain message content and should be treated as sensitive data.
 
+Research-style prompts such as “latest”, “current”, “news”, “citations”, or “research” use the live search route before the selected BYOK model responds. Susan AI prefers Brave Search when `BRAVE_SEARCH_API_KEY` is configured and falls back to DuckDuckGo's no-key instant-answer endpoint for local use. The model receives a bounded source packet and is instructed to produce a concise summary, headings, key findings, supported recommendations, inline `[S1]`-style citations, and a final Sources list. Search snippets are context, not a guarantee of truth; verify important claims at the linked source.
+
 The app uses a bounded in-memory limiter for local development. For multi-instance production deployments, configure the official `@upstash/redis` + `@upstash/ratelimit` integration with `RATE_LIMIT_BACKEND=upstash`, `UPSTASH_REDIS_REST_URL`, and `UPSTASH_REDIS_REST_TOKEN`. The chat, provider-test, and Jules API routes share the distributed limiter; health checks remain available for infrastructure probes. If Redis variables are absent, the app safely falls back to the local limiter. If configured Redis becomes unavailable, protected routes fail closed with a temporary `503` rather than silently dropping protection. See `CONTRIBUTING.md` for setup details.
 
 ## Supported providers

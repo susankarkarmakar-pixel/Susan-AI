@@ -15,6 +15,7 @@ export type Message = {
 interface ChatMessagesProps {
   messages: Message[];
   isStreaming?: boolean;
+  isPreparingResearch?: boolean;
   onRetry?: (messageId?: string) => void;
   onEditMessage?: (id: string, content: string) => void;
   onDeleteMessage?: (id: string) => void;
@@ -22,7 +23,7 @@ interface ChatMessagesProps {
   hideWelcome?: boolean;
 }
 
-export function ChatMessages({ messages, isStreaming, onRetry, onEditMessage, onDeleteMessage, onPrompt, hideWelcome }: ChatMessagesProps) {
+export function ChatMessages({ messages, isStreaming, isPreparingResearch, onRetry, onEditMessage, onDeleteMessage, onPrompt, hideWelcome }: ChatMessagesProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom when new messages arrive or while streaming
@@ -101,7 +102,7 @@ export function ChatMessages({ messages, isStreaming, onRetry, onEditMessage, on
             />
           );
         })}
-        {isStreaming && messages[messages.length - 1]?.role === "user" && (
+        {isPreparingResearch ? <ResearchLoadingCard /> : isStreaming && messages[messages.length - 1]?.role === "user" && (
           isResearchIntent(messages[messages.length - 1]?.content || "")
             ? <ResearchLoadingCard />
             : <MessageBubble role="assistant" content="" isStreaming={true} />
@@ -127,7 +128,7 @@ function ResearchLoadingCard() {
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-sidebar-cocoa text-cream-highlight shadow-md shadow-sidebar-cocoa/15"><FileSearch className="h-5 w-5" /></span>
             <div className="min-w-0">
               <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-accent">Research response</p>
-              <p className="mt-0.5 truncate text-sm font-semibold text-text-main">Preparing a thoughtful answer</p>
+              <p className="mt-0.5 truncate text-sm font-semibold text-text-main">Searching the web and grounding your answer</p>
             </div>
           </div>
           <span className="inline-flex shrink-0 items-center gap-2 rounded-full border border-accent/10 bg-white/80 px-2.5 py-1 text-[10px] font-semibold text-accent">
@@ -136,7 +137,7 @@ function ResearchLoadingCard() {
           </span>
         </div>
 
-        <p className="ml-[3.25rem] mt-1 text-xs leading-5 text-text-muted">Organizing the key ideas and useful context for your question.</p>
+        <p className="ml-[3.25rem] mt-1 text-xs leading-5 text-text-muted">Finding relevant sources, checking context, and preparing a cited response.</p>
 
         <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
           {previewItems.map(({ label, icon: Icon, width }, index) => (

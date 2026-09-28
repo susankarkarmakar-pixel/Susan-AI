@@ -1,157 +1,67 @@
 import { NextResponse } from "next/server";
-import { dedupeSearchResults, SearchProvider, SearchResponse, SearchResult, sortSearchResults } from "@/lib/web-search";
+import { enforceRateLimit, getClientIdentifier, RateLimitUnavailableError, RATE_LIMIT_RETRY_AFTER_SECONDS } from "@/lib/rate-limit";
+import type { SearchSource } from "@/lib/search-types";
 
-export const runtime = "nodejs";
+const MAX_QUERY_LENGTH = 300;
+const MAX_RESULTS = 8;
 
-const MAX_RESULTS = 30;
-const PROVIDERS: Array<Exclude<SearchProvider, "all">> = ["google", "bing", "duckduckgo", "brave"];
-
-export async function POST(request: Request) {
+export async function GET(request: Request) {
   try {
-    const body = await request.json() as { query?: unknown; provider?: unknown; keys?: Record<string, string | undefined>; googleCx?: unknown };
-    const query = typeof body.query === "string" ? body.query.trim().slice(0, 300) : "";
-    const provider = isProvider(body.provider) ? body.provider : "all";
-    const keys = body.keys || {};
-    const googleCx = typeof body.googleCx === "string" ? body.googleCx.trim() : "";
-    if (!query) return NextResponse.json({ error: "Enter a search query." }, { status: 400 });
-
-    const selected = provider === "all" ? PROVIDERS : [provider];
-    const results: SearchResult[] = [];
-    const unavailable: SearchResponse["unavailable"] = [];
-    const providersUsed: SearchResponse["providersUsed"] = [];
-
-    for (const source of selected) {
-      if ((source === "google" && (!keys.googleSearch || !googleCx)) || (source === "bing" && !keys.bingSearch) || (source === "brave" && !keys.braveSearch)) {
-        if (provider !== "all") unavailable.push({ provider: source, reason: source === "google" ? "Google API key and Search Engine ID are required." : "This provider is not connected." });
-        continue;
-      }
-      try {
-        const providerResults = source === "google"
-          ? await searchGoogle(query, keys.googleSearch!, googleCx)
-          : source === "bing"
-            ? await searchBing(query, keys.bingSearch!)
-            : source === "brave"
-              ? await searchBrave(query, keys.braveSearch!)
-              : await searchDuckDuckGo(query);
-        results.push(...providerResults);
-        if (providerResults.length > 0) providersUsed.push(source);
-      } catch (error) {
-        unavailable.push({ provider: source, reason: error instanceof Error ? error.message : "Provider request failed." });
-      }
-    }
-
-    const response: SearchResponse = { query, provider, results: sortSearchResults(dedupeSearchResults(results)).slice(0, MAX_RESULTS), providersUsed, unavailable };
-    return NextResponse.json(response, { headers: { "Cache-Control": "no-store" } });
-  } catch {
-    return NextResponse.json({ error: "Search request could not be processed." }, { status: 400 });
+    if (!(await enforceRateLimit(getClientIdentifier(request)))) return jsonError("Too many searches. Please wait a moment and try again.", 429, { "Retry-After": String(RATE_LIMIT_RETRY_AFTER_SECONDS) });
+    const query = new URL(request.url).searchParams.get("q")?.trim() || "";
+    if (!query || query.length > MAX_QUERY_LENGTH) return jsonError("Enter a search query under 300 characters.", 400);
+    const braveKey = process.env.BRAVE_SEARCH_API_KEY?.trim();
+    const result = braveKey ? await searchBrave(query, braveKey) : await searchDuckDuckGo(query);
+    return NextResponse.json({ query, provider: braveKey ? "brave" : "duckduckgo", sources: result }, { headers: { "Cache-Control": "no-store" } });
+  } catch (error) {
+    if (error instanceof RateLimitUnavailableError) return jsonError("Search protection is temporarily unavailable. Try again shortly.", 503, { "Retry-After": "30" });
+    return jsonError("Web search could not be completed. You can still ask the selected model without live sources.", 502);
   }
 }
 
-function isProvider(value: unknown): value is SearchProvider {
-  return value === "all" || value === "google" || value === "bing" || value === "duckduckgo" || value === "brave";
-}
-
-async function fetchJson(url: string, init?: RequestInit, tolerateEmpty = false): Promise<unknown> {
-  let lastStatus = 0;
-  for (let attempt = 0; attempt < 2; attempt += 1) {
-    const response = await fetch(url, { ...init, signal: AbortSignal.timeout(10000), headers: { Accept: "application/json", ...(init?.headers || {}) } });
-    lastStatus = response.status;
-    const body = await response.text();
-    if (response.status === 202 || !body.trim()) {
-      if (attempt === 0) {
-        await new Promise((resolve) => setTimeout(resolve, 250));
-        continue;
-      }
-      if (tolerateEmpty) return {};
-    }
-    if (!response.ok) throw new Error(`Provider returned HTTP ${response.status}.`);
-    try {
-      return JSON.parse(body);
-    } catch {
-      if (tolerateEmpty) return {};
-      throw new Error(`Provider returned an invalid response (HTTP ${lastStatus}).`);
-    }
-  }
-  if (tolerateEmpty) return {};
-  throw new Error(`Provider returned HTTP ${lastStatus}.`);
-}
-
-async function searchGoogle(query: string, apiKey: string, cx: string): Promise<SearchResult[]> {
-  const data = await fetchJson(`https://www.googleapis.com/customsearch/v1?key=${encodeURIComponent(apiKey)}&cx=${encodeURIComponent(cx)}&q=${encodeURIComponent(query)}&num=10`) as { items?: Array<{ title?: string; link?: string; displayLink?: string; snippet?: string; pagemap?: { metatags?: Array<{ date?: string }> } }> };
-  return (data.items || []).filter((item) => item.title && item.link).map((item, index) => ({ id: `google-${index}-${item.link}`, title: item.title!, url: item.link!, displayUrl: item.displayLink, snippet: item.snippet || "", source: "google" as const, publishedAt: item.pagemap?.metatags?.[0]?.date }));
-}
-
-async function searchBing(query: string, apiKey: string): Promise<SearchResult[]> {
-  const data = await fetchJson(`https://api.bing.microsoft.com/v7.0/search?q=${encodeURIComponent(query)}&count=10&responseFilter=Webpages`, { headers: { "Ocp-Apim-Subscription-Key": apiKey } }) as { webPages?: { value?: Array<{ name?: string; url?: string; displayUrl?: string; snippet?: string; dateLastCrawled?: string }> } };
-  return (data.webPages?.value || []).filter((item) => item.name && item.url).map((item, index) => ({ id: `bing-${index}-${item.url}`, title: item.name!, url: item.url!, displayUrl: item.displayUrl, snippet: item.snippet || "", source: "bing" as const, publishedAt: item.dateLastCrawled }));
-}
-
-async function searchBrave(query: string, apiKey: string): Promise<SearchResult[]> {
-  const data = await fetchJson(`https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(query)}&count=10`, { headers: { "X-Subscription-Token": apiKey, Accept: "application/json" } }) as { web?: { results?: Array<{ title?: string; url?: string; description?: string; age?: string }> } };
-  return (data.web?.results || []).filter((item) => item.title && item.url).map((item, index) => ({ id: `brave-${index}-${item.url}`, title: item.title!, url: item.url!, snippet: item.description || "", source: "brave" as const, publishedAt: item.age }));
-}
-
-async function searchDuckDuckGo(query: string): Promise<SearchResult[]> {
-  let html = "";
-  try {
-    const response = await fetch(`https://lite.duckduckgo.com/lite/?q=${encodeURIComponent(query)}`, {
-      signal: AbortSignal.timeout(10000),
-      headers: { Accept: "text/html", "User-Agent": "Mozilla/5.0 (compatible; SusanAI/1.0)" },
-    });
-    if (response.ok) html = await response.text();
-  } catch {
-    // Shared server IPs, including some Vercel regions, may be blocked by DuckDuckGo.
-  }
-  if (!html) return searchDuckDuckGoViaReader(query);
-  const links = [...html.matchAll(/<a\b([^>]*\bclass=["']result-link["'][^>]*)>([\s\S]*?)<\/a>/gi)];
-  return links.slice(0, 10).flatMap((match, index) => {
-    const href = match[1].match(/\bhref=["']([^"']+)["']/i)?.[1];
-    const url = href ? resolveDuckDuckGoUrl(href) : null;
-    const title = cleanHtml(match[2]);
-    if (!url || !title) return [];
-    const start = match.index ?? 0;
-    const next = html.indexOf("result-link", start + match[0].length);
-    const section = html.slice(start, next === -1 ? html.length : next);
-    const snippetMatch = section.match(/class=["']result-snippet["'][^>]*>([\s\S]*?)<\//i);
-    const timestamp = section.match(/class=["']timestamp["'][^>]*>([^<]+)/i)?.[1]?.trim();
-    return [{ id: `duckduckgo-${index}-${url}`, title, url, snippet: snippetMatch ? cleanHtml(snippetMatch[1]) : "DuckDuckGo web result", source: "duckduckgo" as const, publishedAt: timestamp }];
+async function searchBrave(query: string, apiKey: string): Promise<SearchSource[]> {
+  const response = await fetch(`https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(query)}&count=${MAX_RESULTS}&safesearch=moderate`, {
+    headers: { Accept: "application/json", "X-Subscription-Token": apiKey },
+    signal: AbortSignal.timeout(8_000),
+    cache: "no-store",
   });
+  if (!response.ok) throw new Error(`Brave search failed with ${response.status}`);
+  const payload = await response.json() as { web?: { results?: Array<{ title?: unknown; url?: unknown; description?: unknown }> } };
+  return (payload.web?.results || []).flatMap((item, index) => normalizeSource(item.title, item.url, item.description, index));
 }
 
-async function searchDuckDuckGoViaReader(query: string): Promise<SearchResult[]> {
-  const response = await fetch(`https://r.jina.ai/http://lite.duckduckgo.com/lite/?q=${encodeURIComponent(query)}`, { signal: AbortSignal.timeout(15000), headers: { Accept: "text/plain" } });
-  if (!response.ok) throw new Error(`DuckDuckGo returned HTTP ${response.status}.`);
-  const markdown = await response.text();
-  const matches = [...markdown.matchAll(/^\d+\.\[([^\]]+)\]\(([^)]+)\)\s*\n([\s\S]*?)(?=^\d+\.\[|$)/gmi)];
-  return matches.slice(0, 10).flatMap((match, index) => {
-    const url = resolveDuckDuckGoUrl(match[2]);
-    if (!url) return [];
-    const lines = match[3].split("\n").map((line) => line.trim()).filter(Boolean);
-    const snippet = lines.find((line) => !/^https?:\/\//i.test(line) && !/^[\w.-]+\.[a-z]{2,}(\/.*)?$/i.test(line)) || "DuckDuckGo web result";
-    return [{ id: `duckduckgo-reader-${index}-${url}`, title: cleanHtml(match[1]), url, snippet: cleanHtml(snippet), source: "duckduckgo" as const }];
+async function searchDuckDuckGo(query: string): Promise<SearchSource[]> {
+  const response = await fetch(`https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&skip_disambig=0`, {
+    headers: { Accept: "application/json" },
+    signal: AbortSignal.timeout(8_000),
+    cache: "no-store",
   });
+  if (!response.ok) throw new Error(`DuckDuckGo search failed with ${response.status}`);
+  const payload = await response.json() as { AbstractText?: unknown; AbstractURL?: unknown; Heading?: unknown; RelatedTopics?: unknown[] };
+  const sources: SearchSource[] = [];
+  const abstract = normalizeSource(payload.Heading, payload.AbstractURL, payload.AbstractText, 0);
+  sources.push(...abstract);
+  flattenDuckDuckGoTopics(payload.RelatedTopics, sources);
+  return sources.slice(0, MAX_RESULTS);
 }
 
-function resolveDuckDuckGoUrl(value: string): string | null {
-  try {
-    const url = new URL(value.startsWith("//") ? `https:${value}` : value);
-    const redirected = url.searchParams.get("uddg");
-    const resolved = redirected ? decodeURIComponent(redirected) : url.toString();
-    return resolved.startsWith("https://") ? resolved : null;
-  } catch {
-    return null;
+function flattenDuckDuckGoTopics(topics: unknown[] | undefined, sources: SearchSource[]): void {
+  if (!Array.isArray(topics)) return;
+  for (const topic of topics) {
+    if (sources.length >= MAX_RESULTS) return;
+    if (!topic || typeof topic !== "object") continue;
+    const item = topic as { FirstURL?: unknown; Text?: unknown; Topics?: unknown[] };
+    if (item.FirstURL && item.Text) sources.push(...normalizeSource(item.Text, item.FirstURL, item.Text, sources.length));
+    flattenDuckDuckGoTopics(item.Topics, sources);
   }
 }
 
-function cleanHtml(value: string): string {
-  return decodeHtml(value.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim());
+function normalizeSource(title: unknown, url: unknown, snippet: unknown, index: number): SearchSource[] {
+  if (typeof url !== "string" || !/^https?:\/\//i.test(url)) return [];
+  const safeUrl = url.slice(0, 2_000);
+  return [{ id: `source-${index + 1}-${encodeURIComponent(safeUrl).slice(0, 24)}`, title: typeof title === "string" && title.trim() ? title.trim().slice(0, 180) : new URL(safeUrl).hostname, url: safeUrl, snippet: typeof snippet === "string" ? snippet.trim().slice(0, 1_000) : "", source: new URL(safeUrl).hostname.replace(/^www\./, "") }];
 }
 
-function decodeHtml(value: string): string {
-  return value.replace(/&(#x?[0-9a-f]+|amp|lt|gt|quot|apos|nbsp);/gi, (entity, code: string) => {
-    const named: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " " };
-    if (named[code.toLowerCase()]) return named[code.toLowerCase()];
-    const numeric = code.toLowerCase().startsWith("#x") ? parseInt(code.slice(2), 16) : parseInt(code.slice(1), 10);
-    return Number.isFinite(numeric) ? String.fromCodePoint(numeric) : entity;
-  });
+function jsonError(error: string, status: number, headers: Record<string, string> = {}) {
+  return NextResponse.json({ error }, { status, headers: { "Cache-Control": "no-store", ...headers } });
 }

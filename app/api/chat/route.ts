@@ -24,7 +24,7 @@ export async function POST(req: Request) {
     const parsedBodyBytes = new TextEncoder().encode(JSON.stringify(body)).byteLength;
     if (parsedBodyBytes > MAX_BODY_BYTES) return jsonError("Request is too large. Keep attachments under 20 MB total.", 413);
     if (!body || typeof body !== "object") return jsonError("Invalid request body.", 400);
-    const { messages, provider, apiKey, language, customProvider, cloudflareAccountId, temperature, maxOutputTokens, systemPrompt } = body as { messages?: unknown; provider?: unknown; apiKey?: unknown; language?: unknown; customProvider?: unknown; cloudflareAccountId?: unknown; temperature?: unknown; maxOutputTokens?: unknown; systemPrompt?: unknown };
+    const { messages, provider, apiKey, language, customProvider, cloudflareAccountId, temperature, maxOutputTokens, systemPrompt, researchContext } = body as { messages?: unknown; provider?: unknown; apiKey?: unknown; language?: unknown; customProvider?: unknown; cloudflareAccountId?: unknown; temperature?: unknown; maxOutputTokens?: unknown; systemPrompt?: unknown; researchContext?: unknown };
     requestedProvider = typeof provider === "string" ? provider : "";
     const isCustom = typeof provider === "string" && provider.startsWith("custom_");
     if (typeof provider !== "string" || (!isInstantChatProvider(provider) && !isCustom)) return jsonError("This provider is not available for instant chat.", 400);
@@ -33,6 +33,7 @@ export async function POST(req: Request) {
     const generation = normalizeGenerationOptions({ temperature, maxOutputTokens });
     const normalizedPrompt = normalizeSystemPrompt(systemPrompt);
     if (!normalizedPrompt.valid) return jsonError("System instructions must be text under 6,000 characters.", 400);
+    const researchInstructions = buildResearchInstructions(researchContext);
     if (!Array.isArray(messages) || messages.length === 0 || messages.length > MAX_MESSAGES) return jsonError("Messages must contain between 1 and 100 items.", 400);
 
     const validMessages = messages.filter(isUIMessage).slice(-MAX_MESSAGES);
@@ -49,7 +50,7 @@ export async function POST(req: Request) {
     if (modelMessages.length === 0) return jsonError("No valid message content found.", 400);
 
     const languageInstruction = language === "bn" ? "Respond in Bengali unless the user asks for another language." : language === "en" ? "Respond in English unless the user asks for another language." : "";
-    const systemInstructions = [languageInstruction, normalizedPrompt.prompt].filter(Boolean);
+    const systemInstructions = [languageInstruction, normalizedPrompt.prompt, researchInstructions].filter(Boolean);
     let model: ReturnType<typeof getModelConfig>;
     if (isCustom) {
       if (!isValidCustomProvider(customProvider, provider)) return jsonError("Custom provider configuration is invalid.", 400);
@@ -109,4 +110,18 @@ function jsonError(error: string, status: number, headers: Record<string, string
 
 function providerStreamError(error: unknown, provider: string): string {
   return mapProviderError(error, provider).message;
+}
+
+function buildResearchInstructions(value: unknown): string {
+  if (!value || typeof value !== "object") return "";
+  const context = value as { query?: unknown; sources?: unknown };
+  if (typeof context.query !== "string" || !context.query.trim() || !Array.isArray(context.sources)) return "";
+  const sources = context.sources.flatMap((source, index) => {
+    if (!source || typeof source !== "object") return [];
+    const item = source as { title?: unknown; url?: unknown; snippet?: unknown };
+    if (typeof item.url !== "string" || !/^https?:\/\//i.test(item.url)) return [];
+    return [`[S${index + 1}] ${typeof item.title === "string" ? item.title.slice(0, 180) : "Untitled source"}\nURL: ${item.url.slice(0, 500)}\nExcerpt: ${typeof item.snippet === "string" ? item.snippet.slice(0, 900) : ""}`];
+  }).slice(0, 8);
+  if (sources.length === 0) return `Research mode is active for the query: ${context.query.slice(0, 300)}. No verified web sources were returned. Be transparent about that limitation and do not invent citations.`;
+  return `You are answering a research question using the verified source excerpts below. Query: ${context.query.slice(0, 300)}. Write a polished, direct answer with a short summary, clear headings, key findings, and practical recommendations only when supported. Cite factual claims inline using [S1], [S2] matching the source list. Never invent a source or claim that is not supported; clearly label uncertainty or disagreement. End with a compact "### Sources" list containing the cited source links. Prefer the user's language.\n\nSOURCE PACKET:\n${sources.join("\n\n")}`;
 }

@@ -30,6 +30,8 @@ import { clearConversations, deleteConversation } from "@/lib/chat-storage";
 import { CommandPalette } from "@/components/chat/command-palette";
 import { estimateConversationTokens, formatEstimatedTokens } from "@/lib/usage-estimates.mjs";
 import { getProjects, WorkspaceProject } from "@/lib/workspace-storage";
+import { isResearchIntent } from "@/lib/research-intent.mjs";
+import type { ResearchContext, SearchSource } from "@/lib/search-types";
 
 export default function Home() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -43,6 +45,8 @@ export default function Home() {
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [projects, setProjects] = useState<WorkspaceProject[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState("");
+  const [isPreparingResearch, setIsPreparingResearch] = useState(false);
+  const [researchContext, setResearchContext] = useState<ResearchContext | null>(null);
   const { keys, keyVersion } = useApiKeys();
   const { settings } = useAppSettings();
   const { mode, setMode } = useAgentMode();
@@ -89,8 +93,9 @@ export default function Home() {
       temperature: settings.temperature,
       maxOutputTokens: settings.maxOutputTokens,
       systemPrompt: [settings.systemPrompts[settings.assistantProfile], settings.projectInstructions[selectedProjectId] || ""].filter(Boolean).join("\n\n"),
+      researchContext,
     }),
-  }), [selectedModel, keyVersion, keys, settings.language, settings.streaming, settings.temperature, settings.maxOutputTokens, settings.assistantProfile, settings.systemPrompts, settings.projectInstructions, selectedProjectId]);
+  }), [selectedModel, keyVersion, keys, researchContext, settings.language, settings.streaming, settings.temperature, settings.maxOutputTokens, settings.assistantProfile, settings.systemPrompts, settings.projectInstructions, selectedProjectId]);
 
   const useChatProps = useChat({ transport });
   const messages = useMemo(() => useChatProps.messages || [], [useChatProps.messages]);
@@ -158,6 +163,24 @@ export default function Home() {
     const text = input.trim();
     if (!text && files.length === 0) return;
     const fileParts = await Promise.all(files.map(fileToUIPart));
+    let activeResearchContext: ResearchContext | null = null;
+    if (isResearchIntent(text)) {
+      setIsPreparingResearch(true);
+      try {
+        const response = await fetch(`/api/search?q=${encodeURIComponent(text)}`, { cache: "no-store" });
+        const payload = await response.json().catch(() => ({})) as { sources?: SearchSource[]; provider?: "brave" | "duckduckgo" };
+        activeResearchContext = { query: text, sources: Array.isArray(payload.sources) ? payload.sources : [], provider: payload.provider === "brave" ? "brave" : "duckduckgo", searchedAt: new Date().toISOString() };
+        setResearchContext(activeResearchContext);
+      } catch {
+        activeResearchContext = { query: text, sources: [], provider: "duckduckgo", searchedAt: new Date().toISOString() };
+        setResearchContext(activeResearchContext);
+      } finally {
+        setIsPreparingResearch(false);
+      }
+    } else {
+        setResearchContext(null);
+    }
+    if (activeResearchContext) await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
     setInput("");
     const messageId = editingMessageId;
     setEditingMessageId(null);
@@ -252,8 +275,18 @@ export default function Home() {
     let currentTask = taskToRun;
     if (!safeTaskSnapshot.current || safeTaskSnapshot.current.id !== currentTask.id) safeTaskSnapshot.current = structuredClone(currentTask);
     while (true) {
-      const step = currentTask.steps.find((candidate) => candidate.status === "pending" && (candidate.toolId || candidate.requiresApproval));
-      if (!step) break;
+      // The planner intentionally includes explanatory, non-tool steps before
+      // executable steps. Always consume the first pending step; filtering to
+      // tool steps here previously caused every task to stop at step one.
+      const step = currentTask.steps.find((candidate) => candidate.status === "pending");
+      if (!step) {
+        if (currentTask.steps.length > 0 && currentTask.steps.every((candidate) => candidate.status === "completed" || candidate.status === "skipped")) {
+          currentTask = currentTask.status === "planning" ? transitionTask(currentTask, "completed") : currentTask.status === "running" ? transitionTask(currentTask, "completed") : currentTask;
+          setActiveAgentTask(currentTask);
+          setExecutionEvents((events) => events.some((event) => event.type === "task-completed" && event.taskId === currentTask.id) ? events : [...events, createExecutionEvent(currentTask.id, "task-completed", "Task completed")]);
+        }
+        break;
+      }
       if (step.requiresApproval) {
         const awaitingTask = updateStepStatus(transitionTask(currentTask, "awaiting_approval"), step.id, "awaiting_approval");
         setActiveAgentTask(awaitingTask);
@@ -436,6 +469,7 @@ export default function Home() {
           estimatedTokens={formatEstimatedTokens(estimateConversationTokens(displayMessages))}
           onSend={handleSend}
           isLoading={isLoading}
+          isPreparingResearch={isPreparingResearch}
           stop={stop}
           error={error}
           onRetry={handleRegenerate}
