@@ -51,10 +51,29 @@ function isProvider(value: unknown): value is SearchProvider {
   return value === "all" || value === "google" || value === "bing" || value === "duckduckgo" || value === "brave";
 }
 
-async function fetchJson(url: string, init?: RequestInit): Promise<unknown> {
-  const response = await fetch(url, { ...init, signal: AbortSignal.timeout(10000), headers: { Accept: "application/json", ...(init?.headers || {}) } });
-  if (!response.ok) throw new Error(`Provider returned HTTP ${response.status}.`);
-  return response.json();
+async function fetchJson(url: string, init?: RequestInit, tolerateEmpty = false): Promise<unknown> {
+  let lastStatus = 0;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const response = await fetch(url, { ...init, signal: AbortSignal.timeout(10000), headers: { Accept: "application/json", ...(init?.headers || {}) } });
+    lastStatus = response.status;
+    const body = await response.text();
+    if (response.status === 202 || !body.trim()) {
+      if (attempt === 0) {
+        await new Promise((resolve) => setTimeout(resolve, 250));
+        continue;
+      }
+      if (tolerateEmpty) return {};
+    }
+    if (!response.ok) throw new Error(`Provider returned HTTP ${response.status}.`);
+    try {
+      return JSON.parse(body);
+    } catch {
+      if (tolerateEmpty) return {};
+      throw new Error(`Provider returned an invalid response (HTTP ${lastStatus}).`);
+    }
+  }
+  if (tolerateEmpty) return {};
+  throw new Error(`Provider returned HTTP ${lastStatus}.`);
 }
 
 async function searchGoogle(query: string, apiKey: string, cx: string): Promise<SearchResult[]> {
@@ -73,7 +92,7 @@ async function searchBrave(query: string, apiKey: string): Promise<SearchResult[
 }
 
 async function searchDuckDuckGo(query: string): Promise<SearchResult[]> {
-  const data = await fetchJson(`https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&no_redirect=1`) as { AbstractText?: string; AbstractURL?: string; Heading?: string; RelatedTopics?: Array<{ Text?: string; FirstURL?: string; Topics?: Array<{ Text?: string; FirstURL?: string }> }> };
+  const data = await fetchJson(`https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&no_redirect=1`, undefined, true) as { AbstractText?: string; AbstractURL?: string; Heading?: string; RelatedTopics?: Array<{ Text?: string; FirstURL?: string; Topics?: Array<{ Text?: string; FirstURL?: string }> }> };
   const results: SearchResult[] = [];
   if (data.AbstractURL && (data.AbstractText || data.Heading)) results.push({ id: `duckduckgo-abstract-${data.AbstractURL}`, title: data.Heading || query, url: data.AbstractURL, snippet: data.AbstractText || "", source: "duckduckgo" });
   const topics = (data.RelatedTopics || []).flatMap((topic) => topic.Topics || [topic]).filter((topic) => topic.FirstURL && topic.Text).slice(0, 10);
