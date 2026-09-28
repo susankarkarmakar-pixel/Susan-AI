@@ -248,6 +248,14 @@ export function SettingsModal({ isOpen, onClose, initialTab = "general" }: Setti
 
         {/* Form Body */}
         <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-4">
+          <div className="mb-2 rounded-xl border border-blue-200 bg-blue-50 p-3 text-xs text-blue-950">
+            <p className="font-semibold">Web Search providers</p>
+            <p className="mt-1 leading-relaxed">DuckDuckGo quick search works without a key. Add optional Google, Bing or Brave credentials below to enable those sources and All Sources mode.</p>
+          </div>
+          <ApiKeyInput label="Google Custom Search API Key" provider="googleSearch" placeholder="Google Search API key" helpUrl="https://developers.google.com/custom-search/v1/overview" value={keys.googleSearch || ""} onChange={(val) => handleKeyChange("googleSearch", val)} isSaved={!!savedKeys.googleSearch} />
+          <label className="-mt-3 block text-sm font-medium text-text-main">Google Search Engine ID (CX)<input value={keys.googleSearchCx || ""} onChange={(event) => handleKeyChange("googleSearchCx", event.target.value)} placeholder="Search Engine ID" className="mt-1.5 w-full rounded-xl border border-border-main bg-surface px-3 py-2.5 text-sm text-text-main outline-none focus:border-text-main focus:ring-1 focus:ring-text-main/20" /></label>
+          <ApiKeyInput label="Bing Web Search API Key" provider="bingSearch" placeholder="Bing Search key" helpUrl="https://www.microsoft.com/en-us/bing/apis/bing-web-search-api" value={keys.bingSearch || ""} onChange={(val) => handleKeyChange("bingSearch", val)} isSaved={!!savedKeys.bingSearch} />
+          <ApiKeyInput label="Brave Search API Key" provider="braveSearch" placeholder="Brave Search key" helpUrl="https://brave.com/search/api/" value={keys.braveSearch || ""} onChange={(val) => handleKeyChange("braveSearch", val)} isSaved={!!savedKeys.braveSearch} />
           <ApiKeyInput
             label="DeepSeek API Key"
             provider="deepseek"

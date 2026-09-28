@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus, Settings, X, Info, Home, MessageSquare, Bot, FolderKanban, Workflow, Network, Puzzle, FileText, History, PanelLeftClose, PanelLeftOpen, CircleHelp } from "lucide-react";
+import { Plus, Settings, X, Info, Home, MessageSquare, Bot, Globe2, FolderKanban, Workflow, Network, Puzzle, FileText, History, PanelLeftClose, PanelLeftOpen, CircleHelp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ModelSelector, ModelOption } from "./model-selector";
 import { PwaInstallButton } from "@/components/pwa/pwa-install-button";
@@ -101,6 +101,7 @@ export function Sidebar({
           <nav className="mb-5 space-y-1" aria-label="Primary navigation">
             <SidebarNavItem icon={<Home className="h-4 w-4" />} label="Home" active={activeSection === "home"} collapsed={collapsed} onClick={() => navigate("home")} />
             <SidebarNavItem icon={<MessageSquare className="h-4 w-4" />} label="Chat" active={activeSection === "chat"} collapsed={collapsed} onClick={() => navigate("chat")} />
+            <SidebarNavItem icon={<Globe2 className="h-4 w-4" />} label="Web Search" collapsed={collapsed} onClick={() => { window.dispatchEvent(new CustomEvent("open-search")); if (window.innerWidth < 1024) onClose(); }} />
             <SidebarNavItem icon={<Bot className="h-4 w-4" />} label="Agent Mode" active={activeSection === "agent"} collapsed={collapsed} onClick={() => navigate("agent")} />
             <SidebarNavItem icon={<FolderKanban className="h-4 w-4" />} label="Projects" active={activeSection === "projects"} collapsed={collapsed} onClick={() => navigate("projects")} />
             <SidebarNavItem icon={<Workflow className="h-4 w-4" />} label="Workflows" active={activeSection === "workflows"} collapsed={collapsed} onClick={() => navigate("workflows")} />

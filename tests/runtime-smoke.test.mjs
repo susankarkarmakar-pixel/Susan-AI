@@ -71,6 +71,16 @@ test("PWA manifest is installable and all launcher icons are served", async () =
   assert.match(html, /viewport-fit=cover/);
 });
 
+test("search route rejects an empty query", async () => {
+  const response = await fetch(`${baseUrl}/api/search`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ query: "", provider: "all", keys: {} }),
+  });
+  assert.equal(response.status, 400);
+  assert.deepEqual(await response.json(), { error: "Enter a search query." });
+});
+
 test("chat route rejects non-JSON requests", async () => {
   const response = await fetch(`${baseUrl}/api/chat`, {
     method: "POST",

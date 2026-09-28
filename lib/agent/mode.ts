@@ -1,10 +1,10 @@
-export type AgentMode = "chat" | "agent";
+export type AgentMode = "chat" | "agent" | "search";
 
 const STORAGE_KEY = "susan_agent_mode_v1";
 const MODE_UPDATED_EVENT = "agent-mode-updated";
 
 export function isAgentMode(value: unknown): value is AgentMode {
-  return value === "chat" || value === "agent";
+  return value === "chat" || value === "agent" || value === "search";
 }
 
 export function getAgentMode(): AgentMode {

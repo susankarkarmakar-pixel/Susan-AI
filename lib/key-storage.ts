@@ -18,6 +18,10 @@ export interface ApiKeys {
   cloudflare?: string;
   cloudflareAccountId?: string;
   sambanova?: string;
+  googleSearch?: string;
+  googleSearchCx?: string;
+  bingSearch?: string;
+  braveSearch?: string;
 }
 
 const STORAGE_KEY = "susan_api_keys_v1";

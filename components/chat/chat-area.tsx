@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Bot, Menu, MessageSquare, PanelRightOpen, Settings, Sparkles } from "lucide-react";
+import { Bot, Globe2, Menu, MessageSquare, PanelRightOpen, Settings, Sparkles } from "lucide-react";
 import { ModelOption } from "@/components/sidebar/model-selector";
 import { AgentMode } from "@/lib/agent/mode";
 import { AgentAttachment, AgentTask, ExecutionEvent } from "@/lib/agent/types";
@@ -20,6 +20,7 @@ import { getCustomProviders } from "@/lib/custom-providers";
 import { getChatErrorAction } from "@/lib/chat-error-actions.mjs";
 import type { AssistantProfile } from "@/lib/app-settings";
 import type { WorkspaceProject } from "@/lib/workspace-storage";
+import { SearchWorkspace } from "@/components/search/search-workspace";
 
 interface ChatAreaProps {
   mode: AgentMode;
@@ -99,6 +100,7 @@ export function ChatArea({ mode, onModeChange, activeAgentTask, agentExecution, 
         <div className="flex items-center gap-2">
           <div role="group" aria-label="Workspace mode" className="flex shrink-0 items-center rounded-full border border-border-main/60 bg-surface p-1 shadow-sm">
             <ModeButton mode="chat" activeMode={mode} onSelect={(nextMode) => { setIsAgentPanelOpen(false); onModeChange(nextMode); }} icon={<MessageSquare className="h-3.5 w-3.5" />} label="Chat" />
+            <ModeButton mode="search" activeMode={mode} onSelect={(nextMode) => { setIsAgentPanelOpen(false); onModeChange(nextMode); }} icon={<Globe2 className="h-3.5 w-3.5" />} label="Search" />
             <ModeButton mode="agent" activeMode={mode} onSelect={onModeChange} icon={<Bot className="h-3.5 w-3.5" />} label="Agent" />
           </div>
           {mode === "agent" && <button type="button" aria-label="Open agent details" aria-expanded={isAgentPanelOpen} onClick={() => setIsAgentPanelOpen(true)} className="rounded-full border border-border-main/60 bg-surface p-2.5 text-text-muted shadow-sm hover:text-text-main xl:hidden"><PanelRightOpen className="h-4 w-4" /></button>}
@@ -107,6 +109,7 @@ export function ChatArea({ mode, onModeChange, activeAgentTask, agentExecution, 
       </header>
 
       <div className="flex min-h-0 flex-1">
+        {mode === "search" ? <SearchWorkspace /> : <>
         <main className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
           {toastError && <div role="alert" className="absolute left-1/2 top-4 z-30 -translate-x-1/2 rounded-lg bg-red-500/90 px-4 py-2 text-sm font-medium text-white shadow-lg backdrop-blur-sm">{toastError}</div>}
           {error && !toastError && <ErrorRecovery error={error} onRetry={() => onRetry()} onOpenSettings={() => document.dispatchEvent(new CustomEvent("open-settings"))} onOpenModels={onOpenSidebar} />}
@@ -119,6 +122,7 @@ export function ChatArea({ mode, onModeChange, activeAgentTask, agentExecution, 
           {mode === "chat" && <MessageInput key={selectedModel} input={input} onInputChange={onInputChange} onSubmit={handleSubmit} isLoading={isLoading} stop={stop} canAttachFiles={canAttachFiles} attachmentSupportMessage={attachmentSupportMessage} modelName={modelName} assistantProfile={assistantProfile} onAssistantProfileChange={onAssistantProfileChange} projects={projects} selectedProjectId={selectedProjectId} onSelectedProjectChange={onSelectedProjectChange} isEditingMessage={isEditingMessage} onCancelEdit={onCancelEdit} estimatedTokens={estimatedTokens} />}
         </main>
         {mode === "agent" && <AgentSidePanel activeTask={activeAgentTask} execution={agentExecution} events={executionEvents} onRollback={onRollbackAgentTask} mobileOpen={isAgentPanelOpen} onClose={() => setIsAgentPanelOpen(false)} />}
+        </>}
       </div>
     </div>
   );

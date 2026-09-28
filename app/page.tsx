@@ -117,11 +117,20 @@ export default function Home() {
 
   useEffect(() => {
     const handleOpenSettings = () => { setSettingsTab("keys"); setIsSettingsOpen(true); };
+    const handleOpenSearch = () => setMode("search");
+    const handleOpenChat = () => setMode("chat");
+    const handleOpenAgent = () => setMode("agent");
     document.addEventListener("open-settings", handleOpenSettings);
+    document.addEventListener("open-search", handleOpenSearch);
+    document.addEventListener("open-chat", handleOpenChat);
+    document.addEventListener("open-agent", handleOpenAgent);
     return () => {
       document.removeEventListener("open-settings", handleOpenSettings);
+      document.removeEventListener("open-search", handleOpenSearch);
+      document.removeEventListener("open-chat", handleOpenChat);
+      document.removeEventListener("open-agent", handleOpenAgent);
     };
-  }, []);
+  }, [setMode]);
 
   const handleLoadConversation = (id: string) => {
     const conversation = loadSavedConversation(id);
@@ -395,7 +404,7 @@ export default function Home() {
           onModeChange={(nextMode) => {
             if (nextMode === "chat") ensureInstantChatModel();
             setMode(nextMode);
-            setActiveSection(nextMode);
+            setActiveSection(nextMode === "search" ? "home" : nextMode);
           }}
           activeAgentTask={activeAgentTask}
           agentExecution={agentExecution}
