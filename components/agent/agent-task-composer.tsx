@@ -9,7 +9,7 @@ import { DataPreviewTable } from "@/components/agent/data-preview-table";
 interface AgentTaskComposerProps {
   activeTask: AgentTask | null;
   execution: { message: string; output?: string; table?: CsvTableSummary; sheetTables?: SheetTableSummary[]; error?: { code: string; recoveryHint: string; retryable: boolean }; ok: boolean } | null;
-  onCreateTask: (goal: string, attachments: AgentAttachment[]) => void | Promise<void>;
+  onCreateTask: (goal: string, attachments: AgentAttachment[]) => AgentTask | void | Promise<AgentTask | void>;
   onRunTask: () => void | Promise<void>;
   onRollbackTask: () => void;
   onPauseTask: () => void;

@@ -214,6 +214,10 @@ export default function Home() {
       createExecutionEvent(task.id, "task-created", "Task created"),
       createExecutionEvent(task.id, "plan-created", `Plan created with ${task.steps.length} steps`),
     ]);
+    // Start safe, read-only steps immediately. The executor will stop at an
+    // approval-gated step instead of performing protected work automatically.
+    void handleRunAgentTask(task);
+    return task;
   };
   const ensureInstantChatModel = () => {
     if (selectedModel !== "jules") return;

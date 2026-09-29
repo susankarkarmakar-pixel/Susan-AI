@@ -1,9 +1,9 @@
 "use client";
 import { BarChart3, FileText, Paperclip, Plus, Send, Search, Sparkles, X } from "lucide-react";
 import { useRef, useState } from "react";
-import { AgentAttachment } from "@/lib/agent/types";
+import { AgentAttachment, AgentTask } from "@/lib/agent/types";
 
-interface AgentBottomComposerProps { onCreateTask: (goal: string, attachments: AgentAttachment[]) => void | Promise<void>; activeTask: boolean; }
+interface AgentBottomComposerProps { onCreateTask: (goal: string, attachments: AgentAttachment[]) => AgentTask | void | Promise<AgentTask | void>; activeTask: boolean; }
 const ACCEPTED = /\.(txt|md|csv|json|pdf|docx|xlsx)$/i;
 const MAX_FILE_SIZE = 4 * 1024 * 1024;
 const QUICK_ACTIONS = [

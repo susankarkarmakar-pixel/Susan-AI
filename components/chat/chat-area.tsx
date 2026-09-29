@@ -28,7 +28,7 @@ interface ChatAreaProps {
   activeAgentTask: AgentTask | null;
   agentExecution: Pick<AgentExecutionOutcome, "message" | "output" | "table" | "sheetTables" | "error" | "ok"> | null;
   executionEvents: ExecutionEvent[];
-  onCreateAgentTask: (goal: string, attachments: AgentAttachment[]) => void | Promise<void>;
+  onCreateAgentTask: (goal: string, attachments: AgentAttachment[]) => AgentTask | void | Promise<AgentTask | void>;
   onRunAgentTask: () => void | Promise<void>;
   onApproveAgentStep: () => void;
   onRejectAgentStep: () => void;

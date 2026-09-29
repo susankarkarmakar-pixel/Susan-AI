@@ -16,3 +16,10 @@ test("Agent task composer exposes run control for tool and non-tool pending step
   assert.match(composer, /activeTask\.steps\.some\(\(step\) => step\.status === "pending"\)/);
   assert.match(composer, /Run next step/);
 });
+
+test("new Agent tasks automatically start safe execution", async () => {
+  const page = await read("app/page.tsx");
+  assert.match(page, /const handleCreateAgentTask =/);
+  assert.match(page, /void handleRunAgentTask\(task\)/);
+  assert.match(page, /approval-gated step/);
+});
