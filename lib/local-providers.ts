@@ -8,6 +8,21 @@ export interface LocalProviderPreset {
   description: string;
 }
 
+export interface LocalModelDownload {
+  label: string;
+  size: string;
+  ollamaModel: string;
+  lmStudioModel: string;
+  ollamaUrl: string;
+  lmStudioUrl: string;
+}
+
+export const QWEN_LOCAL_MODELS: LocalModelDownload[] = [
+  { label: "Qwen3 4B", size: "~2.5 GB", ollamaModel: "qwen3:4b", lmStudioModel: "qwen/qwen3-4b-2507", ollamaUrl: "https://ollama.com/library/qwen3:4b", lmStudioUrl: "https://lmstudio.ai/models/qwen/qwen3-4b-2507" },
+  { label: "Qwen3 8B", size: "~5.2 GB", ollamaModel: "qwen3:8b", lmStudioModel: "qwen/qwen3-8b-2507", ollamaUrl: "https://ollama.com/library/qwen3:8b", lmStudioUrl: "https://lmstudio.ai/models/qwen3" },
+  { label: "Qwen3 30B MoE", size: "~19 GB", ollamaModel: "qwen3:30b", lmStudioModel: "qwen/qwen3-30b-a3b-2507", ollamaUrl: "https://ollama.com/library/qwen3:30b", lmStudioUrl: "https://lmstudio.ai/models/qwen/qwen3-30b-a3b-2507" },
+];
+
 export const LOCAL_PROVIDER_PRESETS: LocalProviderPreset[] = [
   {
     kind: "ollama",
