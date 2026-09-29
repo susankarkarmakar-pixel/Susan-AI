@@ -24,9 +24,9 @@ export function AccountButton() {
     return () => { active = false; };
   }, []);
 
-  // OAuth must leave the SPA and follow Google's redirect chain.
+  // The branded sign-in page owns the provider selection and OAuth redirect.
   // eslint-disable-next-line @next/next/no-location-assign-relative-destination
-  const signIn = () => { window.location.href = "/api/auth/google"; };
+  const signIn = () => { window.location.href = "/sign-in"; };
   const signOut = async () => { await fetch("/api/auth/logout", { method: "POST" }); setUser(null); setOpen(false); };
 
   if (!user) return <div className="relative">
