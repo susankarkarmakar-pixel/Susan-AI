@@ -21,6 +21,7 @@ import { getChatErrorAction } from "@/lib/chat-error-actions.mjs";
 import type { AssistantProfile } from "@/lib/app-settings";
 import type { WorkspaceProject } from "@/lib/workspace-storage";
 import { SearchWorkspace } from "@/components/search/search-workspace";
+import { AccountButton } from "@/components/auth/account-button";
 
 interface ChatAreaProps {
   mode: AgentMode;
@@ -107,6 +108,7 @@ export function ChatArea({ mode, onModeChange, activeAgentTask, agentExecution, 
           </div>
           {mode === "agent" && <button type="button" aria-label="Open agent details" aria-expanded={isAgentPanelOpen} onClick={() => setIsAgentPanelOpen(true)} className="rounded-full border border-border-main/60 bg-surface p-2.5 text-text-muted shadow-sm hover:text-text-main xl:hidden"><PanelRightOpen className="h-4 w-4" /></button>}
           <button type="button" onClick={() => document.dispatchEvent(new CustomEvent("open-settings"))} aria-label="Open settings" className="rounded-full border border-border-main/60 bg-surface p-2.5 text-text-muted shadow-sm hover:text-text-main"><Settings className="h-4 w-4" /></button>
+          <AccountButton />
         </div>
       </header>
 
