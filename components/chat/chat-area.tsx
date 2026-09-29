@@ -74,7 +74,8 @@ export function ChatArea({ mode, onModeChange, activeAgentTask, agentExecution, 
   const attachmentSupportMessage = `${modelName} does not support file attachments. Choose a vision/file-capable model such as Claude, Gemini, or OpenAI.`;
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>, files: File[]) => {
-    if (!getApiKey(selectedModel)) {
+    const localProviderReady = customProvider?.requiresApiKey === false;
+    if (!getApiKey(selectedModel) && !localProviderReady) {
       event.preventDefault();
       setToastError(`Please add your ${modelName} API key in Settings first.`);
       window.setTimeout(() => setToastError(null), 5000);

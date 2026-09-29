@@ -101,7 +101,7 @@ export function ModelSelector({ selected, onSelect, collapsed = false }: ModelSe
           {!collapsed && <span className="truncate font-medium">{selectedModel.name}</span>}
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          {!collapsed && <div className={cn("w-1.5 h-1.5 rounded-full", getApiKey(selectedModel.id, keys) ? "bg-green-500" : "bg-red-400")} />}
+          {!collapsed && <div className={cn("w-1.5 h-1.5 rounded-full", getApiKey(selectedModel.id, keys) || customProviders.some((provider) => provider.id === selectedModel.id && provider.requiresApiKey === false) ? "bg-green-500" : "bg-red-400")} />}
           <ChevronDown className={cn("w-4 h-4 transition-transform", collapsed ? "text-cream-highlight" : "text-text-muted", isOpen && "rotate-180")} />
         </div>
       </button>
@@ -115,7 +115,7 @@ export function ModelSelector({ selected, onSelect, collapsed = false }: ModelSe
           <div role="listbox" aria-label="Available AI models" className="absolute z-20 mt-1.5 w-[min(300px,calc(100vw-2rem))] min-w-full overflow-hidden rounded-xl border border-border-main bg-white py-1 text-text-main shadow-lg">
             {availableModels.map((model) => {
               const ModelIcon = model.icon;
-              const hasKey = !!getApiKey(model.id, keys);
+              const hasKey = !!getApiKey(model.id, keys) || customProviders.some((provider) => provider.id === model.id && provider.requiresApiKey === false);
               const modelIndex = availableModels.findIndex((candidate) => candidate.id === model.id);
               return (
                 <button

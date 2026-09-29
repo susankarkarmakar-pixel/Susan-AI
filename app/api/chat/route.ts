@@ -27,8 +27,10 @@ export async function POST(req: Request) {
     const { messages, provider, apiKey, language, customProvider, cloudflareAccountId, temperature, maxOutputTokens, systemPrompt, researchContext } = body as { messages?: unknown; provider?: unknown; apiKey?: unknown; language?: unknown; customProvider?: unknown; cloudflareAccountId?: unknown; temperature?: unknown; maxOutputTokens?: unknown; systemPrompt?: unknown; researchContext?: unknown };
     requestedProvider = typeof provider === "string" ? provider : "";
     const isCustom = typeof provider === "string" && provider.startsWith("custom_");
+    const isLocalCustom = isCustom && isLocalCustomProvider(customProvider);
     if (typeof provider !== "string" || (!isInstantChatProvider(provider) && !isCustom)) return jsonError("This provider is not available for instant chat.", 400);
-    if (typeof apiKey !== "string" || apiKey.trim().length < 8 || apiKey.length > 500) return jsonError("A valid API key is required.", 400);
+    if ((!isLocalCustom && (typeof apiKey !== "string" || apiKey.trim().length < 8 || apiKey.length > 500)) || (isLocalCustom && apiKey !== "local")) return jsonError(isLocalCustom ? "Local provider authentication marker is invalid." : "A valid API key is required.", 400);
+    const normalizedApiKey = isLocalCustom ? "local" : (apiKey as string).trim();
     if (provider === "cloudflare" && (typeof cloudflareAccountId !== "string" || !/^[a-f0-9]{32}$/i.test(cloudflareAccountId.trim()))) return jsonError("A valid 32-character Cloudflare Account ID is required. Add it in Settings.", 400);
     const generation = normalizeGenerationOptions({ temperature, maxOutputTokens });
     const normalizedPrompt = normalizeSystemPrompt(systemPrompt);
@@ -54,9 +56,9 @@ export async function POST(req: Request) {
     let model: ReturnType<typeof getModelConfig>;
     if (isCustom) {
       if (!isValidCustomProvider(customProvider, provider)) return jsonError("Custom provider configuration is invalid.", 400);
-      model = getCustomModelConfig(customProvider, apiKey.trim());
+      model = getCustomModelConfig(customProvider, normalizedApiKey);
     } else {
-      model = getModelConfig(provider as ModelProvider, apiKey.trim(), { cloudflareAccountId: typeof cloudflareAccountId === "string" ? cloudflareAccountId : undefined });
+      model = getModelConfig(provider as ModelProvider, normalizedApiKey, { cloudflareAccountId: typeof cloudflareAccountId === "string" ? cloudflareAccountId : undefined });
     }
     const result = streamText({ model, messages: systemInstructions.length ? [...systemInstructions.map((content) => ({ role: "system" as const, content })), ...modelMessages] : modelMessages, ...generation });
     const anyResult = result as unknown as { toUIMessageStreamResponse?: (options?: { onError?: (error: unknown) => string }) => Response; toDataStreamResponse?: () => Response; toTextStreamResponse?: () => Response };
@@ -102,6 +104,10 @@ function isValidCustomProvider(value: unknown, expectedId: string): value is Cus
   if (!value || typeof value !== "object") return false;
   const provider = value as Partial<CustomProvider>;
   return provider.id === expectedId && typeof provider.name === "string" && provider.name.length <= 100 && typeof provider.model === "string" && provider.model.length > 0 && provider.model.length <= 200 && typeof provider.baseUrl === "string" && isAllowedBaseUrl(provider.baseUrl);
+}
+
+function isLocalCustomProvider(value: unknown): value is CustomProvider {
+  return Boolean(value && typeof value === "object" && (value as Partial<CustomProvider>).local === true && (value as Partial<CustomProvider>).requiresApiKey === false);
 }
 
 function jsonError(error: string, status: number, headers: Record<string, string> = {}) {

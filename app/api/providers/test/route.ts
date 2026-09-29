@@ -24,12 +24,13 @@ export async function POST(request: Request) {
     const provider = typeof input.provider === "string" ? input.provider : "";
     selectedProvider = provider;
     const apiKey = typeof input.apiKey === "string" ? input.apiKey.trim() : "";
-    if (apiKey.length < 8 || apiKey.length > 500) return jsonError("A valid provider API key is required.", 400);
+    const isCustom = provider.startsWith("custom_");
+    const isLocal = isCustom && isLocalCustomProvider(input.customProvider);
+    if ((!isLocal && (apiKey.length < 8 || apiKey.length > 500)) || (isLocal && apiKey !== "local")) return jsonError(isLocal ? "Local provider authentication marker is invalid." : "A valid provider API key is required.", 400);
     const cloudflareAccountId = typeof input.cloudflareAccountId === "string" ? input.cloudflareAccountId.trim() : "";
     if (provider === "cloudflare" && !/^[a-f0-9]{32}$/i.test(cloudflareAccountId)) return jsonError("A valid 32-character Cloudflare Account ID is required. Add it in Settings.", 400);
     if (!(await enforceRateLimit(getClientIdentifier(request)))) return jsonError("Too many provider tests. Please wait and try again.", 429, { "Retry-After": String(RATE_LIMIT_RETRY_AFTER_SECONDS) });
 
-    const isCustom = provider.startsWith("custom_");
     let model;
     if (isCustom) {
       if (!isValidCustomProvider(input.customProvider, provider)) return jsonError("Custom provider configuration is invalid.", 400);
@@ -60,6 +61,10 @@ function isValidCustomProvider(value: unknown, expectedId: string): value is Cus
   if (!value || typeof value !== "object") return false;
   const provider = value as Partial<CustomProvider>;
   return provider.id === expectedId && typeof provider.name === "string" && provider.name.length <= 100 && typeof provider.model === "string" && provider.model.length > 0 && provider.model.length <= 200 && typeof provider.baseUrl === "string" && isAllowedBaseUrl(provider.baseUrl);
+}
+
+function isLocalCustomProvider(value: unknown): value is CustomProvider {
+  return Boolean(value && typeof value === "object" && (value as Partial<CustomProvider>).local === true && (value as Partial<CustomProvider>).requiresApiKey === false);
 }
 
 function jsonError(error: string, status: number, headers: Record<string, string> = {}) {

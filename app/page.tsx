@@ -68,7 +68,8 @@ export default function Home() {
     // Prefer Gemini by default, then fall back to the first provider whose key
     // is actually configured. This also fixes the common BYOK flow where a
     // newly saved key should immediately become the active model.
-    if (getApiKey(selectedModel, keys)) return;
+    const selectedCustomProvider = getCustomProviders().find((provider) => provider.id === selectedModel);
+    if (getApiKey(selectedModel, keys) || selectedCustomProvider?.requiresApiKey === false) return;
     const preferred = getApiKey("google", keys)
       ? "google"
       : ["openai", "anthropic", "deepseek", "qwen", "kimi", "sarvam", "openrouter", "huggingface", "groq", "cerebras", "mistral", "nvidia", "cloudflare", "sambanova", "jules"].find((provider) => getApiKey(provider, keys));
@@ -82,11 +83,13 @@ export default function Home() {
 
   const transport = useMemo(() => new DefaultChatTransport({
     api: "/api/chat",
-    body: () => ({
+    body: () => {
+      const customProvider = typeof window !== "undefined" ? getCustomProviders().find((provider) => provider.id === selectedModel) || null : null;
+      return {
       provider: selectedModel,
-      apiKey: keys[selectedModel] || "",
+      apiKey: keys[selectedModel] || (customProvider?.requiresApiKey === false ? "local" : ""),
       cloudflareAccountId: keys.cloudflareAccountId || "",
-      customProvider: typeof window !== "undefined" ? getCustomProviders().find((provider) => provider.id === selectedModel) || null : null,
+      customProvider,
       keyVersion,
       language: settings.language,
       streaming: settings.streaming,
@@ -94,7 +97,8 @@ export default function Home() {
       maxOutputTokens: settings.maxOutputTokens,
       systemPrompt: [settings.systemPrompts[settings.assistantProfile], settings.projectInstructions[selectedProjectId] || ""].filter(Boolean).join("\n\n"),
       researchContext,
-    }),
+      };
+    },
   }), [selectedModel, keyVersion, keys, researchContext, settings.language, settings.streaming, settings.temperature, settings.maxOutputTokens, settings.assistantProfile, settings.systemPrompts, settings.projectInstructions, selectedProjectId]);
 
   const useChatProps = useChat({ transport });

@@ -133,7 +133,8 @@ function PluginsWorkspace({ onOpenSettings, onStartAgent, onOpenSection, onOpenS
   }, [tools]);
 
   const testProvider = async (providerId: string, label: string, asyncProvider = false, customProvider?: ReturnType<typeof getCustomProviders>[number]) => {
-    const apiKey = keys[providerId]?.trim();
+    const isLocal = customProvider?.requiresApiKey === false;
+    const apiKey = keys[providerId]?.trim() || (isLocal ? "local" : "");
     if (!apiKey || testingIds.includes(providerId)) return;
     setTestingIds((current) => [...current, providerId]);
     setTestStates((current) => ({ ...current, [providerId]: { state: "testing", message: "Checking connection…" } }));
@@ -161,14 +162,14 @@ function PluginsWorkspace({ onOpenSettings, onStartAgent, onOpenSection, onOpenS
 
   const providers = [
     ...PROVIDERS.filter((provider) => provider !== "manus").map((provider) => ({ id: provider, label: MODELS_METADATA[provider].name, description: MODELS_METADATA[provider].description, async: provider === "jules", model: MODELS_METADATA[provider].model })),
-    ...customProviders.map((provider) => ({ id: provider.id, label: provider.name, description: `Custom endpoint · ${provider.model}`, async: false, model: provider.model, customProvider: provider })),
+    ...customProviders.map((provider) => ({ id: provider.id, label: provider.name, description: `${provider.local ? "Local endpoint" : "Custom endpoint"} · ${provider.model}`, async: false, model: provider.model, customProvider: provider })),
     { id: "manus", label: MODELS_METADATA.manus.name, description: "Asynchronous tasks; connection testing is not supported here.", async: false, model: MODELS_METADATA.manus.model, unsupported: true },
   ];
 
   return <WorkspaceFrame onOpenSidebar={onOpenSidebar} icon={Plug} eyebrow="Connections & tools" title="Plugins" description="Manage AI provider connections and the local tools Agent Mode may use. Third-party plugin installation is not enabled in this version.">
     <section className="mb-7">
       <div className="mb-3 flex flex-wrap items-end justify-between gap-3"><div><h2 className="font-semibold text-text-main">AI providers</h2><p className="mt-1 text-xs leading-5 text-text-muted">Saved-key status is separate from a verified connection. Testing sends a tiny request that may use provider quota or incur a small charge.</p></div><button type="button" onClick={onOpenSettings} className={secondaryButton}><Plug className="h-3.5 w-3.5" />Manage keys</button></div>
-      <div className="grid gap-3 lg:grid-cols-2">{providers.map((provider) => <ProviderCard key={provider.id} provider={provider} keySaved={Boolean(keys[provider.id]?.trim() && (provider.id !== "cloudflare" || keys.cloudflareAccountId?.trim()))} test={testStates[provider.id]} testing={testingIds.includes(provider.id)} onTest={() => void testProvider(provider.id, provider.label, provider.async, "customProvider" in provider ? provider.customProvider : undefined)} onManage={onOpenSettings} />)}</div>
+      <div className="grid gap-3 lg:grid-cols-2">{providers.map((provider) => <ProviderCard key={provider.id} provider={provider} keySaved={Boolean(("customProvider" in provider && provider.customProvider?.requiresApiKey === false) || (keys[provider.id]?.trim() && (provider.id !== "cloudflare" || keys.cloudflareAccountId?.trim())))} test={testStates[provider.id]} testing={testingIds.includes(provider.id)} onTest={() => void testProvider(provider.id, provider.label, provider.async, "customProvider" in provider ? provider.customProvider : undefined)} onManage={onOpenSettings} />)}</div>
     </section>
     <section className="mb-7">
       <div className="mb-3"><h2 className="font-semibold text-text-main">Built-in agent tools</h2><p className="mt-1 text-xs leading-5 text-text-muted">Turn tools on or off for Agent Mode. Current tools are read-only and do not change files or external accounts.</p></div>

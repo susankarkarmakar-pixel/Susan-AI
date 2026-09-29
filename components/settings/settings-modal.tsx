@@ -8,6 +8,7 @@ import { saveKeys, getKeys, clearKeys, forgetThisDevice, getKeyStorageMode, getK
 import { FREE_TIER_DIRECTORY, INSTANT_CHAT_PROVIDERS, MODELS_METADATA } from "@/lib/ai-providers";
 import { AppSettings, getAppSettings, resetAppSettings, updateAppSettings } from "@/lib/app-settings";
 import { addCustomProvider, CustomProvider, getCustomProviders, isAllowedBaseUrl, removeCustomProvider } from "@/lib/custom-providers";
+import { discoverLocalModels, LOCAL_PROVIDER_PRESETS, LocalProviderPreset } from "@/lib/local-providers";
 import { getProjects, WorkspaceProject } from "@/lib/workspace-storage";
 
 interface SettingsModalProps {
@@ -41,6 +42,8 @@ export function SettingsModal({ isOpen, onClose, initialTab = "general" }: Setti
   const [customModel, setCustomModel] = useState("");
   const [customBaseUrl, setCustomBaseUrl] = useState("");
   const [customError, setCustomError] = useState<string | null>(null);
+  const [localProviderState, setLocalProviderState] = useState<Record<string, "idle" | "detecting">>({});
+  const [localProviderError, setLocalProviderError] = useState<string | null>(null);
   const [connectionTests, setConnectionTests] = useState<Record<string, ApiKeyConnectionTest>>({});
   const [temperature, setTemperature] = useState(0.7);
   const [maxOutputTokens, setMaxOutputTokens] = useState(2048);
@@ -164,6 +167,25 @@ export function SettingsModal({ isOpen, onClose, initialTab = "general" }: Setti
     setCustomName(""); setCustomModel(""); setCustomBaseUrl(""); setCustomError(null);
   };
 
+  const handleAddLocalProvider = async (preset: LocalProviderPreset) => {
+    setLocalProviderError(null);
+    setLocalProviderState((current) => ({ ...current, [preset.kind]: "detecting" }));
+    try {
+      const models = await discoverLocalModels(preset);
+      if (models.length === 0) throw new Error(`${preset.name} is reachable, but no models were found. Pull or load a model first.`);
+      const existing = customProviders.filter((provider) => provider.localKind === preset.kind).map((provider) => provider.model);
+      const added = models.filter((model) => !existing.includes(model));
+      if (added.length === 0) throw new Error("All detected local models are already added.");
+      const provider = addCustomProvider({ name: `${preset.name} · ${added[0]}`, model: added[0], baseUrl: preset.baseUrl, local: true, requiresApiKey: false, localKind: preset.kind });
+      setCustomProviders((current) => [...current, provider]);
+      setLocalProviderError(models.length > 1 ? `Added ${added[0]}. ${models.length - 1} more model${models.length - 1 === 1 ? "" : "s"} detected; add them with Custom Provider if needed.` : null);
+    } catch (error) {
+      setLocalProviderError(error instanceof Error ? error.message : `Could not connect to ${preset.name}.`);
+    } finally {
+      setLocalProviderState((current) => ({ ...current, [preset.kind]: "idle" }));
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-[max(0.5rem,env(safe-area-inset-top))] sm:p-4">
       {/* Backdrop */}
@@ -231,6 +253,16 @@ export function SettingsModal({ isOpen, onClose, initialTab = "general" }: Setti
             ))}
           </div>
           <p className="mt-2 text-[11px] text-text-muted">“Free-tier” means the provider may offer free quota; it is not a guarantee of unlimited or permanent free access.</p>
+        </div>
+
+        <div className="mb-5 rounded-xl border border-violet-500/20 bg-violet-50/60 p-3">
+          <h3 className="text-sm font-semibold text-text-main">Local AI servers</h3>
+          <p className="mt-1 text-xs leading-relaxed text-text-muted">Use models already installed on this computer. No API key or cloud upload is required. Start the local server first, then detect its models.</p>
+          <div className="mt-3 grid gap-2 md:grid-cols-2">
+            {LOCAL_PROVIDER_PRESETS.map((preset) => <div key={preset.kind} className="rounded-lg border border-violet-200 bg-white/60 p-3"><p className="text-xs font-semibold text-text-main">{preset.name}</p><p className="mt-1 text-[11px] leading-5 text-text-muted">{preset.description}</p><p className="mt-1 break-all font-mono text-[10px] text-violet-700">{preset.baseUrl}</p><button type="button" onClick={() => void handleAddLocalProvider(preset)} disabled={localProviderState[preset.kind] === "detecting"} className="mt-2 rounded-lg bg-violet-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-violet-800 disabled:cursor-wait disabled:opacity-50">{localProviderState[preset.kind] === "detecting" ? "Detecting…" : "Detect & add model"}</button></div>)}
+          </div>
+          {localProviderError && <p role="alert" className="mt-2 text-xs font-medium text-amber-800">{localProviderError}</p>}
+          <p className="mt-2 text-[11px] text-text-muted">Hosted Susan AI cannot access your computer’s localhost. Use the desktop app or a secure LAN/HTTPS endpoint for local models.</p>
         </div>
 
         <div className="mb-5 rounded-xl border border-border-main/60 bg-black/[0.02] p-3">
@@ -366,7 +398,7 @@ export function SettingsModal({ isOpen, onClose, initialTab = "general" }: Setti
             <p className="mt-1.5 text-xs leading-5 text-text-muted">Find this in your Cloudflare dashboard. Both the token and account ID stay in browser-local key storage.</p>
           </div>
           <ApiKeyInput label="SambaNova SambaCloud API Key" provider="sambanova" placeholder="SambaNova API key" helpUrl="https://cloud.sambanova.ai/apis" helpText="The free tier applies when no payment method is linked. DeepSeek V3.1 currently allows 20 requests/day and 200,000 tokens/day." value={keys.sambanova || ""} onChange={(val) => handleKeyChange("sambanova", val)} isSaved={!!savedKeys.sambanova} />
-          {customProviders.map((provider) => <ApiKeyInput key={provider.id} label={`${provider.name} API Key`} provider={provider.id} placeholder="Provider API key" helpUrl={provider.baseUrl} value={keys[provider.id] || ""} onChange={(val) => handleKeyChange(provider.id, val)} isSaved={!!savedKeys[provider.id]} />)}
+          {customProviders.filter((provider) => provider.requiresApiKey !== false).map((provider) => <ApiKeyInput key={provider.id} label={`${provider.name} API Key`} provider={provider.id} placeholder="Provider API key" helpUrl={provider.baseUrl} value={keys[provider.id] || ""} onChange={(val) => handleKeyChange(provider.id, val)} isSaved={!!savedKeys[provider.id]} />)}
         </div>
 
         {/* Footer */}

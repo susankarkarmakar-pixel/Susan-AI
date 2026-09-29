@@ -72,6 +72,17 @@ Open [http://localhost:3000](http://localhost:3000), open **Settings**, add a pr
 
 Open **Settings → API Keys → Add a custom provider** and enter a provider name, exact model identifier, OpenAI-compatible `/v1` base URL, and the provider API key. Custom definitions and keys remain local to the current browser/device. Hosted deployments require HTTPS endpoints; HTTP is intentionally limited to localhost addresses.
 
+## Local AI: Ollama and LM Studio
+
+Susan AI can discover and use models already installed on the same computer:
+
+1. Start the **Ollama** server (`ollama serve`, normally `http://localhost:11434`) or the **LM Studio** local server (normally `http://localhost:1234`).
+2. Open **Settings → API Keys → Local AI servers**.
+3. Click **Detect & add model** for Ollama or LM Studio. Susan AI reads only the local model list and adds the first detected model as a no-key provider.
+4. Select the added model from the model selector and chat normally.
+
+Local requests use OpenAI-compatible `/v1` endpoints and do not send an API key. Ollama models are discovered through `/api/tags`; LM Studio models are discovered through `/v1/models`. A hosted Susan AI deployment cannot reach a user's `localhost`, so local discovery and chat require the desktop/local browser environment, or a user-managed secure HTTPS/LAN endpoint. Do not expose an unauthenticated local model server to the public internet.
+
 ## Gemini troubleshooting
 
 Google/Gemini keys are looked up with compatibility aliases, so a valid saved Google key will not be treated as missing. Select **Google Gemini Flash-Lite**, click **Save Keys**, and then send the message. Typing in the composer alone does not open Settings; Settings is only requested when sending without a recognized key.

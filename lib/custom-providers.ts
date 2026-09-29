@@ -6,6 +6,9 @@ export interface CustomProvider {
   model: string;
   baseUrl: string;
   createdAt: string;
+  local?: boolean;
+  requiresApiKey?: boolean;
+  localKind?: "ollama" | "lm-studio";
 }
 
 const STORAGE_KEY = "susan_custom_providers_v1";
