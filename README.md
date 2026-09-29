@@ -87,6 +87,28 @@ Local requests use OpenAI-compatible `/v1` endpoints and do not send an API key.
 
 Settings includes official Qwen3 download links for practical local sizes. For Ollama, use the official [Qwen3 library](https://ollama.com/library/qwen3) and commands such as `ollama pull qwen3:4b`, `ollama pull qwen3:8b`, or `ollama pull qwen3:30b`. For LM Studio, use the official [Qwen3 catalog](https://lmstudio.ai/models/qwen3), where the 4B, 30B MoE, and larger thinking variants are available. After downloading/loading a model, click **Detect & add model** in Susan AI.
 
+### LM Studio + Qwen setup without Ollama
+
+You do **not** need Ollama for this workflow. LM Studio downloads and runs the Qwen model itself, then exposes it through its local OpenAI-compatible server.
+
+1. **Install LM Studio.** Download the app from the official [LM Studio download page](https://lmstudio.ai/download) for Windows, macOS, or Linux and open it.
+2. **Open the model catalog.** In LM Studio, open the **Discover** tab. Search for `Qwen3`, or paste the official catalog URL: [lmstudio.ai/models/qwen3](https://lmstudio.ai/models/qwen3). You can also search for a specific model ID such as `qwen/qwen3-4b-2507`.
+3. **Choose a model that fits your computer.** Start with `qwen/qwen3-4b-2507` (about 2.3 GB) for a modest machine. Use `qwen/qwen3-30b-a3b-2507` (about 17.4 GB) only when you have enough RAM/VRAM. Thinking variants generally need more memory and may respond more slowly.
+4. **Choose a quantization.** LM Studio may show several `Q` variants. A 4-bit option is a practical starting point; higher-bit options use more memory but can preserve more quality. Prefer a model file marked for your hardware, such as **GGUF** for CPU/GPU llama.cpp backends or **MLX** on supported Apple Silicon workflows.
+5. **Download the model.** Click **Get** or **Download** beside the selected Qwen model and wait for the download to finish. The model is stored in LM Studio's local model directory; no Ollama installation or command is involved.
+6. **Load the model.** Open the **Chat** tab, select the downloaded Qwen model from the model picker, and load it. If LM Studio asks for runtime settings, begin with the default context length and GPU offload settings, then reduce context or GPU layers if memory is insufficient.
+7. **Start the local API server.** Open the **Developer** tab and turn on **Start server**. LM Studio normally serves the OpenAI-compatible API at `http://localhost:1234/v1`. The official server guide is [LM Studio as a Local LLM API Server](https://lmstudio.ai/docs/developer/core/server).
+8. **Connect Susan AI.** In Susan AI open **Settings → API Keys → Local AI servers → LM Studio (Local)**, then click **Detect & add model**. Susan AI reads `http://localhost:1234/v1/models`, adds the detected Qwen model, and marks it ready without an API key.
+9. **Select and test it.** Choose the newly added `LM Studio (Local) · Qwen...` entry from the model selector and send a short prompt. Keep LM Studio open, keep the model loaded, and leave **Start server** enabled while using Susan AI.
+
+#### LM Studio troubleshooting
+
+- **No model detected:** Confirm that the model is downloaded and loaded, the Developer tab says the server is running, and the port is `1234`. Then retry **Detect & add model**.
+- **Connection refused:** Start the server again, or run LM Studio's documented CLI command `lms server start` if the CLI is installed.
+- **Out of memory / very slow:** Use Qwen3 4B, a smaller quantization, a shorter context length, or fewer GPU layers. Close other GPU-heavy applications.
+- **Browser cannot reach localhost:** Use Susan AI from the same computer where LM Studio is running. A hosted Susan AI deployment cannot access your computer's `localhost`; do not expose the server publicly without authentication and a secure network configuration.
+- **Wrong model selected:** In LM Studio's model list copy the exact loaded model identifier, then use **Detect & add model** again after unloading/reloading the intended model.
+
 ## Gemini troubleshooting
 
 Google/Gemini keys are looked up with compatibility aliases, so a valid saved Google key will not be treated as missing. Select **Google Gemini Flash-Lite**, click **Save Keys**, and then send the message. Typing in the composer alone does not open Settings; Settings is only requested when sending without a recognized key.
