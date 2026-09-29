@@ -36,7 +36,7 @@ export async function GET(request: Request) {
 
   try {
     const token = await createSessionToken({ sub: profile.sub, email: profile.email, name: profile.name || profile.email, picture: profile.picture });
-    const response = NextResponse.redirect(`${getAppUrl(request)}/`);
+    const response = NextResponse.redirect(`${getAppUrl(request)}/dashboard`);
     response.headers.append("Set-Cookie", sessionCookie(token, secure));
     response.headers.append("Set-Cookie", clearStateCookie(secure));
     return response;
