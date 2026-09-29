@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Check, ChevronRight, Code2, Database, ExternalLink, FileText, GitBranch, Heart, Info, Laptop, LockKeyhole, Mail, Shield, Sparkles, Star, X, Zap } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import packageJson from "../../package.json";
 
 interface AboutModalProps {
   isOpen: boolean;
@@ -95,6 +96,12 @@ export function AboutModal({ isOpen, onClose }: AboutModalProps) {
 }
 
 function AboutOverview() {
+  const [lastUpdated, setLastUpdated] = useState("September 2026");
+
+  useEffect(() => {
+    setLastUpdated(new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }));
+  }, []);
+
   return <>
     <div className="flex flex-col items-center text-center">
       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -105,7 +112,24 @@ function AboutOverview() {
       {[[Sparkles, "Multi-Provider", "Support"], [FileText, "File Upload", "& Analysis"], [Zap, "Fast &", "Responsive"], [LockKeyhole, "Privacy", "Focused"], [Laptop, "Desktop", "Application"]].map(([Icon, title, sub]) => { const FeatureIcon = Icon as typeof Sparkles; return <div key={title as string} className="text-center"><span className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-cream-highlight text-accent"><FeatureIcon className="h-6 w-6" /></span><span className="block text-xs font-medium text-text-main">{title as string}</span><span className="block text-xs text-text-muted">{sub as string}</span></div>; })}
     </div>
     <div className="mt-8 grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-border-main/50 bg-border-main/50 md:grid-cols-5">
-      {["Version\nv0.1.0 · Latest", "Last Updated\nSeptember 2026", "Author\nSusankar Karmakar", "Company\nSanket Pixel Technologies", "Repository\nSusan-AI on GitHub"].map((item) => { const [label, value] = item.split("\n"); return <div key={label} className="bg-cream-highlight/40 p-4"><span className="block text-xs font-semibold text-text-main">{label}</span><span className="mt-1 block text-xs leading-5 text-text-muted">{value}</span></div>; })}
+      {[
+        { label: "Version", value: `v${packageJson.version} · Latest` },
+        { label: "Last Updated", value: lastUpdated },
+        { label: "Author", value: "Susankar Karmakar" },
+        { label: "Company", value: "Sanket Pixel Technologies", link: "https://github.com/susankarkarmakar-pixel" },
+        { label: "Repository", value: "Susan-AI on GitHub", link: "https://github.com/susankarkarmakar-pixel/Susan-AI" }
+      ].map(({ label, value, link }) => (
+        <div key={label} className="bg-cream-highlight/40 p-4">
+          <span className="block text-xs font-semibold text-text-main">{label}</span>
+          {link ? (
+            <a href={link} target="_blank" rel="noopener noreferrer" className="mt-1 block text-xs leading-5 text-accent hover:underline flex items-center gap-1">
+              {value} <ExternalLink className="h-3 w-3" />
+            </a>
+          ) : (
+            <span className="mt-1 block text-xs leading-5 text-text-muted">{value}</span>
+          )}
+        </div>
+      ))}
     </div>
     <div className="mt-8"><h2 id="about-susan-title" className="font-serif text-2xl font-semibold text-text-main">About the Project</h2><p className="mt-3 text-sm leading-7 text-text-muted">Susan AI provides a unified and user-friendly interface for multiple AI providers, with support for text chat, file analysis, rich formatting, conversation management and more. It is designed for personal, educational and professional use, with a focus on simplicity, privacy and extensibility.</p></div>
     <ActionLinks />
