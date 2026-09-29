@@ -176,9 +176,9 @@ export function SettingsModal({ isOpen, onClose, initialTab = "general" }: Setti
       const existing = customProviders.filter((provider) => provider.localKind === preset.kind).map((provider) => provider.model);
       const added = models.filter((model) => !existing.includes(model));
       if (added.length === 0) throw new Error("All detected local models are already added.");
-      const provider = addCustomProvider({ name: `${preset.name} · ${added[0]}`, model: added[0], baseUrl: preset.baseUrl, local: true, requiresApiKey: false, localKind: preset.kind });
-      setCustomProviders((current) => [...current, provider]);
-      setLocalProviderError(models.length > 1 ? `Added ${added[0]}. ${models.length - 1} more model${models.length - 1 === 1 ? "" : "s"} detected; add them with Custom Provider if needed.` : null);
+      const addedProviders = added.map((model) => addCustomProvider({ name: `${preset.name} · ${model}`, model, baseUrl: preset.baseUrl, local: true, requiresApiKey: false, localKind: preset.kind }));
+      setCustomProviders((current) => [...current, ...addedProviders]);
+      setLocalProviderError(`Added ${addedProviders.length} local model${addedProviders.length === 1 ? "" : "s"}. Select any of them from the model selector to switch instantly.`);
     } catch (error) {
       setLocalProviderError(error instanceof Error ? error.message : `Could not connect to ${preset.name}.`);
     } finally {
@@ -259,7 +259,7 @@ export function SettingsModal({ isOpen, onClose, initialTab = "general" }: Setti
           <h3 className="text-sm font-semibold text-text-main">Local AI servers</h3>
           <p className="mt-1 text-xs leading-relaxed text-text-muted">Use models already installed on this computer. No API key or cloud upload is required. Start the local server first, then detect its models.</p>
           <div className="mt-3 grid gap-2 md:grid-cols-2">
-            {LOCAL_PROVIDER_PRESETS.map((preset) => <div key={preset.kind} className="rounded-lg border border-violet-200 bg-white/60 p-3"><p className="text-xs font-semibold text-text-main">{preset.name}</p><p className="mt-1 text-[11px] leading-5 text-text-muted">{preset.description}</p><p className="mt-1 break-all font-mono text-[10px] text-violet-700">{preset.baseUrl}</p><button type="button" onClick={() => void handleAddLocalProvider(preset)} disabled={localProviderState[preset.kind] === "detecting"} className="mt-2 rounded-lg bg-violet-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-violet-800 disabled:cursor-wait disabled:opacity-50">{localProviderState[preset.kind] === "detecting" ? "Detecting…" : "Detect & add model"}</button></div>)}
+            {LOCAL_PROVIDER_PRESETS.map((preset) => <div key={preset.kind} className="rounded-lg border border-violet-200 bg-white/60 p-3"><p className="text-xs font-semibold text-text-main">{preset.name}</p><p className="mt-1 text-[11px] leading-5 text-text-muted">{preset.description}</p><p className="mt-1 break-all font-mono text-[10px] text-violet-700">{preset.baseUrl}</p><button type="button" onClick={() => void handleAddLocalProvider(preset)} disabled={localProviderState[preset.kind] === "detecting"} className="mt-2 rounded-lg bg-violet-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-violet-800 disabled:cursor-wait disabled:opacity-50">{localProviderState[preset.kind] === "detecting" ? "Detecting…" : "Detect & add all models"}</button></div>)}
           </div>
           <div className="mt-3 rounded-lg border border-violet-200/80 bg-white/70 p-3">
             <div className="flex flex-wrap items-baseline justify-between gap-2"><h4 className="text-xs font-semibold text-text-main">Recommended local Qwen models</h4><a href="https://qwenlm.github.io/blog/qwen3/" target="_blank" rel="noopener noreferrer" className="text-[11px] font-medium text-accent hover:underline">Official Qwen overview <ExternalLink className="inline h-3 w-3" /></a></div>

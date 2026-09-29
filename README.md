@@ -78,14 +78,27 @@ Susan AI can discover and use models already installed on the same computer:
 
 1. Start the **Ollama** server (`ollama serve`, normally `http://localhost:11434`) or the **LM Studio** local server (normally `http://localhost:1234`).
 2. Open **Settings → API Keys → Local AI servers**.
-3. Click **Detect & add model** for Ollama or LM Studio. Susan AI reads only the local model list and adds the first detected model as a no-key provider.
-4. Select the added model from the model selector and chat normally.
+3. Click **Detect & add all models** for Ollama or LM Studio. Susan AI reads only the local model list and adds every new detected model as a separate no-key provider.
+4. Select any added model from the model selector and chat normally. Switch between Qwen, Llama, and other local models without changing the endpoint or entering another key.
 
 Local requests use OpenAI-compatible `/v1` endpoints and do not send an API key. Ollama models are discovered through `/api/tags`; LM Studio models are discovered through `/v1/models`. A hosted Susan AI deployment cannot reach a user's `localhost`, so local discovery and chat require the desktop/local browser environment, or a user-managed secure HTTPS/LAN endpoint. Do not expose an unauthenticated local model server to the public internet.
 
 ### Qwen local downloads
 
-Settings includes official Qwen3 download links for practical local sizes. For Ollama, use the official [Qwen3 library](https://ollama.com/library/qwen3) and commands such as `ollama pull qwen3:4b`, `ollama pull qwen3:8b`, or `ollama pull qwen3:30b`. For LM Studio, use the official [Qwen3 catalog](https://lmstudio.ai/models/qwen3), where the 4B, 30B MoE, and larger thinking variants are available. After downloading/loading a model, click **Detect & add model** in Susan AI.
+Settings includes official Qwen3 download links for practical local sizes. For Ollama, use the official [Qwen3 library](https://ollama.com/library/qwen3) and commands such as `ollama pull qwen3:4b`, `ollama pull qwen3:8b`, or `ollama pull qwen3:30b`. For LM Studio, use the official [Qwen3 catalog](https://lmstudio.ai/models/qwen3), where the 4B, 30B MoE, and larger thinking variants are available. After downloading/loading models, click **Detect & add all models** in Susan AI.
+
+### Switching between multiple local models
+
+Susan AI keeps each detected local model as its own model-selector entry. For example, with Ollama you can install both `qwen3:8b` and `llama3.2:3b`:
+
+```bash
+ollama pull qwen3:8b
+ollama pull llama3.2:3b
+```
+
+With LM Studio, download multiple models from the [Qwen3 catalog](https://lmstudio.ai/models/qwen3), the [LM Studio model catalog](https://lmstudio.ai/models), or a supported Llama model such as [Llama 3.3 70B](https://lmstudio.ai/models/meta/llama-3.3-70b). Load the model(s) you want to expose in LM Studio, keep **Developer → Start server** enabled, and press **Detect & add all models** again. For Ollama, pulled models are listed automatically; for LM Studio, only models currently exposed by its local server are returned.
+
+After import, the selector will show entries such as `Ollama (Local) · qwen3:8b`, `Ollama (Local) · llama3.2:3b`, or the corresponding LM Studio model IDs. Click an entry to switch instantly. All local entries use the same local endpoint, require no API key, and remain separate from cloud provider keys.
 
 ### LM Studio + Qwen setup without Ollama
 
@@ -98,16 +111,16 @@ You do **not** need Ollama for this workflow. LM Studio downloads and runs the Q
 5. **Download the model.** Click **Get** or **Download** beside the selected Qwen model and wait for the download to finish. The model is stored in LM Studio's local model directory; no Ollama installation or command is involved.
 6. **Load the model.** Open the **Chat** tab, select the downloaded Qwen model from the model picker, and load it. If LM Studio asks for runtime settings, begin with the default context length and GPU offload settings, then reduce context or GPU layers if memory is insufficient.
 7. **Start the local API server.** Open the **Developer** tab and turn on **Start server**. LM Studio normally serves the OpenAI-compatible API at `http://localhost:1234/v1`. The official server guide is [LM Studio as a Local LLM API Server](https://lmstudio.ai/docs/developer/core/server).
-8. **Connect Susan AI.** In Susan AI open **Settings → API Keys → Local AI servers → LM Studio (Local)**, then click **Detect & add model**. Susan AI reads `http://localhost:1234/v1/models`, adds the detected Qwen model, and marks it ready without an API key.
-9. **Select and test it.** Choose the newly added `LM Studio (Local) · Qwen...` entry from the model selector and send a short prompt. Keep LM Studio open, keep the model loaded, and leave **Start server** enabled while using Susan AI.
+8. **Connect Susan AI.** In Susan AI open **Settings → API Keys → Local AI servers → LM Studio (Local)**, then click **Detect & add all models**. Susan AI reads `http://localhost:1234/v1/models`, adds every newly exposed model, and marks each ready without an API key.
+9. **Select and test it.** Choose any `LM Studio (Local) · Qwen...` or `LM Studio (Local) · Llama...` entry from the model selector and send a short prompt. Keep LM Studio open, keep the selected model loaded, and leave **Start server** enabled while using Susan AI.
 
 #### LM Studio troubleshooting
 
-- **No model detected:** Confirm that the model is downloaded and loaded, the Developer tab says the server is running, and the port is `1234`. Then retry **Detect & add model**.
+- **No model detected:** Confirm that the model is downloaded and loaded, the Developer tab says the server is running, and the port is `1234`. Then retry **Detect & add all models**. LM Studio exposes only models available to its running server.
 - **Connection refused:** Start the server again, or run LM Studio's documented CLI command `lms server start` if the CLI is installed.
 - **Out of memory / very slow:** Use Qwen3 4B, a smaller quantization, a shorter context length, or fewer GPU layers. Close other GPU-heavy applications.
 - **Browser cannot reach localhost:** Use Susan AI from the same computer where LM Studio is running. A hosted Susan AI deployment cannot access your computer's `localhost`; do not expose the server publicly without authentication and a secure network configuration.
-- **Wrong model selected:** In LM Studio's model list copy the exact loaded model identifier, then use **Detect & add model** again after unloading/reloading the intended model.
+- **Wrong model selected:** In LM Studio's model list copy the exact loaded model identifier, then use **Detect & add all models** again after unloading/reloading the intended model.
 
 ## Gemini troubleshooting
 
