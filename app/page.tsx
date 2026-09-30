@@ -474,8 +474,6 @@ export default function Home() {
           onDeleteMessage={handleDeleteMessage}
           input={input}
           onInputChange={(event) => setInput(event.target.value)}
-          assistantProfile={settings.assistantProfile}
-          onAssistantProfileChange={(assistantProfile) => updateAppSettings({ assistantProfile })}
           projects={projects}
           selectedProjectId={selectedProjectId}
           onSelectedProjectChange={setSelectedProjectId}

@@ -27,9 +27,13 @@ test("settings provides grouped workspace navigation, account state, and help li
 
 test("chat exposes connected-model control and optional automatic fallback", async () => {
   const chat = await read("components/chat/chat-area.tsx");
+  const composer = await read("components/chat/message-input.tsx");
   const panel = await read("components/chat/model-control-panel.tsx");
-  assert.match(chat, /ModelControlPanel/);
+  assert.match(composer, /ModelControlPanel/);
   assert.match(chat, /fallbackNotice/);
+  assert.match(chat, /is retrying it/);
+  assert.match(chat, /setTimeout\(\(\) => onRetry\(\), 0\)/);
+  assert.match(chat, /fallbackTriedModelsRef/);
   assert.match(panel, /Automatic fallback/);
   assert.match(panel, /Cloud & BYOK models/);
   assert.match(panel, /Local models/);

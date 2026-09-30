@@ -6,12 +6,16 @@ import { INSTANT_CHAT_PROVIDERS, MODELS_METADATA } from "@/lib/ai-providers";
 import { getApiKey, getKeys, ApiKeys } from "@/lib/key-storage";
 import { CustomProvider, getCustomProviders } from "@/lib/custom-providers";
 import type { ModelOption } from "@/components/sidebar/model-selector";
+import type { AiEffort } from "@/lib/app-settings";
 
 const FALLBACK_STORAGE_KEY = "susan_auto_model_fallback_v1";
 
 interface ModelControlPanelProps {
   selectedModel: ModelOption;
   onSelectModel: (model: ModelOption) => void;
+  effort: AiEffort;
+  onEffortChange: (effort: AiEffort) => void;
+  compact?: boolean;
 }
 
 interface ModelChoice {
@@ -22,7 +26,7 @@ interface ModelChoice {
   ready: boolean;
 }
 
-export function ModelControlPanel({ selectedModel, onSelectModel }: ModelControlPanelProps) {
+export function ModelControlPanel({ selectedModel, onSelectModel, effort, onEffortChange, compact = false }: ModelControlPanelProps) {
   const [open, setOpen] = useState(false);
   const [keys, setKeys] = useState<ApiKeys>({});
   const [customProviders, setCustomProviders] = useState<CustomProvider[]>([]);
@@ -74,9 +78,9 @@ export function ModelControlPanel({ selectedModel, onSelectModel }: ModelControl
   };
 
   return <div className="relative min-w-0">
-    <button type="button" onClick={() => setOpen((value) => !value)} aria-expanded={open} aria-haspopup="dialog" className="flex max-w-[min(20rem,calc(100vw-2rem))] items-center gap-2 rounded-xl border border-border-main/70 bg-surface px-3 py-2 text-left shadow-sm transition-colors hover:border-accent/50">
+    <button type="button" onClick={() => setOpen((value) => !value)} aria-expanded={open} aria-haspopup="dialog" className={`flex items-center gap-2 rounded-xl border border-border-main/70 bg-surface text-left shadow-sm transition-colors hover:border-accent/50 ${compact ? "max-w-[min(15rem,42vw)] px-2 py-1.5" : "max-w-[min(20rem,calc(100vw-2rem))] px-3 py-2"}`}>
       <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-cream-highlight text-accent">{selected?.local ? <ShieldCheck className="h-3.5 w-3.5" /> : <Cpu className="h-3.5 w-3.5" />}</span>
-      <span className="min-w-0"><span className="block truncate text-[10px] font-bold uppercase tracking-[0.12em] text-text-muted">Model</span><span className="block truncate text-xs font-semibold text-text-main">{selected?.name || "Choose a model"}</span></span>
+      <span className="min-w-0"><span className="block truncate text-[10px] font-bold uppercase tracking-[0.12em] text-text-muted">{compact ? "AI model" : "Model"}</span><span className="block truncate text-xs font-semibold text-text-main">{selected?.name || "Choose a model"}</span></span>
       <span className={`ml-auto h-2 w-2 shrink-0 rounded-full ${selected?.ready ? "bg-emerald-500" : "bg-amber-400"}`} />
       <ChevronDown className={`h-4 w-4 shrink-0 text-text-muted transition-transform ${open ? "rotate-180" : ""}`} />
     </button>
@@ -89,7 +93,10 @@ export function ModelControlPanel({ selectedModel, onSelectModel }: ModelControl
           <ModelGroup title="Cloud & BYOK models" icon={<Cloud className="h-3.5 w-3.5" />} choices={cloudChoices} selectedModel={selectedModel} onSelect={(id) => { onSelectModel(id); setOpen(false); }} />
           {readyChoices.length === 0 && <div className="rounded-xl bg-amber-50 p-3 text-xs leading-5 text-amber-900"><CircleAlert className="mr-1 inline h-3.5 w-3.5" />No connected model found. Add a key or connect a local model in Settings.</div>}
         </div>
-        <div className="mt-3 flex items-start gap-2 border-t border-border-main/50 pt-3"><button type="button" role="switch" aria-checked={autoFallback} onClick={toggleFallback} className={`relative mt-0.5 h-5 w-9 shrink-0 rounded-full transition-colors ${autoFallback ? "bg-accent" : "bg-black/20"}`}><span className={`absolute top-1 h-3 w-3 rounded-full bg-white transition-transform ${autoFallback ? "translate-x-5" : "translate-x-1"}`} /></button><span><span className="block text-xs font-semibold text-text-main">Automatic fallback</span><span className="block text-[10px] leading-4 text-text-muted">If the selected provider fails, try the next connected model and show a soft notice.</span></span></div>
+        <div className="mt-3 grid gap-3 border-t border-border-main/50 pt-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+          <label className="block"><span className="mb-1 block text-[10px] font-bold uppercase tracking-[0.12em] text-text-muted">Response effort</span><select value={effort} onChange={(event) => onEffortChange(event.target.value as AiEffort)} className="min-h-9 w-full rounded-lg border border-border-main/70 bg-bg-main px-2 text-xs font-semibold text-text-main outline-none focus-visible:ring-2 focus-visible:ring-accent/30"><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option><option value="max">Max</option></select></label>
+          <div className="flex items-start gap-2"><button type="button" role="switch" aria-checked={autoFallback} onClick={toggleFallback} className={`relative mt-5 h-5 w-9 shrink-0 rounded-full transition-colors ${autoFallback ? "bg-accent" : "bg-black/20"}`}><span className={`absolute top-1 h-3 w-3 rounded-full bg-white transition-transform ${autoFallback ? "translate-x-5" : "translate-x-1"}`} /></button><span><span className="block text-xs font-semibold text-text-main">Automatic fallback</span><span className="block text-[10px] leading-4 text-text-muted">Try the next connected model if this one fails.</span></span></div>
+        </div>
       </div>
     </>}
   </div>;

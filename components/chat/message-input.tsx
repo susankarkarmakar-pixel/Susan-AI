@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowUp, Mic, Paperclip, Square, Volume2, VolumeX, X } from "lucide-react";
+import { ArrowUp, FileText, Image as ImageIcon, Mic, Paperclip, Square, Upload, Volume2, VolumeX, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { AiEffort, AssistantProfile } from "@/lib/app-settings";
+import type { AiEffort } from "@/lib/app-settings";
 import type { WorkspaceProject } from "@/lib/workspace-storage";
+import type { ModelOption } from "@/components/sidebar/model-selector";
+import { ModelControlPanel } from "./model-control-panel";
 
 const MAX_FILE_SIZE = 4 * 1024 * 1024;
 const MAX_FILES = 3;
@@ -20,9 +22,8 @@ interface MessageInputProps {
   stop: () => void;
   canAttachFiles: boolean;
   attachmentSupportMessage?: string;
-  modelName: string;
-  assistantProfile: AssistantProfile;
-  onAssistantProfileChange: (profile: AssistantProfile) => void;
+  selectedModel: ModelOption;
+  onSelectModel: (model: ModelOption) => void;
   projects: WorkspaceProject[];
   selectedProjectId: string;
   onSelectedProjectChange: (id: string) => void;
@@ -35,15 +36,18 @@ interface MessageInputProps {
   onVoiceModeChange: (enabled: boolean) => void;
 }
 
-export function MessageInput({ input, onInputChange, onSubmit, isLoading, stop, canAttachFiles, attachmentSupportMessage, modelName, assistantProfile, onAssistantProfileChange, projects, selectedProjectId, onSelectedProjectChange, isEditingMessage, onCancelEdit, estimatedTokens, effort, onEffortChange, voiceMode, onVoiceModeChange }: MessageInputProps) {
+export function MessageInput({ input, onInputChange, onSubmit, isLoading, stop, canAttachFiles, attachmentSupportMessage, selectedModel, onSelectModel, projects, selectedProjectId, onSelectedProjectChange, isEditingMessage, onCancelEdit, estimatedTokens, effort, onEffortChange, voiceMode, onVoiceModeChange }: MessageInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const [files, setFiles] = useState<File[]>([]);
   const [fileError, setFileError] = useState<string | null>(null);
+  const [attachmentMenuOpen, setAttachmentMenuOpen] = useState(false);
+  const [attachmentFilter, setAttachmentFilter] = useState<"all" | "images" | "documents" | "data">("all");
   const [dictating, setDictating] = useState(false);
   const recognitionRef = useRef<{ start: () => void; stop: () => void; onresult: ((event: SpeechRecognitionEventLike) => void) | null; onend: (() => void) | null; onerror: (() => void) | null } | null>(null);
   const totalFileSize = files.reduce((sum, file) => sum + file.size, 0);
+  const attachmentAccept = attachmentFilter === "images" ? "image/*" : attachmentFilter === "documents" ? ".pdf,.txt,.md" : attachmentFilter === "data" ? ".txt,.md,.csv,.json" : ACCEPTED_FILES;
 
   useEffect(() => {
     if (!textareaRef.current) return;
@@ -117,6 +121,16 @@ export function MessageInput({ input, onInputChange, onSubmit, isLoading, stop, 
     setFileError(null);
   };
 
+  const chooseAttachmentType = (filter: typeof attachmentFilter) => {
+    if (!canAttachFiles) {
+      setFileError(attachmentSupportMessage || "Attachments are not supported by this provider.");
+      return;
+    }
+    setAttachmentFilter(filter);
+    setAttachmentMenuOpen(false);
+    window.setTimeout(() => fileInputRef.current?.click(), 0);
+  };
+
   const removeFile = (index: number) => setFiles((current) => current.filter((_, fileIndex) => fileIndex !== index));
   const isEmpty = input.trim().length === 0 && files.length === 0;
 
@@ -137,15 +151,10 @@ export function MessageInput({ input, onInputChange, onSubmit, isLoading, stop, 
           </div>
         )}
         <div className="flex items-end gap-2">
-          <input ref={fileInputRef} type="file" multiple accept={ACCEPTED_FILES} disabled={!canAttachFiles} className="sr-only" onChange={(event) => addFiles(event.target.files)} />
-          <button type="button" disabled={!canAttachFiles} onClick={() => fileInputRef.current?.click()} aria-label={canAttachFiles ? "Attach files" : "Attachments unavailable for this provider"} title={canAttachFiles ? "Attach files" : "Attachments unavailable for this provider"} className={cn("mb-1 flex shrink-0 items-center justify-center rounded-xl p-2.5 transition-colors", canAttachFiles ? "text-text-muted hover:bg-black/5 hover:text-text-main" : "cursor-not-allowed text-text-muted/40")}>
-            <Paperclip className="h-4 w-4" />
-          </button>
+          <input ref={fileInputRef} type="file" multiple accept={attachmentAccept} disabled={!canAttachFiles} className="sr-only" onChange={(event) => addFiles(event.target.files)} />
+          <div className="relative mb-1 shrink-0"><button type="button" onClick={() => setAttachmentMenuOpen((open) => !open)} aria-expanded={attachmentMenuOpen} aria-haspopup="menu" aria-label={canAttachFiles ? "Choose attachment type" : "Attachments unavailable for this provider"} title={canAttachFiles ? "Choose attachment type" : "Attachments unavailable for this provider"} className={cn("flex items-center justify-center rounded-xl p-2.5 transition-colors", canAttachFiles ? "text-text-muted hover:bg-black/5 hover:text-text-main" : "text-text-muted/40")}><Paperclip className="h-4 w-4" /></button>{attachmentMenuOpen && <div role="menu" aria-label="Attachment type" className="absolute bottom-[calc(100%+0.6rem)] left-0 z-40 w-56 overflow-hidden rounded-2xl border border-border-main/80 bg-surface p-2 shadow-2xl"><p className="px-2 pb-1 text-[10px] font-bold uppercase tracking-[0.12em] text-text-muted">Add attachment</p><AttachmentOption icon={<Upload className="h-4 w-4" />} label="Any supported file" onClick={() => chooseAttachmentType("all")} disabled={!canAttachFiles} /><AttachmentOption icon={<ImageIcon className="h-4 w-4" />} label="Images" onClick={() => chooseAttachmentType("images")} disabled={!canAttachFiles} /><AttachmentOption icon={<FileText className="h-4 w-4" />} label="PDF or documents" onClick={() => chooseAttachmentType("documents")} disabled={!canAttachFiles} /><AttachmentOption icon={<FileText className="h-4 w-4" />} label="Text or data files" onClick={() => chooseAttachmentType("data")} disabled={!canAttachFiles} />{!canAttachFiles && <p className="px-2 pt-2 text-[10px] leading-4 text-red-700">{attachmentSupportMessage || "Attachments are unavailable for this model."}</p>}</div>}</div>
           <textarea id="message-composer" ref={textareaRef} value={input} onChange={onInputChange} onKeyDown={handleKeyDown} aria-label="Message Susan AI" aria-keyshortcuts="Enter Shift+Enter" placeholder={isEditingMessage ? "Edit your message…" : "How can I help you today?"} className="min-h-[48px] min-w-0 flex-1 resize-none overflow-y-auto break-words bg-transparent px-2 py-3 font-sans text-text-main outline-none placeholder:text-text-muted/60 sm:px-3" rows={1} />
-          <div className="mb-1 hidden items-center gap-2 rounded-full bg-cream-highlight/70 px-3 py-2 text-xs font-medium text-text-main sm:flex">
-            <span className="h-1.5 w-1.5 rounded-full bg-accent" />
-            <span className="max-w-[120px] truncate">{modelName}</span>
-          </div>
+          <ModelControlPanel selectedModel={selectedModel} onSelectModel={onSelectModel} effort={effort} onEffortChange={onEffortChange} compact />
           {isLoading ? (
             <button type="button" onClick={stop} aria-label="Stop generating response" className="mb-1 flex shrink-0 items-center justify-center rounded-xl bg-text-main p-2.5 text-surface transition-colors hover:opacity-80">
               <Square className="h-4 w-4 fill-current" />
@@ -162,9 +171,6 @@ export function MessageInput({ input, onInputChange, onSubmit, isLoading, stop, 
         </div>
       </form>
       <div className="mx-auto mt-2 flex max-w-5xl flex-wrap items-center gap-2 px-2">
-        <label className="sr-only" htmlFor="assistant-profile">Assistant profile</label>
-        <label className="sr-only" htmlFor="effort-level">AI effort level</label><select id="effort-level" value={effort} onChange={(event) => onEffortChange(event.target.value as AiEffort)} title="AI effort level" className="min-h-8 rounded-lg border border-border-main/70 bg-surface px-2 py-1 text-xs font-semibold text-text-main focus-visible:outline-2 focus-visible:outline-accent"><option value="low">Low effort</option><option value="medium">Medium effort</option><option value="high">High effort</option><option value="max">Max effort</option></select>
-        <label className="sr-only" htmlFor="assistant-profile">Assistant profile</label><select id="assistant-profile" value={assistantProfile} onChange={(event) => onAssistantProfileChange(event.target.value as AssistantProfile)} className="min-h-8 rounded-lg border border-border-main/70 bg-surface px-2 py-1 text-xs text-text-main focus-visible:outline-2 focus-visible:outline-accent"><option value="general">General</option><option value="coding">Coding</option><option value="research">Research</option></select>
         {projects.length > 0 && <><label className="sr-only" htmlFor="chat-project">Project instructions</label><select id="chat-project" value={selectedProjectId} onChange={(event) => onSelectedProjectChange(event.target.value)} className="min-h-8 max-w-48 rounded-lg border border-border-main/70 bg-surface px-2 py-1 text-xs text-text-main focus-visible:outline-2 focus-visible:outline-accent"><option value="">No project</option>{projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select></>}
         {isEditingMessage && <button type="button" onClick={onCancelEdit} className="rounded-md px-2 py-1 text-xs font-medium text-text-muted underline underline-offset-2">Cancel edit</button>}
         <span className="ml-auto text-[10px] text-text-muted" title="Approximate text-only token count; provider counts and attachment tokens may differ">This chat {estimatedTokens} text tokens (estimate)</span>
@@ -173,6 +179,10 @@ export function MessageInput({ input, onInputChange, onSubmit, isLoading, stop, 
       <div className="mx-auto mt-2 max-w-5xl text-center text-[11px] text-text-muted">Enter to send · Shift+Enter for a new line · Ctrl/Cmd+K new chat · / commands <span className="mx-1">·</span>{canAttachFiles ? "Attach images, PDFs, text, CSV, or JSON files." : (attachmentSupportMessage || "Attachments are unavailable for this provider.")} <span className="mx-1">·</span> AI can make mistakes. Please double-check important information.</div>
     </div>
   );
+}
+
+function AttachmentOption({ icon, label, onClick, disabled }: { icon: React.ReactNode; label: string; onClick: () => void; disabled: boolean }) {
+  return <button type="button" role="menuitem" onClick={onClick} disabled={disabled} className={cn("flex w-full items-center gap-2 rounded-xl px-2 py-2 text-left text-xs font-medium transition-colors", disabled ? "cursor-not-allowed text-text-muted/50" : "text-text-main hover:bg-black/5")}>{icon}<span>{label}</span></button>;
 }
 
 type SpeechRecognitionEventLike = { resultIndex: number; results: ArrayLike<ArrayLike<{ transcript: string }>> };

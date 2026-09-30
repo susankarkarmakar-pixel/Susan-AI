@@ -28,12 +28,18 @@ test("slash command palette and Ctrl/Cmd+K shortcuts are keyboard-accessible", a
 test("model controls and scoped prompts are sent to the API with server-side bounds", async () => {
   const settings = await read("components/settings/settings-modal.tsx");
   const composer = await read("components/chat/message-input.tsx");
+  const modelPanel = await read("components/chat/model-control-panel.tsx");
   const page = await read("app/page.tsx");
   const route = await read("app/api/chat/route.ts");
   assert.match(settings, /id="temperature-setting"/);
   assert.match(settings, /id="max-output-tokens"/);
   assert.match(settings, /Project-specific instructions/);
-  assert.match(composer, /assistant-profile/);
+  assert.match(composer, /ModelControlPanel/);
+  assert.match(composer, /Choose attachment type/);
+  assert.match(modelPanel, /Response effort/);
+  assert.doesNotMatch(composer, /assistant-profile/);
+  assert.doesNotMatch(composer, /option value="coding"/);
+  assert.doesNotMatch(composer, /option value="research"/);
   assert.match(composer, /chat-project/);
   assert.match(page, /temperature: settings\.temperature/);
   assert.match(page, /settings\.projectInstructions\[selectedProjectId\]/);
