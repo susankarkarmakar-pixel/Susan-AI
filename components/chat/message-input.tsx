@@ -50,8 +50,10 @@ export function MessageInput({ input, onInputChange, onSubmit, isLoading, stop, 
   const [ocrLanguage, setOcrLanguage] = useState<OcrLanguage>("eng");
   const [attachmentMenuOpen, setAttachmentMenuOpen] = useState(false);
   const [attachmentFilter, setAttachmentFilter] = useState<"all" | "images" | "documents" | "data">("all");
+  const [isDraggingFiles, setIsDraggingFiles] = useState(false);
   const [dictating, setDictating] = useState(false);
   const recognitionRef = useRef<{ start: () => void; stop: () => void; onresult: ((event: SpeechRecognitionEventLike) => void) | null; onend: (() => void) | null; onerror: (() => void) | null } | null>(null);
+  const dragDepthRef = useRef(0);
   const totalFileSize = files.reduce((sum, file) => sum + file.size, 0);
   const attachmentAccept = attachmentFilter === "images" ? "image/*" : attachmentFilter === "documents" ? ".pdf,.txt,.md" : attachmentFilter === "data" ? ".txt,.md,.csv,.json" : ACCEPTED_FILES;
   const fileKey = (file: File) => `${file.name}:${file.size}:${file.lastModified}`;
@@ -95,7 +97,7 @@ export function MessageInput({ input, onInputChange, onSubmit, isLoading, stop, 
     }
     setFiles(nextFiles);
     setFileError(error);
-    setFileNotice(notices.length > 0 ? notices.join(" ") : null);
+    setFileNotice(notices.length > 0 ? notices.join(" ") : acceptedFiles.length > 1 ? `${acceptedFiles.length} files added. Extraction is running for each attachment.` : null);
     acceptedFiles.forEach((file) => { void queueExtraction(file, ocrLanguage); });
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
@@ -162,11 +164,31 @@ export function MessageInput({ input, onInputChange, onSubmit, isLoading, stop, 
     setFileNotice("Choose a replacement file.");
     window.setTimeout(() => fileInputRef.current?.click(), 0);
   };
+  const handleDragEnter = (event: React.DragEvent<HTMLFormElement>) => {
+    if (!canAttachFiles || !event.dataTransfer.types.includes("Files")) return;
+    event.preventDefault();
+    dragDepthRef.current += 1;
+    setIsDraggingFiles(true);
+  };
+  const handleDragLeave = (event: React.DragEvent<HTMLFormElement>) => {
+    if (!canAttachFiles) return;
+    event.preventDefault();
+    dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+    if (dragDepthRef.current === 0) setIsDraggingFiles(false);
+  };
+  const handleDrop = (event: React.DragEvent<HTMLFormElement>) => {
+    if (!canAttachFiles) return;
+    event.preventDefault();
+    dragDepthRef.current = 0;
+    setIsDraggingFiles(false);
+    addFiles(event.dataTransfer.files);
+  };
   const isEmpty = input.trim().length === 0 && files.length === 0;
 
   return (
     <div className="relative z-10 w-full bg-bg-main px-3 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2 sm:px-4 sm:pt-3 md:px-8">
-      <form ref={formRef} onSubmit={handleSubmit} onDragOver={(event) => { if (canAttachFiles) event.preventDefault(); }} onDrop={(event) => { if (!canAttachFiles) return; event.preventDefault(); addFiles(event.dataTransfer.files); }} className="mx-auto max-w-5xl rounded-3xl border border-border-main/60 bg-surface p-3 shadow-sm transition-all focus-within:border-accent/40 focus-within:ring-4 focus-within:ring-accent/5">
+      <form ref={formRef} onSubmit={handleSubmit} onDragEnter={handleDragEnter} onDragOver={(event) => { if (canAttachFiles && event.dataTransfer.types.includes("Files")) event.preventDefault(); }} onDragLeave={handleDragLeave} onDrop={handleDrop} className={cn("relative mx-auto max-w-5xl rounded-3xl border bg-surface p-3 shadow-sm transition-all focus-within:border-accent/40 focus-within:ring-4 focus-within:ring-accent/5", isDraggingFiles ? "border-accent bg-cream-highlight/30 ring-4 ring-accent/10" : "border-border-main/60")}>
+        {isDraggingFiles && <div className="pointer-events-none absolute inset-1 z-20 flex items-center justify-center rounded-[1.35rem] border-2 border-dashed border-accent bg-surface/90 backdrop-blur-sm"><div className="text-center"><Upload className="mx-auto mb-1 h-6 w-6 text-accent" /><p className="text-sm font-semibold text-text-main">Drop files to attach</p><p className="mt-0.5 text-[10px] text-text-muted">Up to {MAX_FILES} files · {formatFileSize(MAX_TOTAL_FILE_SIZE)} total</p></div></div>}
         {files.length > 0 && (
           <div className="grid gap-2 px-2 pb-2 sm:grid-cols-2" aria-label="Selected attachments">
             {files.map((file, index) => <AttachmentPreview key={`${file.name}-${file.size}`} file={file} extraction={extractions[fileKey(file)]} onRetry={() => { void queueExtraction(file); }} onRemove={() => removeFile(index)} onReplace={() => replaceFile(index)} />)}
@@ -175,7 +197,7 @@ export function MessageInput({ input, onInputChange, onSubmit, isLoading, stop, 
         )}
         <div className="flex items-end gap-2">
           <input ref={fileInputRef} type="file" multiple accept={attachmentAccept} disabled={!canAttachFiles} className="sr-only" onChange={(event) => addFiles(event.target.files)} />
-          <div className="relative mb-1 shrink-0"><button type="button" onClick={() => setAttachmentMenuOpen((open) => !open)} aria-expanded={attachmentMenuOpen} aria-haspopup="menu" aria-label={canAttachFiles ? "Choose attachment type" : "Attachments unavailable for this provider"} title={canAttachFiles ? "Choose attachment type" : "Attachments unavailable for this provider"} className={cn("flex items-center justify-center rounded-xl p-2.5 transition-colors", canAttachFiles ? "text-text-muted hover:bg-black/5 hover:text-text-main" : "text-text-muted/40")}><Paperclip className="h-4 w-4" /></button>{attachmentMenuOpen && <div role="menu" aria-label="Attachment type" className="absolute bottom-[calc(100%+0.6rem)] left-0 z-40 w-64 overflow-hidden rounded-2xl border border-border-main/80 bg-surface p-2 shadow-2xl"><p className="px-2 pb-1 text-[10px] font-bold uppercase tracking-[0.12em] text-text-muted">Add attachment</p><AttachmentOption icon={<Upload className="h-4 w-4" />} label="Any supported file" onClick={() => chooseAttachmentType("all")} disabled={!canAttachFiles} /><AttachmentOption icon={<ImageIcon className="h-4 w-4" />} label="Images" onClick={() => chooseAttachmentType("images")} disabled={!canAttachFiles} /><AttachmentOption icon={<FileText className="h-4 w-4" />} label="PDF or documents" onClick={() => chooseAttachmentType("documents")} disabled={!canAttachFiles} /><AttachmentOption icon={<FileText className="h-4 w-4" />} label="Text or data files" onClick={() => chooseAttachmentType("data")} disabled={!canAttachFiles} /><label className="mt-1 flex items-center justify-between gap-2 border-t border-border-main/50 px-2 pt-2 text-[10px] font-semibold text-text-muted" htmlFor="ocr-language">OCR language<select id="ocr-language" value={ocrLanguage} onChange={(event) => setOcrLanguage(event.target.value as OcrLanguage)} className="rounded-md border border-border-main/70 bg-surface px-1.5 py-1 text-[10px] font-medium text-text-main">{OCR_LANGUAGE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>{!canAttachFiles && <p className="px-2 pt-2 text-[10px] leading-4 text-red-700">{attachmentSupportMessage || "Attachments are unavailable for this model."}</p>}</div>}</div>
+          <div className="relative mb-1 shrink-0"><button type="button" onClick={() => setAttachmentMenuOpen((open) => !open)} aria-expanded={attachmentMenuOpen} aria-haspopup="menu" aria-label={canAttachFiles ? "Choose attachment type" : "Attachments unavailable for this provider"} title={canAttachFiles ? "Choose attachment type" : "Attachments unavailable for this provider"} className={cn("flex items-center justify-center rounded-xl p-2.5 transition-colors", canAttachFiles ? "text-text-muted hover:bg-black/5 hover:text-text-main" : "text-text-muted/40")}><Paperclip className="h-4 w-4" /></button>{attachmentMenuOpen && <div role="menu" aria-label="Attachment type" className="absolute bottom-[calc(100%+0.6rem)] left-0 z-40 w-64 overflow-hidden rounded-2xl border border-border-main/80 bg-surface p-2 shadow-2xl"><p className="px-2 pb-1 text-[10px] font-bold uppercase tracking-[0.12em] text-text-muted">Add attachment</p><AttachmentOption icon={<Upload className="h-4 w-4" />} label="Batch upload (up to 3)" onClick={() => chooseAttachmentType("all")} disabled={!canAttachFiles} /><AttachmentOption icon={<ImageIcon className="h-4 w-4" />} label="Images" onClick={() => chooseAttachmentType("images")} disabled={!canAttachFiles} /><AttachmentOption icon={<FileText className="h-4 w-4" />} label="PDF or documents" onClick={() => chooseAttachmentType("documents")} disabled={!canAttachFiles} /><AttachmentOption icon={<FileText className="h-4 w-4" />} label="Text or data files" onClick={() => chooseAttachmentType("data")} disabled={!canAttachFiles} /><label className="mt-1 flex items-center justify-between gap-2 border-t border-border-main/50 px-2 pt-2 text-[10px] font-semibold text-text-muted" htmlFor="ocr-language">OCR language<select id="ocr-language" value={ocrLanguage} onChange={(event) => setOcrLanguage(event.target.value as OcrLanguage)} className="rounded-md border border-border-main/70 bg-surface px-1.5 py-1 text-[10px] font-medium text-text-main">{OCR_LANGUAGE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>{!canAttachFiles && <p className="px-2 pt-2 text-[10px] leading-4 text-red-700">{attachmentSupportMessage || "Attachments are unavailable for this model."}</p>}</div>}</div>
           <textarea id="message-composer" ref={textareaRef} value={input} onChange={onInputChange} onKeyDown={handleKeyDown} aria-label="Message Susan AI" aria-keyshortcuts="Enter Shift+Enter" placeholder={isEditingMessage ? "Edit your message…" : "How can I help you today?"} className="min-h-[48px] min-w-0 flex-1 resize-none overflow-y-auto break-words bg-transparent px-2 py-3 font-sans text-text-main outline-none placeholder:text-text-muted/60 sm:px-3" rows={1} />
           <ModelControlPanel selectedModel={selectedModel} onSelectModel={onSelectModel} effort={effort} onEffortChange={onEffortChange} compact />
           {isLoading ? (

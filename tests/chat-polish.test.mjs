@@ -70,6 +70,9 @@ test("attachments support local extraction and pass untrusted text context", asy
   assert.match(composer, /extractAttachmentText/);
   assert.match(composer, /ocr-language/);
   assert.match(composer, /English \+ বাংলা/);
+  assert.match(composer, /Drop files to attach/);
+  assert.match(composer, /Batch upload \(up to 3\)/);
+  assert.match(composer, /isDraggingFiles/);
   assert.match(page, /Untrusted extracted attachment text/);
 });
 
