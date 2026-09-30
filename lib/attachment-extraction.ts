@@ -1,5 +1,6 @@
 export type AttachmentExtractionSource = "text" | "pdf-text" | "ocr" | "none";
 export type AttachmentExtractionStatus = "reading" | "ocr" | "ready" | "empty" | "failed";
+export type OcrLanguage = "eng" | "ben" | "hin" | "eng+ben" | "eng+hin";
 
 export interface AttachmentExtractionResult {
   status: AttachmentExtractionStatus;
@@ -7,17 +8,18 @@ export interface AttachmentExtractionResult {
   text: string;
   characterCount: number;
   pageCount?: number;
+  language?: OcrLanguage;
   message?: string;
 }
 
-export async function extractAttachmentText(file: File, onProgress?: (progress: number) => void): Promise<AttachmentExtractionResult> {
+export async function extractAttachmentText(file: File, onProgress?: (progress: number) => void, language: OcrLanguage = "eng"): Promise<AttachmentExtractionResult> {
   try {
     if (isPlainTextFile(file)) {
       const text = await file.text();
       return makeTextResult(text, "text");
     }
-    if (isPdfFile(file)) return await extractPdfText(file, onProgress);
-    if (file.type.startsWith("image/")) return await extractImageText(file, onProgress);
+    if (isPdfFile(file)) return await extractPdfText(file, onProgress, language);
+    if (file.type.startsWith("image/")) return await extractImageText(file, onProgress, language);
     return { status: "empty", source: "none", text: "", characterCount: 0, message: "Text extraction is not available for this file type." };
   } catch {
     return { status: "failed", source: "none", text: "", characterCount: 0, message: "Could not extract readable text from this file." };
@@ -32,13 +34,13 @@ function isPdfFile(file: File): boolean {
   return file.type === "application/pdf" || /\.pdf$/i.test(file.name);
 }
 
-function makeTextResult(text: string, source: "text" | "pdf-text" | "ocr", pageCount?: number): AttachmentExtractionResult {
+function makeTextResult(text: string, source: "text" | "pdf-text" | "ocr", pageCount?: number, language?: OcrLanguage): AttachmentExtractionResult {
   const normalized = text.replace(/\u0000/g, "").trim();
-  if (!normalized) return { status: "empty", source, text: "", characterCount: 0, pageCount, message: "No readable text was found." };
-  return { status: "ready", source, text: normalized.slice(0, 120_000), characterCount: normalized.length, pageCount };
+  if (!normalized) return { status: "empty", source, text: "", characterCount: 0, pageCount, language, message: "No readable text was found." };
+  return { status: "ready", source, text: normalized.slice(0, 120_000), characterCount: normalized.length, pageCount, language };
 }
 
-async function extractPdfText(file: File, onProgress?: (progress: number) => void): Promise<AttachmentExtractionResult> {
+async function extractPdfText(file: File, onProgress?: (progress: number) => void, language: OcrLanguage = "eng"): Promise<AttachmentExtractionResult> {
   const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
   const document = await pdfjs.getDocument({ data: await file.arrayBuffer() }).promise;
   const pages: string[] = [];
@@ -50,18 +52,18 @@ async function extractPdfText(file: File, onProgress?: (progress: number) => voi
   }
   const textResult = makeTextResult(pages.join("\n\n"), "pdf-text", document.numPages);
   if (textResult.status === "ready") return textResult;
-  const ocrText = await ocrPdfPages(document, onProgress);
-  return makeTextResult(ocrText, "ocr", document.numPages);
+  const ocrText = await ocrPdfPages(document, onProgress, language);
+  return makeTextResult(ocrText, "ocr", document.numPages, language);
 }
 
-async function extractImageText(file: File, onProgress?: (progress: number) => void): Promise<AttachmentExtractionResult> {
-  const text = await runOcr([file], onProgress);
-  return makeTextResult(text, "ocr");
+async function extractImageText(file: File, onProgress?: (progress: number) => void, language: OcrLanguage = "eng"): Promise<AttachmentExtractionResult> {
+  const text = await runOcr([file], onProgress, language);
+  return makeTextResult(text, "ocr", undefined, language);
 }
 
-async function ocrPdfPages(document: { numPages: number; getPage: (pageNumber: number) => Promise<unknown> }, onProgress?: (progress: number) => void): Promise<string> {
+async function ocrPdfPages(document: { numPages: number; getPage: (pageNumber: number) => Promise<unknown> }, onProgress: ((progress: number) => void) | undefined, language: OcrLanguage): Promise<string> {
   const { createWorker } = await import("tesseract.js");
-  const worker = await createWorker("eng", 1, { logger: (event) => { if (event.status === "recognizing text") onProgress?.(35 + Math.round(event.progress * 65)); } });
+  const worker = await createWorker(language, 1, { logger: (event) => { if (event.status === "recognizing text") onProgress?.(35 + Math.round(event.progress * 65)); } });
   const pages: string[] = [];
   try {
     for (let pageNumber = 1; pageNumber <= document.numPages; pageNumber += 1) {
@@ -82,10 +84,10 @@ async function ocrPdfPages(document: { numPages: number; getPage: (pageNumber: n
   return pages.join("\n\n");
 }
 
-async function runOcr(inputs: Blob[], onProgress?: (progress: number) => void): Promise<string> {
+async function runOcr(inputs: Blob[], onProgress: ((progress: number) => void) | undefined, language: OcrLanguage): Promise<string> {
   onProgress?.(5);
   const { createWorker } = await import("tesseract.js");
-  const worker = await createWorker("eng", 1, { logger: (event) => { if (event.status === "recognizing text") onProgress?.(Math.round(event.progress * 100)); } });
+  const worker = await createWorker(language, 1, { logger: (event) => { if (event.status === "recognizing text") onProgress?.(Math.round(event.progress * 100)); } });
   const pages: string[] = [];
   try {
     for (const input of inputs) pages.push((await worker.recognize(input)).data.text);

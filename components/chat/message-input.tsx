@@ -8,13 +8,14 @@ import type { AiEffort } from "@/lib/app-settings";
 import type { WorkspaceProject } from "@/lib/workspace-storage";
 import type { ModelOption } from "@/components/sidebar/model-selector";
 import { ModelControlPanel } from "./model-control-panel";
-import { extractAttachmentText, type AttachmentExtractionResult } from "@/lib/attachment-extraction";
+import { extractAttachmentText, type AttachmentExtractionResult, type OcrLanguage } from "@/lib/attachment-extraction";
 
 const MAX_FILE_SIZE = 4 * 1024 * 1024;
 const MAX_FILES = 3;
 const MAX_TOTAL_FILE_SIZE = 12 * 1024 * 1024;
 const ACCEPTED_FILES = "image/*,.pdf,.txt,.md,.csv,.json";
 const ACCEPTED_MIME_TYPES = new Set(["application/pdf", "text/plain", "text/markdown", "text/csv", "application/json"]);
+const OCR_LANGUAGE_OPTIONS: Array<{ value: OcrLanguage; label: string }> = [{ value: "eng", label: "English" }, { value: "ben", label: "বাংলা" }, { value: "hin", label: "हिन्दी" }, { value: "eng+ben", label: "English + বাংলা" }, { value: "eng+hin", label: "English + हिन्दी" }];
 
 interface MessageInputProps {
   input: string;
@@ -46,6 +47,7 @@ export function MessageInput({ input, onInputChange, onSubmit, isLoading, stop, 
   const [fileError, setFileError] = useState<string | null>(null);
   const [fileNotice, setFileNotice] = useState<string | null>(null);
   const [extractions, setExtractions] = useState<Record<string, AttachmentExtractionState>>({});
+  const [ocrLanguage, setOcrLanguage] = useState<OcrLanguage>("eng");
   const [attachmentMenuOpen, setAttachmentMenuOpen] = useState(false);
   const [attachmentFilter, setAttachmentFilter] = useState<"all" | "images" | "documents" | "data">("all");
   const [dictating, setDictating] = useState(false);
@@ -94,14 +96,14 @@ export function MessageInput({ input, onInputChange, onSubmit, isLoading, stop, 
     setFiles(nextFiles);
     setFileError(error);
     setFileNotice(notices.length > 0 ? notices.join(" ") : null);
-    acceptedFiles.forEach((file) => { void queueExtraction(file); });
+    acceptedFiles.forEach((file) => { void queueExtraction(file, ocrLanguage); });
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const queueExtraction = async (file: File) => {
+  const queueExtraction = async (file: File, language: OcrLanguage = ocrLanguage) => {
     const key = fileKey(file);
-    setExtractions((current) => ({ ...current, [key]: { status: "reading", source: "none", text: "", characterCount: 0, progress: 0 } }));
-    const result = await extractAttachmentText(file, (progress) => setExtractions((current) => ({ ...current, [key]: { ...(current[key] || { status: "reading", source: "none", text: "", characterCount: 0 }), status: file.type.startsWith("image/") ? "ocr" : "reading", progress } })));
+    setExtractions((current) => ({ ...current, [key]: { status: "reading", source: "none", text: "", characterCount: 0, language, progress: 0 } }));
+    const result = await extractAttachmentText(file, (progress) => setExtractions((current) => ({ ...current, [key]: { ...(current[key] || { status: "reading", source: "none", text: "", characterCount: 0 }), status: file.type.startsWith("image/") ? "ocr" : "reading", language, progress } })), language);
     setExtractions((current) => ({ ...current, [key]: { ...result, progress: 100 } }));
   };
 
@@ -173,7 +175,7 @@ export function MessageInput({ input, onInputChange, onSubmit, isLoading, stop, 
         )}
         <div className="flex items-end gap-2">
           <input ref={fileInputRef} type="file" multiple accept={attachmentAccept} disabled={!canAttachFiles} className="sr-only" onChange={(event) => addFiles(event.target.files)} />
-          <div className="relative mb-1 shrink-0"><button type="button" onClick={() => setAttachmentMenuOpen((open) => !open)} aria-expanded={attachmentMenuOpen} aria-haspopup="menu" aria-label={canAttachFiles ? "Choose attachment type" : "Attachments unavailable for this provider"} title={canAttachFiles ? "Choose attachment type" : "Attachments unavailable for this provider"} className={cn("flex items-center justify-center rounded-xl p-2.5 transition-colors", canAttachFiles ? "text-text-muted hover:bg-black/5 hover:text-text-main" : "text-text-muted/40")}><Paperclip className="h-4 w-4" /></button>{attachmentMenuOpen && <div role="menu" aria-label="Attachment type" className="absolute bottom-[calc(100%+0.6rem)] left-0 z-40 w-56 overflow-hidden rounded-2xl border border-border-main/80 bg-surface p-2 shadow-2xl"><p className="px-2 pb-1 text-[10px] font-bold uppercase tracking-[0.12em] text-text-muted">Add attachment</p><AttachmentOption icon={<Upload className="h-4 w-4" />} label="Any supported file" onClick={() => chooseAttachmentType("all")} disabled={!canAttachFiles} /><AttachmentOption icon={<ImageIcon className="h-4 w-4" />} label="Images" onClick={() => chooseAttachmentType("images")} disabled={!canAttachFiles} /><AttachmentOption icon={<FileText className="h-4 w-4" />} label="PDF or documents" onClick={() => chooseAttachmentType("documents")} disabled={!canAttachFiles} /><AttachmentOption icon={<FileText className="h-4 w-4" />} label="Text or data files" onClick={() => chooseAttachmentType("data")} disabled={!canAttachFiles} />{!canAttachFiles && <p className="px-2 pt-2 text-[10px] leading-4 text-red-700">{attachmentSupportMessage || "Attachments are unavailable for this model."}</p>}</div>}</div>
+          <div className="relative mb-1 shrink-0"><button type="button" onClick={() => setAttachmentMenuOpen((open) => !open)} aria-expanded={attachmentMenuOpen} aria-haspopup="menu" aria-label={canAttachFiles ? "Choose attachment type" : "Attachments unavailable for this provider"} title={canAttachFiles ? "Choose attachment type" : "Attachments unavailable for this provider"} className={cn("flex items-center justify-center rounded-xl p-2.5 transition-colors", canAttachFiles ? "text-text-muted hover:bg-black/5 hover:text-text-main" : "text-text-muted/40")}><Paperclip className="h-4 w-4" /></button>{attachmentMenuOpen && <div role="menu" aria-label="Attachment type" className="absolute bottom-[calc(100%+0.6rem)] left-0 z-40 w-64 overflow-hidden rounded-2xl border border-border-main/80 bg-surface p-2 shadow-2xl"><p className="px-2 pb-1 text-[10px] font-bold uppercase tracking-[0.12em] text-text-muted">Add attachment</p><AttachmentOption icon={<Upload className="h-4 w-4" />} label="Any supported file" onClick={() => chooseAttachmentType("all")} disabled={!canAttachFiles} /><AttachmentOption icon={<ImageIcon className="h-4 w-4" />} label="Images" onClick={() => chooseAttachmentType("images")} disabled={!canAttachFiles} /><AttachmentOption icon={<FileText className="h-4 w-4" />} label="PDF or documents" onClick={() => chooseAttachmentType("documents")} disabled={!canAttachFiles} /><AttachmentOption icon={<FileText className="h-4 w-4" />} label="Text or data files" onClick={() => chooseAttachmentType("data")} disabled={!canAttachFiles} /><label className="mt-1 flex items-center justify-between gap-2 border-t border-border-main/50 px-2 pt-2 text-[10px] font-semibold text-text-muted" htmlFor="ocr-language">OCR language<select id="ocr-language" value={ocrLanguage} onChange={(event) => setOcrLanguage(event.target.value as OcrLanguage)} className="rounded-md border border-border-main/70 bg-surface px-1.5 py-1 text-[10px] font-medium text-text-main">{OCR_LANGUAGE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>{!canAttachFiles && <p className="px-2 pt-2 text-[10px] leading-4 text-red-700">{attachmentSupportMessage || "Attachments are unavailable for this model."}</p>}</div>}</div>
           <textarea id="message-composer" ref={textareaRef} value={input} onChange={onInputChange} onKeyDown={handleKeyDown} aria-label="Message Susan AI" aria-keyshortcuts="Enter Shift+Enter" placeholder={isEditingMessage ? "Edit your message…" : "How can I help you today?"} className="min-h-[48px] min-w-0 flex-1 resize-none overflow-y-auto break-words bg-transparent px-2 py-3 font-sans text-text-main outline-none placeholder:text-text-muted/60 sm:px-3" rows={1} />
           <ModelControlPanel selectedModel={selectedModel} onSelectModel={onSelectModel} effort={effort} onEffortChange={onEffortChange} compact />
           {isLoading ? (
@@ -206,7 +208,7 @@ export function MessageInput({ input, onInputChange, onSubmit, isLoading, stop, 
 function AttachmentPreview({ file, extraction, onRetry, onRemove, onReplace }: { file: File; extraction?: AttachmentExtractionState; onRetry: () => void; onRemove: () => void; onReplace: () => void }) {
   const previewUrl = useMemo(() => file.type.startsWith("image/") ? URL.createObjectURL(file) : null, [file]);
   useEffect(() => () => { if (previewUrl) URL.revokeObjectURL(previewUrl); }, [previewUrl]);
-  const extractionLabel = extraction?.status === "reading" ? `Reading file · ${extraction.progress}%` : extraction?.status === "ocr" ? `OCR in progress · ${extraction.progress}%` : extraction?.status === "ready" ? `${extraction.source === "ocr" ? "OCR" : "Text"} extracted · ${extraction.characterCount.toLocaleString()} characters` : extraction?.status === "empty" ? (extraction.message || "No readable text found") : extraction?.status === "failed" ? (extraction.message || "Extraction failed") : "Preparing extraction…";
+  const extractionLabel = extraction?.status === "reading" ? `Reading file · ${extraction.progress}%` : extraction?.status === "ocr" ? `OCR in progress · ${extraction.progress}%` : extraction?.status === "ready" ? `${extraction.source === "ocr" ? `OCR (${getOcrLanguageLabel(extraction.language)})` : "Text"} extracted · ${extraction.characterCount.toLocaleString()} characters` : extraction?.status === "empty" ? (extraction.message || "No readable text found") : extraction?.status === "failed" ? (extraction.message || "Extraction failed") : "Preparing extraction…";
   const extractionReady = extraction?.status === "ready";
   return <div className="min-w-0 rounded-xl border border-border-main/60 bg-bg-main/60 p-2" data-attachment-status={extraction?.status || "reading"}><div className="flex items-center gap-2"><div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-cream-highlight text-accent">{previewUrl ? <><span className="sr-only">Image preview</span><img src={previewUrl} alt={`Preview of ${file.name}`} className="h-full w-full object-cover" /></> : <FileText className="h-5 w-5" />}</div><div className="min-w-0 flex-1"><p className="truncate text-xs font-semibold text-text-main" title={file.name}>{file.name}</p><p className="mt-0.5 text-[10px] text-text-muted">{getFileKindLabel(file)} · {formatFileSize(file.size)}</p><p className={cn("mt-0.5 text-[10px] font-medium", extractionReady ? "text-emerald-700" : extraction?.status === "failed" ? "text-red-600" : "text-text-muted")}>{extractionReady ? "✓ " : ""}{extractionLabel}</p></div><div className="flex shrink-0 flex-col items-end gap-1"><button type="button" onClick={onReplace} className="text-[10px] font-semibold text-text-muted underline underline-offset-2 hover:text-text-main">Replace</button><button type="button" onClick={onRemove} aria-label={`Remove ${file.name}`} className="rounded-md p-1 text-text-muted hover:bg-black/10 hover:text-text-main"><X className="h-3.5 w-3.5" /></button></div></div>{extractionReady && extraction.text && <details className="mt-2 rounded-lg border border-border-main/50 bg-surface px-2 py-1.5"><summary className="cursor-pointer text-[10px] font-semibold text-text-muted">View extracted text</summary><pre className="mt-1 max-h-24 overflow-auto whitespace-pre-wrap text-[10px] leading-4 text-text-muted">{extraction.text.slice(0, 2000)}</pre></details>}{(extraction?.status === "failed" || extraction?.status === "empty") && <button type="button" onClick={onRetry} className="mt-2 text-[10px] font-semibold text-accent underline underline-offset-2">Retry extraction</button>}</div>;
 }
@@ -229,6 +231,10 @@ function getFileKindLabel(file: File): string {
 }
 
 type AttachmentExtractionState = AttachmentExtractionResult & { progress: number };
+
+function getOcrLanguageLabel(language?: OcrLanguage): string {
+  return OCR_LANGUAGE_OPTIONS.find((option) => option.value === language)?.label || "English";
+}
 
 type SpeechRecognitionEventLike = { resultIndex: number; results: ArrayLike<ArrayLike<{ transcript: string }>> };
 type SpeechRecognitionLike = { start: () => void; stop: () => void; lang: string; interimResults: boolean; continuous: boolean; onresult: ((event: SpeechRecognitionEventLike) => void) | null; onend: (() => void) | null; onerror: (() => void) | null };
