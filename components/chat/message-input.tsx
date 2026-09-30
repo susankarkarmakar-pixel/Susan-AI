@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowUp, Paperclip, Square, X } from "lucide-react";
+import { ArrowUp, Mic, Paperclip, Square, Volume2, VolumeX, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { AssistantProfile } from "@/lib/app-settings";
+import type { AiEffort, AssistantProfile } from "@/lib/app-settings";
 import type { WorkspaceProject } from "@/lib/workspace-storage";
 
 const MAX_FILE_SIZE = 4 * 1024 * 1024;
@@ -29,14 +29,20 @@ interface MessageInputProps {
   isEditingMessage: boolean;
   onCancelEdit: () => void;
   estimatedTokens: string;
+  effort: AiEffort;
+  onEffortChange: (effort: AiEffort) => void;
+  voiceMode: boolean;
+  onVoiceModeChange: (enabled: boolean) => void;
 }
 
-export function MessageInput({ input, onInputChange, onSubmit, isLoading, stop, canAttachFiles, attachmentSupportMessage, modelName, assistantProfile, onAssistantProfileChange, projects, selectedProjectId, onSelectedProjectChange, isEditingMessage, onCancelEdit, estimatedTokens }: MessageInputProps) {
+export function MessageInput({ input, onInputChange, onSubmit, isLoading, stop, canAttachFiles, attachmentSupportMessage, modelName, assistantProfile, onAssistantProfileChange, projects, selectedProjectId, onSelectedProjectChange, isEditingMessage, onCancelEdit, estimatedTokens, effort, onEffortChange, voiceMode, onVoiceModeChange }: MessageInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const [files, setFiles] = useState<File[]>([]);
   const [fileError, setFileError] = useState<string | null>(null);
+  const [dictating, setDictating] = useState(false);
+  const recognitionRef = useRef<{ start: () => void; stop: () => void; onresult: ((event: SpeechRecognitionEventLike) => void) | null; onend: (() => void) | null; onerror: (() => void) | null } | null>(null);
   const totalFileSize = files.reduce((sum, file) => sum + file.size, 0);
 
   useEffect(() => {
@@ -76,6 +82,26 @@ export function MessageInput({ input, onInputChange, onSubmit, isLoading, stop, 
     setFiles(nextFiles);
     setFileError(error);
     if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const toggleDictation = () => {
+    if (dictating) { recognitionRef.current?.stop(); setDictating(false); return; }
+    const Recognition = (window as WindowWithSpeech).SpeechRecognition || (window as WindowWithSpeech).webkitSpeechRecognition;
+    if (!Recognition) { setFileError("Dictation is not supported in this browser. Try Chrome or Edge."); return; }
+    const recognition = new Recognition();
+    recognition.lang = navigator.language || "en-US";
+    recognition.interimResults = true;
+    recognition.continuous = true;
+    recognition.onresult = (event) => {
+      const transcript = Array.from(event.results).slice(event.resultIndex).map((result) => result[0]?.transcript || "").join("");
+      if (transcript) onInputChange({ target: { value: `${input}${input && !input.endsWith(" ") ? " " : ""}${transcript}` } } as React.ChangeEvent<HTMLTextAreaElement>);
+    };
+    recognition.onend = () => { setDictating(false); recognitionRef.current = null; };
+    recognition.onerror = () => { setDictating(false); recognitionRef.current = null; setFileError("Microphone dictation stopped. Check browser microphone permission and try again."); };
+    recognitionRef.current = recognition;
+    setFileError(null);
+    setDictating(true);
+    recognition.start();
   };
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -125,15 +151,20 @@ export function MessageInput({ input, onInputChange, onSubmit, isLoading, stop, 
               <Square className="h-4 w-4 fill-current" />
             </button>
           ) : (
-            <button type="submit" disabled={isEmpty} aria-label="Send message" className={cn("mb-1 flex shrink-0 items-center justify-center rounded-xl p-2.5 transition-colors", isEmpty ? "cursor-not-allowed bg-black/5 text-text-muted/40" : "bg-accent text-white shadow-sm hover:opacity-90")}>
+            <>
+            <button type="button" onClick={toggleDictation} aria-label={dictating ? "Stop dictation" : "Start dictation"} title={dictating ? "Stop dictation" : "Start dictation"} className={cn("mb-1 flex shrink-0 items-center justify-center rounded-xl p-2.5 transition-colors", dictating ? "bg-red-100 text-red-700" : "text-text-muted hover:bg-black/5 hover:text-text-main")}><Mic className="h-4 w-4" /></button>
+          <button type="button" onClick={() => onVoiceModeChange(!voiceMode)} aria-pressed={voiceMode} aria-label={voiceMode ? "Disable voice mode" : "Enable voice mode"} title={voiceMode ? "Disable voice mode" : "Enable voice mode"} className={cn("mb-1 flex shrink-0 items-center justify-center rounded-xl p-2.5 transition-colors", voiceMode ? "bg-cream-highlight text-accent" : "text-text-muted hover:bg-black/5 hover:text-text-main")}><span className="sr-only">Voice mode</span>{voiceMode ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}</button>
+          <button type="submit" disabled={isEmpty} aria-label="Send message" className={cn("mb-1 flex shrink-0 items-center justify-center rounded-xl p-2.5 transition-colors", isEmpty ? "cursor-not-allowed bg-black/5 text-text-muted/40" : "bg-accent text-white shadow-sm hover:opacity-90")}>
               <ArrowUp className="h-4 w-4" />
             </button>
+            </>
           )}
         </div>
       </form>
       <div className="mx-auto mt-2 flex max-w-5xl flex-wrap items-center gap-2 px-2">
         <label className="sr-only" htmlFor="assistant-profile">Assistant profile</label>
-        <select id="assistant-profile" value={assistantProfile} onChange={(event) => onAssistantProfileChange(event.target.value as AssistantProfile)} className="min-h-8 rounded-lg border border-border-main/70 bg-surface px-2 py-1 text-xs text-text-main focus-visible:outline-2 focus-visible:outline-accent"><option value="general">General</option><option value="coding">Coding</option><option value="research">Research</option></select>
+        <label className="sr-only" htmlFor="effort-level">AI effort level</label><select id="effort-level" value={effort} onChange={(event) => onEffortChange(event.target.value as AiEffort)} title="AI effort level" className="min-h-8 rounded-lg border border-border-main/70 bg-surface px-2 py-1 text-xs font-semibold text-text-main focus-visible:outline-2 focus-visible:outline-accent"><option value="low">Low effort</option><option value="medium">Medium effort</option><option value="high">High effort</option><option value="max">Max effort</option></select>
+        <label className="sr-only" htmlFor="assistant-profile">Assistant profile</label><select id="assistant-profile" value={assistantProfile} onChange={(event) => onAssistantProfileChange(event.target.value as AssistantProfile)} className="min-h-8 rounded-lg border border-border-main/70 bg-surface px-2 py-1 text-xs text-text-main focus-visible:outline-2 focus-visible:outline-accent"><option value="general">General</option><option value="coding">Coding</option><option value="research">Research</option></select>
         {projects.length > 0 && <><label className="sr-only" htmlFor="chat-project">Project instructions</label><select id="chat-project" value={selectedProjectId} onChange={(event) => onSelectedProjectChange(event.target.value)} className="min-h-8 max-w-48 rounded-lg border border-border-main/70 bg-surface px-2 py-1 text-xs text-text-main focus-visible:outline-2 focus-visible:outline-accent"><option value="">No project</option>{projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select></>}
         {isEditingMessage && <button type="button" onClick={onCancelEdit} className="rounded-md px-2 py-1 text-xs font-medium text-text-muted underline underline-offset-2">Cancel edit</button>}
         <span className="ml-auto text-[10px] text-text-muted" title="Approximate text-only token count; provider counts and attachment tokens may differ">This chat {estimatedTokens} text tokens (estimate)</span>
@@ -144,6 +175,9 @@ export function MessageInput({ input, onInputChange, onSubmit, isLoading, stop, 
   );
 }
 
+type SpeechRecognitionEventLike = { resultIndex: number; results: ArrayLike<ArrayLike<{ transcript: string }>> };
+type SpeechRecognitionLike = { start: () => void; stop: () => void; lang: string; interimResults: boolean; continuous: boolean; onresult: ((event: SpeechRecognitionEventLike) => void) | null; onend: (() => void) | null; onerror: (() => void) | null };
+type WindowWithSpeech = Window & { SpeechRecognition?: new () => SpeechRecognitionLike; webkitSpeechRecognition?: new () => SpeechRecognitionLike };
 function isAcceptedFile(file: File): boolean {
   if (file.type.startsWith("image/")) return true;
   if (ACCEPTED_MIME_TYPES.has(file.type)) return true;

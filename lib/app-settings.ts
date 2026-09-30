@@ -1,5 +1,6 @@
 export type AppTheme = "system" | "light" | "dark";
 export type AssistantProfile = "general" | "coding" | "research";
+export type AiEffort = "low" | "medium" | "high" | "max";
 export type AssistantSystemPrompts = Record<AssistantProfile, string>;
 
 export interface AppSettings {
@@ -13,6 +14,7 @@ export interface AppSettings {
   theme: AppTheme;
   temperature: number;
   maxOutputTokens: number;
+  effort: AiEffort;
   assistantProfile: AssistantProfile;
   systemPrompts: AssistantSystemPrompts;
   projectInstructions: Record<string, string>;
@@ -30,6 +32,7 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   theme: "light",
   temperature: 0.7,
   maxOutputTokens: 2048,
+  effort: "medium",
   assistantProfile: "general",
   systemPrompts: { general: "", coding: "", research: "" },
   projectInstructions: {},
@@ -61,6 +64,7 @@ export function getAppSettings(): AppSettings {
       compactMode: typeof candidate.compactMode === "boolean" ? candidate.compactMode : DEFAULT_APP_SETTINGS.compactMode,
       temperature: finiteNumber(candidate.temperature) ? clamp(candidate.temperature, 0, 2) : DEFAULT_APP_SETTINGS.temperature,
       maxOutputTokens: finiteNumber(candidate.maxOutputTokens) ? clamp(Math.round(candidate.maxOutputTokens), 256, 8192) : DEFAULT_APP_SETTINGS.maxOutputTokens,
+      effort: isAiEffort(candidate.effort) ? candidate.effort : DEFAULT_APP_SETTINGS.effort,
       assistantProfile: isAssistantProfile(candidate.assistantProfile) ? candidate.assistantProfile : DEFAULT_APP_SETTINGS.assistantProfile,
       systemPrompts: normalizeSystemPrompts(candidate.systemPrompts),
       projectInstructions: normalizeProjectInstructions(candidate.projectInstructions),
@@ -120,4 +124,8 @@ function clamp(value: number, min: number, max: number): number {
 
 function isAssistantProfile(value: unknown): value is AssistantProfile {
   return value === "general" || value === "coding" || value === "research";
+}
+
+function isAiEffort(value: unknown): value is AiEffort {
+  return value === "low" || value === "medium" || value === "high" || value === "max";
 }

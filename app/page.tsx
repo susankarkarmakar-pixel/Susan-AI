@@ -95,11 +95,12 @@ export default function Home() {
       streaming: settings.streaming,
       temperature: settings.temperature,
       maxOutputTokens: settings.maxOutputTokens,
+      effort: settings.effort,
       systemPrompt: [settings.systemPrompts[settings.assistantProfile], settings.projectInstructions[selectedProjectId] || ""].filter(Boolean).join("\n\n"),
       researchContext,
       };
     },
-  }), [selectedModel, keyVersion, keys, researchContext, settings.language, settings.streaming, settings.temperature, settings.maxOutputTokens, settings.assistantProfile, settings.systemPrompts, settings.projectInstructions, selectedProjectId]);
+  }), [selectedModel, keyVersion, keys, researchContext, settings.language, settings.streaming, settings.temperature, settings.maxOutputTokens, settings.effort, settings.assistantProfile, settings.systemPrompts, settings.projectInstructions, selectedProjectId]);
 
   const useChatProps = useChat({ transport });
   const messages = useMemo(() => useChatProps.messages || [], [useChatProps.messages]);
@@ -483,6 +484,8 @@ export default function Home() {
           onRetry={handleRegenerate}
           conversationTitle={conversationTitle}
           onPrompt={setInput}
+          effort={settings.effort}
+          onEffortChange={(effort) => updateAppSettings({ effort })}
         />
       )}
       <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} initialTab={settingsTab} />

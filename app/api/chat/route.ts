@@ -24,7 +24,7 @@ export async function POST(req: Request) {
     const parsedBodyBytes = new TextEncoder().encode(JSON.stringify(body)).byteLength;
     if (parsedBodyBytes > MAX_BODY_BYTES) return jsonError("Request is too large. Keep attachments under 20 MB total.", 413);
     if (!body || typeof body !== "object") return jsonError("Invalid request body.", 400);
-    const { messages, provider, apiKey, language, customProvider, cloudflareAccountId, temperature, maxOutputTokens, systemPrompt, researchContext } = body as { messages?: unknown; provider?: unknown; apiKey?: unknown; language?: unknown; customProvider?: unknown; cloudflareAccountId?: unknown; temperature?: unknown; maxOutputTokens?: unknown; systemPrompt?: unknown; researchContext?: unknown };
+    const { messages, provider, apiKey, language, customProvider, cloudflareAccountId, temperature, maxOutputTokens, effort, systemPrompt, researchContext } = body as { messages?: unknown; provider?: unknown; apiKey?: unknown; language?: unknown; customProvider?: unknown; cloudflareAccountId?: unknown; temperature?: unknown; maxOutputTokens?: unknown; effort?: unknown; systemPrompt?: unknown; researchContext?: unknown };
     requestedProvider = typeof provider === "string" ? provider : "";
     const isCustom = typeof provider === "string" && provider.startsWith("custom_");
     const isLocalCustom = isCustom && isLocalCustomProvider(customProvider);
@@ -32,7 +32,7 @@ export async function POST(req: Request) {
     if ((!isLocalCustom && (typeof apiKey !== "string" || apiKey.trim().length < 8 || apiKey.length > 500)) || (isLocalCustom && apiKey !== "local")) return jsonError(isLocalCustom ? "Local provider authentication marker is invalid." : "A valid API key is required.", 400);
     const normalizedApiKey = isLocalCustom ? "local" : (apiKey as string).trim();
     if (provider === "cloudflare" && (typeof cloudflareAccountId !== "string" || !/^[a-f0-9]{32}$/i.test(cloudflareAccountId.trim()))) return jsonError("A valid 32-character Cloudflare Account ID is required. Add it in Settings.", 400);
-    const generation = normalizeGenerationOptions({ temperature, maxOutputTokens });
+    const generation = normalizeGenerationOptions({ temperature, maxOutputTokens, effort } as { temperature?: unknown; maxOutputTokens?: unknown; effort?: unknown });
     const normalizedPrompt = normalizeSystemPrompt(systemPrompt);
     if (!normalizedPrompt.valid) return jsonError("System instructions must be text under 6,000 characters.", 400);
     const researchInstructions = buildResearchInstructions(researchContext);
