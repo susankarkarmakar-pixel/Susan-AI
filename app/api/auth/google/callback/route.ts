@@ -10,7 +10,7 @@ export async function GET(request: Request) {
   const state = url.searchParams.get("state");
   const secure = url.protocol === "https:";
   const failure = (message: string) => {
-    const response = NextResponse.redirect(`${getAppUrl(request)}/?auth_error=${encodeURIComponent(message)}`);
+    const response = NextResponse.redirect(`${getAppUrl(request)}/sign-in?auth_error=${encodeURIComponent(message)}`);
     response.headers.append("Set-Cookie", clearStateCookie(secure));
     return response;
   };
