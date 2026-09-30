@@ -2,7 +2,7 @@
 /* eslint-disable @next/next/no-img-element -- previews use short-lived local object URLs. */
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowUp, FileText, Image as ImageIcon, Mic, Paperclip, Square, Upload, Volume2, VolumeX, X } from "lucide-react";
+import { ArrowUp, FileText, Image as ImageIcon, Mic, Paperclip, Square, Trash2, Upload, Volume2, VolumeX, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { AiEffort } from "@/lib/app-settings";
 import type { WorkspaceProject } from "@/lib/workspace-storage";
@@ -48,6 +48,7 @@ export function MessageInput({ input, onInputChange, onSubmit, isLoading, stop, 
   const [fileNotice, setFileNotice] = useState<string | null>(null);
   const [extractions, setExtractions] = useState<Record<string, AttachmentExtractionState>>({});
   const [ocrLanguage, setOcrLanguage] = useState<OcrLanguage>("eng");
+  const [previewFile, setPreviewFile] = useState<File | null>(null);
   const [attachmentMenuOpen, setAttachmentMenuOpen] = useState(false);
   const [attachmentFilter, setAttachmentFilter] = useState<"all" | "images" | "documents" | "data">("all");
   const [isDraggingFiles, setIsDraggingFiles] = useState(false);
@@ -141,6 +142,7 @@ export function MessageInput({ input, onInputChange, onSubmit, isLoading, stop, 
     onSubmit(event, files, extractedText || undefined);
     setFiles([]);
     setExtractions({});
+    setPreviewFile(null);
     setFileError(null);
     setFileNotice(null);
   };
@@ -156,7 +158,7 @@ export function MessageInput({ input, onInputChange, onSubmit, isLoading, stop, 
     window.setTimeout(() => fileInputRef.current?.click(), 0);
   };
 
-  const removeFile = (index: number) => { const file = files[index]; setFiles((current) => current.filter((_, fileIndex) => fileIndex !== index)); if (file) setExtractions((current) => { const next = { ...current }; delete next[fileKey(file)]; return next; }); setFileNotice(null); };
+  const removeFile = (index: number) => { const file = files[index]; setFiles((current) => current.filter((_, fileIndex) => fileIndex !== index)); if (file) { setExtractions((current) => { const next = { ...current }; delete next[fileKey(file)]; return next; }); if (previewFile === file) setPreviewFile(null); } setFileNotice(null); };
   const replaceFile = (index: number) => {
     const file = files[index];
     setFiles((current) => current.filter((_, fileIndex) => fileIndex !== index));
@@ -191,7 +193,7 @@ export function MessageInput({ input, onInputChange, onSubmit, isLoading, stop, 
         {isDraggingFiles && <div className="pointer-events-none absolute inset-1 z-20 flex items-center justify-center rounded-[1.35rem] border-2 border-dashed border-accent bg-surface/90 backdrop-blur-sm"><div className="text-center"><Upload className="mx-auto mb-1 h-6 w-6 text-accent" /><p className="text-sm font-semibold text-text-main">Drop files to attach</p><p className="mt-0.5 text-[10px] text-text-muted">Up to {MAX_FILES} files · {formatFileSize(MAX_TOTAL_FILE_SIZE)} total</p></div></div>}
         {files.length > 0 && (
           <div className="grid gap-2 px-2 pb-2 sm:grid-cols-2" aria-label="Selected attachments">
-            {files.map((file, index) => <AttachmentPreview key={`${file.name}-${file.size}`} file={file} extraction={extractions[fileKey(file)]} onRetry={() => { void queueExtraction(file); }} onRemove={() => removeFile(index)} onReplace={() => replaceFile(index)} />)}
+            {files.map((file, index) => <AttachmentPreview key={`${file.name}-${file.size}`} file={file} extraction={extractions[fileKey(file)]} onPreview={() => setPreviewFile(file)} onRetry={() => { void queueExtraction(file); }} onRemove={() => removeFile(index)} onReplace={() => replaceFile(index)} />)}
             <div className="flex items-center justify-between px-1 text-[10px] text-text-muted sm:col-span-2"><span>{files.length} of {MAX_FILES} files attached</span><span>{formatFileSize(totalFileSize)} / 12 MB</span></div>
           </div>
         )}
@@ -222,17 +224,32 @@ export function MessageInput({ input, onInputChange, onSubmit, isLoading, stop, 
       </div>
       {fileError && <p role="alert" aria-live="polite" className="mx-auto mt-2 max-w-3xl text-center text-xs text-red-600">{fileError}</p>}
       {fileNotice && <p role="status" aria-live="polite" className="mx-auto mt-2 max-w-3xl text-center text-xs text-text-muted">{fileNotice}</p>}
+      {previewFile && <AttachmentPreviewModal file={previewFile} extraction={extractions[fileKey(previewFile)]} onClose={() => setPreviewFile(null)} />}
       <div className="mx-auto mt-2 max-w-5xl text-center text-[11px] text-text-muted">Enter to send · Shift+Enter for a new line · Ctrl/Cmd+K new chat · / commands <span className="mx-1">·</span>{canAttachFiles ? "Attach images, PDFs, text, CSV, or JSON files." : (attachmentSupportMessage || "Attachments are unavailable for this provider.")} <span className="mx-1">·</span> AI can make mistakes. Please double-check important information.</div>
     </div>
   );
 }
 
-function AttachmentPreview({ file, extraction, onRetry, onRemove, onReplace }: { file: File; extraction?: AttachmentExtractionState; onRetry: () => void; onRemove: () => void; onReplace: () => void }) {
+function AttachmentPreview({ file, extraction, onPreview, onRetry, onRemove, onReplace }: { file: File; extraction?: AttachmentExtractionState; onPreview: () => void; onRetry: () => void; onRemove: () => void; onReplace: () => void }) {
   const previewUrl = useMemo(() => file.type.startsWith("image/") ? URL.createObjectURL(file) : null, [file]);
   useEffect(() => () => { if (previewUrl) URL.revokeObjectURL(previewUrl); }, [previewUrl]);
   const extractionLabel = extraction?.status === "reading" ? `Reading file · ${extraction.progress}%` : extraction?.status === "ocr" ? `OCR in progress · ${extraction.progress}%` : extraction?.status === "ready" ? `${extraction.source === "ocr" ? `OCR (${getOcrLanguageLabel(extraction.language)})` : "Text"} extracted · ${extraction.characterCount.toLocaleString()} characters` : extraction?.status === "empty" ? (extraction.message || "No readable text found") : extraction?.status === "failed" ? (extraction.message || "Extraction failed") : "Preparing extraction…";
   const extractionReady = extraction?.status === "ready";
-  return <div className="min-w-0 rounded-xl border border-border-main/60 bg-bg-main/60 p-2" data-attachment-status={extraction?.status || "reading"}><div className="flex items-center gap-2"><div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-cream-highlight text-accent">{previewUrl ? <><span className="sr-only">Image preview</span><img src={previewUrl} alt={`Preview of ${file.name}`} className="h-full w-full object-cover" /></> : <FileText className="h-5 w-5" />}</div><div className="min-w-0 flex-1"><p className="truncate text-xs font-semibold text-text-main" title={file.name}>{file.name}</p><p className="mt-0.5 text-[10px] text-text-muted">{getFileKindLabel(file)} · {formatFileSize(file.size)}</p><p className={cn("mt-0.5 text-[10px] font-medium", extractionReady ? "text-emerald-700" : extraction?.status === "failed" ? "text-red-600" : "text-text-muted")}>{extractionReady ? "✓ " : ""}{extractionLabel}</p></div><div className="flex shrink-0 flex-col items-end gap-1"><button type="button" onClick={onReplace} className="text-[10px] font-semibold text-text-muted underline underline-offset-2 hover:text-text-main">Replace</button><button type="button" onClick={onRemove} aria-label={`Remove ${file.name}`} className="rounded-md p-1 text-text-muted hover:bg-black/10 hover:text-text-main"><X className="h-3.5 w-3.5" /></button></div></div>{extractionReady && extraction.text && <details className="mt-2 rounded-lg border border-border-main/50 bg-surface px-2 py-1.5"><summary className="cursor-pointer text-[10px] font-semibold text-text-muted">View extracted text</summary><pre className="mt-1 max-h-24 overflow-auto whitespace-pre-wrap text-[10px] leading-4 text-text-muted">{extraction.text.slice(0, 2000)}</pre></details>}{(extraction?.status === "failed" || extraction?.status === "empty") && <button type="button" onClick={onRetry} className="mt-2 text-[10px] font-semibold text-accent underline underline-offset-2">Retry extraction</button>}</div>;
+  const extractionActive = extraction?.status === "reading" || extraction?.status === "ocr";
+  const progress = extraction?.progress || 0;
+  return <div className="min-w-0 rounded-xl border border-border-main/60 bg-bg-main/60 p-2" data-attachment-status={extraction?.status || "reading"}><div className="flex items-center gap-2"><button type="button" onClick={onPreview} aria-label={`Preview ${file.name}`} className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-cream-highlight text-accent hover:ring-2 hover:ring-accent/30">{previewUrl ? <><span className="sr-only">Image preview</span><img src={previewUrl} alt={`Preview of ${file.name}`} className="h-full w-full object-cover" /></> : <FileText className="h-5 w-5" />}</button><div className="min-w-0 flex-1"><button type="button" onClick={onPreview} className="block max-w-full truncate text-left text-xs font-semibold text-text-main hover:underline" title={`Preview ${file.name}`}>{file.name}</button><p className="mt-0.5 text-[10px] text-text-muted">{getFileKindLabel(file)} · {formatFileSize(file.size)}</p><p className={cn("mt-0.5 text-[10px] font-medium", extractionReady ? "text-emerald-700" : extraction?.status === "failed" ? "text-red-600" : "text-text-muted")}>{extractionReady ? "✓ " : ""}{extractionLabel}</p>{extractionActive && <div className="mt-1 h-1.5 w-full max-w-48 overflow-hidden rounded-full bg-black/10" role="progressbar" aria-label={`Processing ${file.name}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}><div className="h-full rounded-full bg-accent transition-[width]" style={{ width: `${progress}%` }} /></div>}</div><div className="flex shrink-0 flex-col items-end gap-1"><button type="button" onClick={onReplace} className="text-[10px] font-semibold text-text-muted underline underline-offset-2 hover:text-text-main">Replace</button><button type="button" onClick={onRemove} aria-label={`Delete ${file.name}`} title={`Delete ${file.name}`} className="rounded-md p-1 text-text-muted hover:bg-red-50 hover:text-red-700"><Trash2 className="h-3.5 w-3.5" /></button></div></div>{extractionReady && extraction.text && <details className="mt-2 rounded-lg border border-border-main/50 bg-surface px-2 py-1.5"><summary className="cursor-pointer text-[10px] font-semibold text-text-muted">View extracted text</summary><pre className="mt-1 max-h-24 overflow-auto whitespace-pre-wrap text-[10px] leading-4 text-text-muted">{extraction.text.slice(0, 2000)}</pre></details>}{(extraction?.status === "failed" || extraction?.status === "empty") && <button type="button" onClick={onRetry} className="mt-2 text-[10px] font-semibold text-accent underline underline-offset-2">Retry extraction</button>}</div>;
+}
+
+function AttachmentPreviewModal({ file, extraction, onClose }: { file: File; extraction?: AttachmentExtractionState; onClose: () => void }) {
+  const previewUrl = useMemo(() => URL.createObjectURL(file), [file]);
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => { document.removeEventListener("keydown", handleKeyDown); URL.revokeObjectURL(previewUrl); };
+  }, [onClose, previewUrl]);
+  const isImage = file.type.startsWith("image/");
+  const isPdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name);
+  return <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label={`Preview ${file.name}`} onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><div className="flex max-h-[min(88vh,720px)] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-border-main/70 bg-surface shadow-2xl"><div className="flex items-center justify-between gap-3 border-b border-border-main/60 px-4 py-3"><div className="min-w-0"><h2 className="truncate text-sm font-semibold text-text-main">{file.name}</h2><p className="text-[10px] text-text-muted">{getFileKindLabel(file)} · {formatFileSize(file.size)}{extraction?.characterCount ? ` · ${extraction.characterCount.toLocaleString()} extracted characters` : ""}</p></div><button type="button" onClick={onClose} aria-label="Close attachment preview" className="rounded-lg p-2 text-text-muted hover:bg-black/5 hover:text-text-main"><X className="h-4 w-4" /></button></div><div className="min-h-0 flex-1 overflow-auto bg-bg-main p-4">{isImage ? <img src={previewUrl} alt={`Full preview of ${file.name}`} className="mx-auto max-h-[65vh] max-w-full rounded-lg object-contain" /> : isPdf ? <iframe title={`PDF preview of ${file.name}`} src={previewUrl} className="h-[65vh] w-full rounded-lg border border-border-main/60 bg-white" /> : extraction?.text ? <pre className="whitespace-pre-wrap break-words text-sm leading-6 text-text-main">{extraction.text}</pre> : <p className="py-12 text-center text-sm text-text-muted">No extracted text is available yet.</p>}</div></div></div>;
 }
 
 function AttachmentOption({ icon, label, onClick, disabled }: { icon: React.ReactNode; label: string; onClick: () => void; disabled: boolean }) {

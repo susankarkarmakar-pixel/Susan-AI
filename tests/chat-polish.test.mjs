@@ -73,6 +73,10 @@ test("attachments support local extraction and pass untrusted text context", asy
   assert.match(composer, /Drop files to attach/);
   assert.match(composer, /Batch upload \(up to 3\)/);
   assert.match(composer, /isDraggingFiles/);
+  assert.match(composer, /AttachmentPreviewModal/);
+  assert.match(composer, /role="progressbar"/);
+  assert.match(composer, /Delete \$\{file\.name\}/);
+  assert.match(composer, /Full preview of/);
   assert.match(page, /Untrusted extracted attachment text/);
 });
 
