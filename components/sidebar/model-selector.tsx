@@ -3,9 +3,10 @@
 import { useState, useEffect, useRef } from "react";
 import { ChevronDown, Bot, Sparkles, BrainCircuit, Globe, Cpu, Hexagon, Zap, Shield, Code2, Flame, Network, Cloud, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { INSTANT_CHAT_PROVIDERS, MODELS_METADATA, ModelProvider } from "@/lib/ai-providers";
+import { INSTANT_CHAT_PROVIDERS, ModelProvider } from "@/lib/ai-providers";
 import { getApiKey, getKeys, ApiKeys } from "@/lib/key-storage";
 import { CustomProvider, getCustomProviders } from "@/lib/custom-providers";
+import { getProviderDescriptor } from "@/lib/provider-capabilities";
 
 // Update ModelOption to match ModelProvider
 export type ModelOption = Exclude<ModelProvider, "manus"> | string;
@@ -35,13 +36,12 @@ const MODEL_ICONS: Record<Exclude<ModelProvider, "manus">, LucideIcon> = {
   jules: Code2,
 };
 
-const MODELS = INSTANT_CHAT_PROVIDERS.map((id) => ({
-  id,
-  name: MODELS_METADATA[id].name,
-  description: MODELS_METADATA[id].description,
-  icon: MODEL_ICONS[id],
-}));
-const AGENT_MODELS = [{ id: "jules", name: MODELS_METADATA.jules.name, description: MODELS_METADATA.jules.description, icon: MODEL_ICONS.jules }];
+const MODELS = INSTANT_CHAT_PROVIDERS.map((id) => {
+  const descriptor = getProviderDescriptor(id);
+  return { id, name: descriptor?.name || id, description: descriptor?.description || "", icon: MODEL_ICONS[id] };
+});
+const julesDescriptor = getProviderDescriptor("jules");
+const AGENT_MODELS = [{ id: "jules", name: julesDescriptor?.name || "Google Jules", description: julesDescriptor?.description || "", icon: MODEL_ICONS.jules }];
 
 export function ModelSelector({ selected, onSelect, collapsed = false }: ModelSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);

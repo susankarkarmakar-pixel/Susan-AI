@@ -4,7 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Activity, Archive, ArrowRight, BookOpen, Check, CheckCircle2, CircleHelp, Database, FileText, FolderKanban, KeyRound, Loader2, Menu, Plug, Plus, Search, Sparkles, Trash2, Upload, Workflow, Wrench, XCircle } from "lucide-react";
 import { createDefaultToolRegistry } from "@/lib/agent/tools";
 import { getKeys } from "@/lib/key-storage";
-import { MODELS_METADATA, PROVIDERS } from "@/lib/ai-providers";
+import { PROVIDERS } from "@/lib/ai-providers";
+import { getProviderDescriptor } from "@/lib/provider-capabilities";
 import { getCustomProviders } from "@/lib/custom-providers";
 import { clearPluginActivities, isPluginToolEnabled, listPluginActivities, PluginActivity, recordPluginActivity, setPluginToolEnabled } from "@/lib/plugin-settings";
 import { deleteKnowledgeNote, deleteProject, getKnowledgeNotes, getProjects, KnowledgeNote, saveKnowledgeNote, saveProject, setProjectStatus, WorkspaceProject } from "@/lib/workspace-storage";
@@ -161,9 +162,9 @@ function PluginsWorkspace({ onOpenSettings, onStartAgent, onOpenSection, onOpenS
   };
 
   const providers = [
-    ...PROVIDERS.filter((provider) => provider !== "manus").map((provider) => ({ id: provider, label: MODELS_METADATA[provider].name, description: MODELS_METADATA[provider].description, async: provider === "jules", model: MODELS_METADATA[provider].model })),
+    ...PROVIDERS.filter((provider) => provider !== "manus").map((provider) => { const descriptor = getProviderDescriptor(provider); return { id: provider, label: descriptor?.name || provider, description: descriptor?.description || "", async: descriptor?.capabilities.async === true, model: descriptor?.model || provider }; }),
     ...customProviders.map((provider) => ({ id: provider.id, label: provider.name, description: `${provider.local ? "Local endpoint" : "Custom endpoint"} · ${provider.model}`, async: false, model: provider.model, customProvider: provider })),
-    { id: "manus", label: MODELS_METADATA.manus.name, description: "Asynchronous tasks; connection testing is not supported here.", async: false, model: MODELS_METADATA.manus.model, unsupported: true },
+    { id: "manus", label: getProviderDescriptor("manus")?.name || "Manus", description: "Asynchronous tasks; connection testing is not supported here.", async: true, model: getProviderDescriptor("manus")?.model || "manus", unsupported: true },
   ];
 
   return <WorkspaceFrame onOpenSidebar={onOpenSidebar} icon={Plug} eyebrow="Connections & tools" title="Plugins" description="Manage AI provider connections and the local tools Agent Mode may use. Third-party plugin installation is not enabled in this version.">

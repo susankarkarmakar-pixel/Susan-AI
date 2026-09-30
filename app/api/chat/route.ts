@@ -1,5 +1,6 @@
 import { convertToModelMessages, streamText } from "ai";
-import { getCustomModelConfig, getModelConfig, isInstantChatProvider, MODELS_METADATA, ModelProvider } from "@/lib/ai-providers";
+import { getCustomModelConfig, getModelConfig, isInstantChatProvider, ModelProvider } from "@/lib/ai-providers";
+import { supportsProviderCapability } from "@/lib/provider-capabilities";
 import { CustomProvider, isAllowedBaseUrl } from "@/lib/custom-providers";
 import { enforceRateLimit, getClientIdentifier, RateLimitUnavailableError, RATE_LIMIT_RETRY_AFTER_SECONDS } from "@/lib/rate-limit";
 import { mapProviderError } from "@/lib/provider-errors.mjs";
@@ -40,7 +41,7 @@ export async function POST(req: Request) {
 
     const validMessages = messages.filter(isUIMessage).slice(-MAX_MESSAGES);
     if (validMessages.length === 0) return jsonError("No valid messages found.", 400);
-    if ((!isCustom && !MODELS_METADATA[provider as keyof typeof MODELS_METADATA].capabilities.files) && validMessages.some((message) => message.parts?.some(isFilePart))) {
+    if ((!isCustom && !supportsProviderCapability(provider, "files")) && validMessages.some((message) => message.parts?.some(isFilePart))) {
       return jsonError("The selected provider does not support file attachments. Choose a vision/file-capable provider.", 400);
     }
 

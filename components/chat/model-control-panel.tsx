@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { Check, ChevronDown, CircleAlert, Cloud, Cpu, RefreshCw, ShieldCheck, Zap } from "lucide-react";
-import { INSTANT_CHAT_PROVIDERS, MODELS_METADATA } from "@/lib/ai-providers";
+import { INSTANT_CHAT_PROVIDERS } from "@/lib/ai-providers";
 import { getApiKey, getKeys, ApiKeys } from "@/lib/key-storage";
 import { CustomProvider, getCustomProviders } from "@/lib/custom-providers";
+import { getProviderDescriptor } from "@/lib/provider-capabilities";
 import type { ModelOption } from "@/components/sidebar/model-selector";
 import type { AiEffort } from "@/lib/app-settings";
 
@@ -50,13 +51,16 @@ export function ModelControlPanel({ selectedModel, onSelectModel, effort, onEffo
   }, []);
 
   const choices: ModelChoice[] = [
-    ...INSTANT_CHAT_PROVIDERS.map((provider) => ({
-      id: provider,
-      name: MODELS_METADATA[provider].name,
-      description: MODELS_METADATA[provider].model,
-      local: false,
-      ready: Boolean(getApiKey(provider, keys)),
-    })),
+    ...INSTANT_CHAT_PROVIDERS.map((provider) => {
+      const descriptor = getProviderDescriptor(provider);
+      return {
+        id: provider,
+        name: descriptor?.name || provider,
+        description: descriptor?.model || provider,
+        local: descriptor?.local || false,
+        ready: Boolean(getApiKey(provider, keys)),
+      };
+    }),
     ...customProviders.map((provider) => ({
       id: provider.id,
       name: provider.name,

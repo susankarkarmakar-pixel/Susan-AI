@@ -15,8 +15,8 @@ import { ApprovalModal } from "@/components/agent/approval-modal";
 import { ChatMessages } from "./chat-messages";
 import { MessageInput } from "./message-input";
 import { getApiKey } from "@/lib/key-storage";
-import { MODELS_METADATA } from "@/lib/ai-providers";
 import { getCustomProviders } from "@/lib/custom-providers";
+import { getProviderDescriptor, getProviderDisplayName, supportsProviderCapability } from "@/lib/provider-capabilities";
 import { getChatErrorAction } from "@/lib/chat-error-actions.mjs";
 import type { AiEffort } from "@/lib/app-settings";
 import type { WorkspaceProject } from "@/lib/workspace-storage";
@@ -76,9 +76,9 @@ export function ChatArea({ mode, onModeChange, activeAgentTask, agentExecution, 
   const handledErrorRef = useRef<string | null>(null);
   const fallbackTriedModelsRef = useRef<Set<string>>(new Set());
   const customProvider = getCustomProviders().find((provider) => provider.id === selectedModel);
-  const modelMetadata = MODELS_METADATA[selectedModel as keyof typeof MODELS_METADATA];
-  const modelName = modelMetadata?.name || customProvider?.name || "Selected provider";
-  const canAttachFiles = modelMetadata?.capabilities.files ?? false;
+  const providerDescriptor = getProviderDescriptor(selectedModel, customProvider);
+  const modelName = providerDescriptor?.name || "Selected provider";
+  const canAttachFiles = supportsProviderCapability(selectedModel, "files", customProvider);
   const attachmentSupportMessage = `${modelName} does not support file attachments. Choose a vision/file-capable model such as Claude, Gemini, or OpenAI.`;
 
   useEffect(() => {
@@ -100,7 +100,7 @@ export function ChatArea({ mode, onModeChange, activeAgentTask, agentExecution, 
     if (!nextModel) return;
     fallbackTriedModelsRef.current.add(nextModel);
     const nextProvider = getCustomProviders().find((provider) => provider.id === nextModel);
-    const nextName = MODELS_METADATA[nextModel as keyof typeof MODELS_METADATA]?.name || nextProvider?.name || nextModel;
+    const nextName = getProviderDisplayName(nextModel, nextProvider);
     onSelectModel(nextModel);
     setFallbackNotice(`${modelName} could not complete that request. Susan AI switched to ${nextName} and is retrying it.`);
     const retryTimer = window.setTimeout(() => onRetry(), 0);
