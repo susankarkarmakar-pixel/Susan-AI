@@ -133,20 +133,20 @@ export function ChatArea({ mode, onModeChange, activeAgentTask, agentExecution, 
 
   return (
     <div className="relative flex h-full flex-1 flex-col overflow-hidden bg-bg-main">
-      <header className="z-20 flex min-h-[72px] shrink-0 items-center gap-2 border-b border-border-main/50 bg-bg-main/90 px-3 pb-2 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur-sm sm:gap-4 sm:px-4 md:px-8">
+      <header className="z-20 flex min-h-[64px] shrink-0 items-center gap-1 border-b border-border-main/50 bg-bg-main/90 px-2 pb-1.5 pt-[max(0.5rem,env(safe-area-inset-top))] backdrop-blur-sm sm:min-h-[72px] sm:gap-4 sm:px-4 sm:pb-2 sm:pt-[max(0.75rem,env(safe-area-inset-top))] md:px-8">
         <button type="button" onClick={onOpenSidebar} aria-label="Open sidebar" className="-ml-2 rounded-lg p-2 text-text-muted hover:bg-black/5 hover:text-text-main lg:hidden">
           <Menu className="h-6 w-6" />
         </button>
-        <div className="flex min-w-0 flex-1 items-center gap-2">
-          <div className="flex items-center gap-2 rounded-xl border border-border-main/60 bg-surface px-3 py-2 text-sm font-semibold text-text-main shadow-sm">
+        <div className="flex min-w-0 flex-1 items-center gap-1 sm:gap-2">
+          <div className="flex shrink-0 items-center gap-2 rounded-xl border border-border-main/60 bg-surface px-2 py-1.5 text-sm font-semibold text-text-main shadow-sm sm:px-3 sm:py-2">
             <span className="flex h-6 w-6 items-center justify-center rounded-full bg-cream-highlight text-accent"><Sparkles className="h-3.5 w-3.5" /></span>
             <span className="hidden sm:inline">Susan AI</span>
           </div>
           <div className="hidden items-center gap-1.5 text-xs text-text-muted lg:flex"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />Private workspace</div>
           {conversationTitle && <span className="ml-2 hidden max-w-[260px] truncate text-sm text-text-muted md:inline">{conversationTitle}</span>}
         </div>
-        <div className="flex items-center gap-2">
-          <div role="group" aria-label="Workspace mode" className="flex shrink-0 items-center rounded-full border border-border-main/60 bg-surface p-1 shadow-sm">
+        <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+          <div role="group" aria-label="Workspace mode" className="flex shrink-0 items-center rounded-full border border-border-main/60 bg-surface p-0.5 shadow-sm sm:p-1">
             <ModeButton mode="chat" activeMode={mode} onSelect={(nextMode) => { setIsAgentPanelOpen(false); onModeChange(nextMode); }} icon={<MessageSquare className="h-3.5 w-3.5" />} label="Chat" />
             <ModeButton mode="search" activeMode={mode} onSelect={(nextMode) => { setIsAgentPanelOpen(false); onModeChange(nextMode); }} icon={<Globe2 className="h-3.5 w-3.5" />} label="Search" />
             <ModeButton mode="agent" activeMode={mode} onSelect={onModeChange} icon={<Bot className="h-3.5 w-3.5" />} label="Agent" />
@@ -186,7 +186,7 @@ function messageText(message: { parts?: unknown[] }): string {
 function ModeButton({ mode, activeMode, onSelect, icon, label }: { mode: AgentMode; activeMode: AgentMode; onSelect: (mode: AgentMode) => void; icon: React.ReactNode; label: string }) {
   const active = mode === activeMode;
   return (
-    <button type="button" aria-pressed={active} onClick={() => onSelect(mode)} className={`flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-xs font-semibold transition-colors ${active ? "bg-cream-highlight text-accent" : "text-text-muted hover:bg-black/5 hover:text-text-main"}`}>
+    <button type="button" aria-pressed={active} onClick={() => onSelect(mode)} className={`flex items-center gap-1 rounded-full px-2 py-1.5 text-xs font-semibold transition-colors sm:gap-1.5 sm:px-2.5 ${active ? "bg-cream-highlight text-accent" : "text-text-muted hover:bg-black/5 hover:text-text-main"}`}>
       {icon}<span className="hidden sm:inline">{label}</span>
     </button>
   );

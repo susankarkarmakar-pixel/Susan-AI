@@ -39,14 +39,14 @@ export function ChatMessages({ messages, isStreaming, isPreparingResearch, onRet
 
   if (messages.length === 0) {
     return (
-      <div className="flex-1 overflow-y-auto px-4 py-8 md:px-8">
-        <div className="mx-auto flex max-w-5xl flex-col items-center justify-center py-8 md:py-14 animate-in fade-in duration-500">
-          <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-cream-highlight text-accent shadow-sm">
-            <Sparkles className="h-7 w-7" />
+      <div className="flex-1 overflow-y-auto px-3 py-4 sm:px-4 sm:py-8 md:px-8">
+        <div className="mx-auto flex max-w-5xl flex-col items-center justify-center py-3 sm:py-8 md:py-14 animate-in fade-in duration-500">
+          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-cream-highlight text-accent shadow-sm sm:mb-5 sm:h-14 sm:w-14">
+            <Sparkles className="h-6 w-6 sm:h-7 sm:w-7" />
           </div>
-          <h1 className="text-center font-serif text-3xl font-semibold tracking-tight text-text-main md:text-4xl">Welcome to Susan AI</h1>
-          <p className="mt-3 max-w-xl text-center text-sm text-text-muted md:text-base">Your personal AI assistant for learning, creating, and exploring ideas.</p>
-          <div className="mt-10 grid w-full grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <h1 className="text-center font-serif text-2xl font-semibold tracking-tight text-text-main sm:text-3xl md:text-4xl">Welcome to Susan AI</h1>
+          <p className="mt-2 max-w-xl text-center text-sm leading-5 text-text-muted sm:mt-3 md:text-base">Your personal AI assistant for learning, creating, and exploring ideas.</p>
+          <div className="mt-6 grid w-full grid-cols-1 gap-2.5 sm:mt-10 sm:grid-cols-2 sm:gap-3 lg:grid-cols-4">
             {[
               [PenLine, "Help me write", "Create content, emails, blogs and more", "Help me write a polished email about"],
               [Lightbulb, "Explain concepts", "Learn new topics in simple terms", "Explain this concept in simple terms:"],
@@ -55,8 +55,8 @@ export function ChatMessages({ messages, isStreaming, isPreparingResearch, onRet
             ].map(([Icon, title, description, prompt]) => {
               const PromptIcon = Icon as typeof PenLine;
               return (
-                <button key={title as string} type="button" onClick={() => onPrompt?.(prompt as string)} className="group rounded-2xl border border-border-main/70 bg-surface p-4 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-md">
-                  <span className="mb-4 flex h-9 w-9 items-center justify-center rounded-xl bg-cream-highlight text-accent"><PromptIcon className="h-5 w-5" /></span>
+                <button key={title as string} type="button" onClick={() => onPrompt?.(prompt as string)} className="group rounded-2xl border border-border-main/70 bg-surface p-3.5 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-md sm:p-4">
+                  <span className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-cream-highlight text-accent sm:mb-4"><PromptIcon className="h-5 w-5" /></span>
                   <span className="block text-sm font-semibold text-text-main">{title as string}</span>
                   <span className="mt-1 block text-xs leading-5 text-text-muted">{description as string}</span>
                 </button>

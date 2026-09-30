@@ -78,7 +78,7 @@ export function ModelControlPanel({ selectedModel, onSelectModel, effort, onEffo
   };
 
   return <div className="relative min-w-0">
-    <button type="button" onClick={() => setOpen((value) => !value)} aria-expanded={open} aria-haspopup="dialog" className={`flex items-center gap-2 rounded-xl border border-border-main/70 bg-surface text-left shadow-sm transition-colors hover:border-accent/50 ${compact ? "max-w-[min(15rem,42vw)] px-2 py-1.5" : "max-w-[min(20rem,calc(100vw-2rem))] px-3 py-2"}`}>
+    <button type="button" onClick={() => setOpen((value) => !value)} aria-expanded={open} aria-haspopup="dialog" className={`flex items-center gap-2 rounded-xl border border-border-main/70 bg-surface text-left shadow-sm transition-colors hover:border-accent/50 ${compact ? "w-[min(10rem,46vw)] max-w-full px-2 py-1.5 sm:w-auto sm:max-w-[15rem]" : "max-w-[min(20rem,calc(100vw-2rem))] px-3 py-2"}`}>
       <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-cream-highlight text-accent">{selected?.local ? <ShieldCheck className="h-3.5 w-3.5" /> : <Cpu className="h-3.5 w-3.5" />}</span>
       <span className="min-w-0"><span className="block truncate text-[10px] font-bold uppercase tracking-[0.12em] text-text-muted">{compact ? "AI model" : "Model"}</span><span className="block truncate text-xs font-semibold text-text-main">{selected?.name || "Choose a model"}</span></span>
       <span className={`ml-auto h-2 w-2 shrink-0 rounded-full ${selected?.ready ? "bg-emerald-500" : "bg-amber-400"}`} />
