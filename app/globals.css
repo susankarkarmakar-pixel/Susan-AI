@@ -20,6 +20,20 @@
   --foreground: var(--text-main);
 }
 
+html[data-theme="dark"] {
+  --bg-main: #151311;
+  --bg-sidebar: #211b17;
+  --text-main: #f5eee7;
+  --text-muted: #b4a79d;
+  --accent-color: #d49a6c;
+  --accent-hover: #e3b488;
+  --border-color: #40372f;
+  --surface-color: #241f1b;
+  --sidebar-cocoa: #1b1410;
+  --sidebar-cocoa-soft: #3b271d;
+  --cream-highlight: #4a3323;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -59,6 +73,12 @@ body {
   color: var(--foreground);
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
   overscroll-behavior-x: none;
+  transition: background-color 180ms ease, color 180ms ease;
+}
+
+html[data-theme="dark"] ::selection {
+  background: #5d3e29;
+  color: #fff8ef;
 }
 
 :where(a, button, input, textarea, select, [role="switch"], [role="option"]):focus-visible {
