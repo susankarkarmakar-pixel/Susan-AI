@@ -103,6 +103,21 @@ test("About sections describe current product capabilities and privacy model", a
   assert.match(about, /Encrypted browser-local keys/);
   assert.match(about, /Provider credentials stay under your control/);
   assert.match(about, /License & Use/);
+  assert.match(about, /About sections/);
+  assert.match(about, /h-\[100dvh\]/);
+  assert.match(about, /bg-bg-main/);
+  assert.doesNotMatch(about, /#FCFAF5|#FAF5EC/);
+});
+
+test("Settings and About remain usable and theme-aware on mobile", async () => {
+  const settings = await read("components/settings/settings-modal.tsx");
+  const about = await read("components/about/about-modal.tsx");
+  assert.match(settings, /h-\[100dvh\]/);
+  assert.match(settings, /aria-label="Close Settings"/);
+  assert.match(settings, /bg-surface/);
+  assert.match(settings, /bg-cream-highlight/);
+  assert.doesNotMatch(settings, /bg-white px-3 py-2 text-sm/);
+  assert.match(about, /overflow-x-auto/);
 });
 
 test("workspace empty states provide next steps and Plugins points users to key management", async () => {

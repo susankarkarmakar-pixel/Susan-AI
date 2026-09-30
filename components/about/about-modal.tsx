@@ -56,10 +56,10 @@ export function AboutModal({ isOpen, onClose }: AboutModalProps) {
   const active = sections.find((section) => section.id === activeSection) || sections[0];
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 md:p-8">
+    <div className="fixed inset-0 z-[100] flex items-end justify-center sm:items-center sm:p-4 md:p-8">
       <div className="absolute inset-0 bg-sidebar-cocoa/45 backdrop-blur-sm" onClick={onClose} />
-      <div ref={modalRef} role="dialog" aria-modal="true" aria-labelledby="about-susan-title" className="relative flex h-[min(860px,92vh)] w-full max-w-6xl overflow-hidden rounded-[26px] border border-white/70 bg-[#FCFAF5] shadow-2xl">
-        <aside className="hidden w-[285px] shrink-0 border-r border-border-main/60 bg-[#FAF5EC] p-5 md:block">
+      <div ref={modalRef} role="dialog" aria-modal="true" aria-labelledby="about-susan-title" className="relative flex h-[100dvh] w-full max-w-6xl overflow-hidden rounded-t-3xl border border-border-main/70 bg-bg-main shadow-2xl sm:h-[min(860px,92vh)] sm:rounded-[26px]">
+        <aside className="hidden w-[285px] shrink-0 border-r border-border-main/60 bg-bg-sidebar p-5 md:block">
           <div className="mb-5 px-3 text-xs font-semibold uppercase tracking-[0.18em] text-text-muted">Susan AI</div>
           <nav className="space-y-1" aria-label="About sections">
             {sections.map((section) => {
@@ -76,10 +76,11 @@ export function AboutModal({ isOpen, onClose }: AboutModalProps) {
           </nav>
         </aside>
 
-        <main className="min-w-0 flex-1 overflow-y-auto p-6 md:p-10">
-          <button ref={closeButtonRef} type="button" onClick={onClose} aria-label="Close About Susan AI" className="absolute right-5 top-5 rounded-full p-2 text-text-muted hover:bg-black/5 hover:text-text-main"><X className="h-5 w-5" /></button>
+        <main className="min-w-0 flex-1 overflow-y-auto p-4 sm:p-6 md:p-10">
+          <button ref={closeButtonRef} type="button" onClick={onClose} aria-label="Close About Susan AI" className="absolute right-3 top-3 rounded-full p-2 text-text-muted hover:bg-black/5 hover:text-text-main sm:right-5 sm:top-5"><X className="h-5 w-5" /></button>
           <div className="mx-auto max-w-4xl">
-            <div className="mb-8 flex items-center gap-3 border-b border-border-main/50 pb-5 md:hidden"><Info className="h-5 w-5 text-accent" /><span className="font-semibold">{active.label}</span></div>
+            <div className="mb-3 flex items-center gap-3 border-b border-border-main/50 pb-3 md:hidden"><Info className="h-5 w-5 shrink-0 text-accent" /><span className="truncate font-semibold text-text-main">{active.label}</span></div>
+            <nav className="mb-6 flex gap-1 overflow-x-auto border-b border-border-main/50 pb-2 md:hidden" aria-label="About sections"><div className="flex shrink-0 gap-1">{sections.map((section) => { const Icon = section.icon; const selected = activeSection === section.id; return <button key={section.id} type="button" onClick={() => setActiveSection(section.id)} aria-current={selected ? "page" : undefined} className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-semibold ${selected ? "bg-cream-highlight text-text-main" : "text-text-muted hover:bg-black/5 hover:text-text-main"}`}><Icon className="h-3.5 w-3.5" />{section.label}</button>; })}</div></nav>
             {activeSection === "about" && <AboutOverview />}
             {activeSection === "features" && <FeatureSection />}
             {activeSection === "providers" && <ProviderSection />}
