@@ -463,6 +463,11 @@ export default function Home() {
           onClearAgentTask={handleClearAgentTask}
           onOpenSidebar={() => setIsSidebarOpen(true)}
           selectedModel={selectedModel}
+          onSelectModel={(model) => {
+            setSelectedModel(model);
+            if (model === "jules") { setMode("agent"); setActiveSection("agent"); }
+            else if (selectedModel === "jules") { setMode("chat"); setActiveSection("chat"); }
+          }}
           messages={displayMessages}
           onEditMessage={handleEditMessage}
           onDeleteMessage={handleDeleteMessage}

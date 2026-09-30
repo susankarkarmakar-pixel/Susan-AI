@@ -22,6 +22,7 @@ import type { AiEffort, AssistantProfile } from "@/lib/app-settings";
 import type { WorkspaceProject } from "@/lib/workspace-storage";
 import { SearchWorkspace } from "@/components/search/search-workspace";
 import { AccountButton } from "@/components/auth/account-button";
+import { FALLBACK_STORAGE_KEY, getConnectedModelIds, ModelControlPanel } from "./model-control-panel";
 
 interface ChatAreaProps {
   mode: AgentMode;
@@ -41,6 +42,7 @@ interface ChatAreaProps {
   onClearAgentTask: () => void;
   onOpenSidebar: () => void;
   selectedModel: ModelOption;
+  onSelectModel: (model: ModelOption) => void;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   messages: any[];
   input: string;
@@ -67,16 +69,38 @@ interface ChatAreaProps {
   onEffortChange: (effort: AiEffort) => void;
 }
 
-export function ChatArea({ mode, onModeChange, activeAgentTask, agentExecution, executionEvents, onCreateAgentTask, onRunAgentTask, onApproveAgentStep, onRejectAgentStep, onRollbackAgentTask, onPauseAgentTask, onResumeAgentTask, onRetryAgentTask, onCancelAgentTask, onClearAgentTask, onOpenSidebar, selectedModel, messages, input, onInputChange, onSend, isLoading, isPreparingResearch, stop, error, onRetry, onEditMessage, onDeleteMessage, assistantProfile, onAssistantProfileChange, projects, selectedProjectId, onSelectedProjectChange, isEditingMessage, onCancelEdit, estimatedTokens, conversationTitle, onPrompt, effort, onEffortChange }: ChatAreaProps) {
+export function ChatArea({ mode, onModeChange, activeAgentTask, agentExecution, executionEvents, onCreateAgentTask, onRunAgentTask, onApproveAgentStep, onRejectAgentStep, onRollbackAgentTask, onPauseAgentTask, onResumeAgentTask, onRetryAgentTask, onCancelAgentTask, onClearAgentTask, onOpenSidebar, selectedModel, onSelectModel, messages, input, onInputChange, onSend, isLoading, isPreparingResearch, stop, error, onRetry, onEditMessage, onDeleteMessage, assistantProfile, onAssistantProfileChange, projects, selectedProjectId, onSelectedProjectChange, isEditingMessage, onCancelEdit, estimatedTokens, conversationTitle, onPrompt, effort, onEffortChange }: ChatAreaProps) {
   const [toastError, setToastError] = useState<string | null>(null);
+  const [fallbackNotice, setFallbackNotice] = useState<string | null>(null);
   const [isAgentPanelOpen, setIsAgentPanelOpen] = useState(false);
   const [voiceMode, setVoiceMode] = useState(false);
   const spokenMessageRef = useRef<string | null>(null);
+  const handledErrorRef = useRef<string | null>(null);
   const customProvider = getCustomProviders().find((provider) => provider.id === selectedModel);
   const modelMetadata = MODELS_METADATA[selectedModel as keyof typeof MODELS_METADATA];
   const modelName = modelMetadata?.name || customProvider?.name || "Selected provider";
   const canAttachFiles = modelMetadata?.capabilities.files ?? false;
   const attachmentSupportMessage = `${modelName} does not support file attachments. Choose a vision/file-capable model such as Claude, Gemini, or OpenAI.`;
+
+  useEffect(() => {
+    if (!error || mode !== "chat" || typeof window === "undefined") return;
+    const errorMessage = error.message || "The provider could not complete the request.";
+    if (handledErrorRef.current === errorMessage) return;
+    handledErrorRef.current = errorMessage;
+    if (window.localStorage.getItem(FALLBACK_STORAGE_KEY) === "false") return;
+    const action = getChatErrorAction(errorMessage);
+    if (action !== "models" && action !== "retry") return;
+    const nextModel = getConnectedModelIds().find((model) => model !== selectedModel);
+    if (!nextModel) return;
+    const nextProvider = getCustomProviders().find((provider) => provider.id === nextModel);
+    const nextName = MODELS_METADATA[nextModel as keyof typeof MODELS_METADATA]?.name || nextProvider?.name || nextModel;
+    onSelectModel(nextModel);
+    // This notice synchronizes the external provider error with a transient user-facing status.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setFallbackNotice(`${modelName} could not complete that request. Susan AI switched to ${nextName}. You can change it from the Model control.`);
+    const timer = window.setTimeout(() => setFallbackNotice(null), 7000);
+    return () => window.clearTimeout(timer);
+  }, [error, mode, modelName, onSelectModel, selectedModel]);
 
   useEffect(() => {
     if (!voiceMode || isLoading || typeof window === "undefined" || !("speechSynthesis" in window)) return;
@@ -131,6 +155,7 @@ export function ChatArea({ mode, onModeChange, activeAgentTask, agentExecution, 
         {mode === "search" ? <SearchWorkspace /> : <>
         <main className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
           {toastError && <div role="alert" className="absolute left-1/2 top-4 z-30 -translate-x-1/2 rounded-lg bg-red-500/90 px-4 py-2 text-sm font-medium text-white shadow-lg backdrop-blur-sm">{toastError}</div>}
+          {fallbackNotice && <div role="status" aria-live="polite" className="absolute left-1/2 top-4 z-20 flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-950 shadow-lg"><span aria-hidden="true" className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-amber-200 text-[10px]">↗</span>{fallbackNotice}<button type="button" onClick={() => setFallbackNotice(null)} className="ml-1 rounded px-1 text-amber-800 hover:bg-amber-100" aria-label="Dismiss model fallback notice">×</button></div>}
           {error && !toastError && <ErrorRecovery error={error} onRetry={() => onRetry()} onOpenSettings={() => document.dispatchEvent(new CustomEvent("open-settings"))} onOpenModels={onOpenSidebar} />}
           {mode === "agent" && activeAgentTask?.status === "awaiting_approval" && activeAgentTask.steps.find((step) => step.status === "awaiting_approval") && <ApprovalModal task={activeAgentTask} step={activeAgentTask.steps.find((step) => step.status === "awaiting_approval")!} onApprove={onApproveAgentStep} onReject={onRejectAgentStep} />}
           {mode === "agent" && activeAgentTask && <AgentTaskComposer activeTask={activeAgentTask} execution={agentExecution} onCreateTask={onCreateAgentTask} onRunTask={onRunAgentTask} onRollbackTask={onRollbackAgentTask} onPauseTask={onPauseAgentTask} onResumeTask={onResumeAgentTask} onRetryTask={onRetryAgentTask} onCancelTask={onCancelAgentTask} onClearTask={onClearAgentTask} />}
@@ -138,7 +163,7 @@ export function ChatArea({ mode, onModeChange, activeAgentTask, agentExecution, 
           {mode === "agent" && activeAgentTask && <AgentOutputWorkspace task={activeAgentTask} execution={agentExecution} />}
           <ChatMessages messages={messages} isStreaming={isLoading} isPreparingResearch={isPreparingResearch} onRetry={onRetry} onEditMessage={onEditMessage} onDeleteMessage={onDeleteMessage} onPrompt={onPrompt} hideWelcome={mode === "agent" && Boolean(activeAgentTask)} />
           {mode === "agent" && <AgentBottomComposer onCreateTask={onCreateAgentTask} activeTask={Boolean(activeAgentTask)} />}
-          {mode === "chat" && <MessageInput key={selectedModel} input={input} onInputChange={onInputChange} onSubmit={handleSubmit} isLoading={isLoading} stop={stop} canAttachFiles={canAttachFiles} attachmentSupportMessage={attachmentSupportMessage} modelName={modelName} assistantProfile={assistantProfile} onAssistantProfileChange={onAssistantProfileChange} projects={projects} selectedProjectId={selectedProjectId} onSelectedProjectChange={onSelectedProjectChange} isEditingMessage={isEditingMessage} onCancelEdit={onCancelEdit} estimatedTokens={estimatedTokens} effort={effort} onEffortChange={onEffortChange} voiceMode={voiceMode} onVoiceModeChange={(enabled) => { if (enabled) { const latest = [...messages].reverse().find((message) => message.role === "assistant"); spokenMessageRef.current = latest?.id || null; } else window.speechSynthesis?.cancel(); setVoiceMode(enabled); }} />}
+          {mode === "chat" && <div className="flex items-end gap-2 border-t border-border-main/50 bg-bg-main/95 px-3 pb-3 pt-2 backdrop-blur-md sm:px-5 md:px-8"><ModelControlPanel selectedModel={selectedModel} onSelectModel={onSelectModel} /><div className="min-w-0 flex-1"><MessageInput key={selectedModel} input={input} onInputChange={onInputChange} onSubmit={handleSubmit} isLoading={isLoading} stop={stop} canAttachFiles={canAttachFiles} attachmentSupportMessage={attachmentSupportMessage} modelName={modelName} assistantProfile={assistantProfile} onAssistantProfileChange={onAssistantProfileChange} projects={projects} selectedProjectId={selectedProjectId} onSelectedProjectChange={onSelectedProjectChange} isEditingMessage={isEditingMessage} onCancelEdit={onCancelEdit} estimatedTokens={estimatedTokens} effort={effort} onEffortChange={onEffortChange} voiceMode={voiceMode} onVoiceModeChange={(enabled) => { if (enabled) { const latest = [...messages].reverse().find((message) => message.role === "assistant"); spokenMessageRef.current = latest?.id || null; } else window.speechSynthesis?.cancel(); setVoiceMode(enabled); }} /></div></div>}
         </main>
         {mode === "agent" && <AgentSidePanel activeTask={activeAgentTask} execution={agentExecution} events={executionEvents} onRollback={onRollbackAgentTask} mobileOpen={isAgentPanelOpen} onClose={() => setIsAgentPanelOpen(false)} />}
         </>}

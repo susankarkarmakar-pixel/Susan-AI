@@ -25,6 +25,17 @@ test("settings provides grouped workspace navigation, account state, and help li
   assert.match(settings, /group: "AI & Chat"/);
 });
 
+test("chat exposes connected-model control and optional automatic fallback", async () => {
+  const chat = await read("components/chat/chat-area.tsx");
+  const panel = await read("components/chat/model-control-panel.tsx");
+  assert.match(chat, /ModelControlPanel/);
+  assert.match(chat, /fallbackNotice/);
+  assert.match(panel, /Automatic fallback/);
+  assert.match(panel, /Cloud & BYOK models/);
+  assert.match(panel, /Local models/);
+  assert.match(panel, /model-fallback-updated/);
+});
+
 test("first-use tour explains Agent, Workflows, and Knowledge Base and can be replayed", async () => {
   const tour = await read("components/onboarding/first-use-tour.tsx");
   const sidebar = await read("components/sidebar/sidebar.tsx");
