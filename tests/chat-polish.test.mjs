@@ -9,7 +9,7 @@ test("chat offers message edit, regenerate, delete, copy, and local response fee
   const page = await read("app/page.tsx");
   for (const label of ["Copy response", "Regenerate", "Delete response", "Helpful response", "Unhelpful response", "Edit last message"]) assert.ok(bubble.includes(label), label);
   assert.match(list, /getLastUserMessageIndex/);
-  assert.ok(page.includes("await sendMessage({ text, files: [...originalFiles, ...fileParts], messageId });"));
+  assert.ok(page.includes("await sendMessage({ text: requestText, files: [...originalFiles, ...fileParts], messageId });"));
   assert.match(page, /useChatProps\.regenerate\(\{ messageId \}\)/);
   assert.match(page, /setMessages\(\(current\) => current\.filter/);
 });
@@ -36,10 +36,13 @@ test("model controls and scoped prompts are sent to the API with server-side bou
   assert.match(settings, /Project-specific instructions/);
   assert.match(composer, /ModelControlPanel/);
   assert.match(composer, /Choose attachment type/);
-  assert.match(composer, /Ready to attach/);
+  assert.match(composer, /extraction\.source/);
+  assert.match(composer, /characters/);
   assert.match(composer, /Replace/);
   assert.match(composer, /already attached/);
   assert.match(composer, /Preview of/);
+  assert.match(composer, /View extracted text/);
+  assert.match(composer, /Retry extraction/);
   assert.match(modelPanel, /Response effort/);
   assert.doesNotMatch(composer, /assistant-profile/);
   assert.doesNotMatch(composer, /option value="coding"/);
@@ -50,6 +53,17 @@ test("model controls and scoped prompts are sent to the API with server-side bou
   assert.match(route, /normalizeGenerationOptions/);
   assert.match(route, /normalizeSystemPrompt/);
   assert.match(route, /maxOutputTokens/);
+});
+
+test("attachments support local extraction and pass untrusted text context", async () => {
+  const extraction = await read("lib/attachment-extraction.ts");
+  const composer = await read("components/chat/message-input.tsx");
+  const page = await read("app/page.tsx");
+  assert.match(extraction, /pdfjs-dist\/legacy\/build\/pdf\.mjs/);
+  assert.match(extraction, /tesseract\.js/);
+  assert.match(extraction, /AttachmentExtractionStatus/);
+  assert.match(composer, /extractAttachmentText/);
+  assert.match(page, /Untrusted extracted attachment text/);
 });
 
 test("usage is prominently labeled a rough text-only estimate, not provider billing", async () => {

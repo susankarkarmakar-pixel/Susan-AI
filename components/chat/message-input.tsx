@@ -8,6 +8,7 @@ import type { AiEffort } from "@/lib/app-settings";
 import type { WorkspaceProject } from "@/lib/workspace-storage";
 import type { ModelOption } from "@/components/sidebar/model-selector";
 import { ModelControlPanel } from "./model-control-panel";
+import { extractAttachmentText, type AttachmentExtractionResult } from "@/lib/attachment-extraction";
 
 const MAX_FILE_SIZE = 4 * 1024 * 1024;
 const MAX_FILES = 3;
@@ -18,7 +19,7 @@ const ACCEPTED_MIME_TYPES = new Set(["application/pdf", "text/plain", "text/mark
 interface MessageInputProps {
   input: string;
   onInputChange: (event: React.ChangeEvent<HTMLTextAreaElement>) => void;
-  onSubmit: (event: React.FormEvent<HTMLFormElement>, files: File[]) => void;
+  onSubmit: (event: React.FormEvent<HTMLFormElement>, files: File[], extractedText?: string) => void;
   isLoading: boolean;
   stop: () => void;
   canAttachFiles: boolean;
@@ -44,12 +45,14 @@ export function MessageInput({ input, onInputChange, onSubmit, isLoading, stop, 
   const [files, setFiles] = useState<File[]>([]);
   const [fileError, setFileError] = useState<string | null>(null);
   const [fileNotice, setFileNotice] = useState<string | null>(null);
+  const [extractions, setExtractions] = useState<Record<string, AttachmentExtractionState>>({});
   const [attachmentMenuOpen, setAttachmentMenuOpen] = useState(false);
   const [attachmentFilter, setAttachmentFilter] = useState<"all" | "images" | "documents" | "data">("all");
   const [dictating, setDictating] = useState(false);
   const recognitionRef = useRef<{ start: () => void; stop: () => void; onresult: ((event: SpeechRecognitionEventLike) => void) | null; onend: (() => void) | null; onerror: (() => void) | null } | null>(null);
   const totalFileSize = files.reduce((sum, file) => sum + file.size, 0);
   const attachmentAccept = attachmentFilter === "images" ? "image/*" : attachmentFilter === "documents" ? ".pdf,.txt,.md" : attachmentFilter === "data" ? ".txt,.md,.csv,.json" : ACCEPTED_FILES;
+  const fileKey = (file: File) => `${file.name}:${file.size}:${file.lastModified}`;
 
   useEffect(() => {
     if (!textareaRef.current) return;
@@ -66,6 +69,7 @@ export function MessageInput({ input, onInputChange, onSubmit, isLoading, stop, 
     const nextFiles = [...files];
     let error: string | null = null;
     const notices: string[] = [];
+    const acceptedFiles: File[] = [];
     for (const file of Array.from(selectedFiles)) {
       if (nextFiles.length >= MAX_FILES) {
         error = `You can attach up to ${MAX_FILES} files.`;
@@ -85,12 +89,20 @@ export function MessageInput({ input, onInputChange, onSubmit, isLoading, stop, 
         break;
       }
       if (nextFiles.some((existing) => existing.name === file.name && existing.size === file.size)) notices.push(`${file.name} is already attached.`);
-      else nextFiles.push(file);
+      else { nextFiles.push(file); acceptedFiles.push(file); }
     }
     setFiles(nextFiles);
     setFileError(error);
     setFileNotice(notices.length > 0 ? notices.join(" ") : null);
+    acceptedFiles.forEach((file) => { void queueExtraction(file); });
     if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const queueExtraction = async (file: File) => {
+    const key = fileKey(file);
+    setExtractions((current) => ({ ...current, [key]: { status: "reading", source: "none", text: "", characterCount: 0, progress: 0 } }));
+    const result = await extractAttachmentText(file, (progress) => setExtractions((current) => ({ ...current, [key]: { ...(current[key] || { status: "reading", source: "none", text: "", characterCount: 0 }), status: file.type.startsWith("image/") ? "ocr" : "reading", progress } })));
+    setExtractions((current) => ({ ...current, [key]: { ...result, progress: 100 } }));
   };
 
   const toggleDictation = () => {
@@ -121,8 +133,10 @@ export function MessageInput({ input, onInputChange, onSubmit, isLoading, stop, 
   };
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-    onSubmit(event, files);
+    const extractedText = files.map((file) => extractions[fileKey(file)]?.text || "").filter(Boolean).join("\n\n");
+    onSubmit(event, files, extractedText || undefined);
     setFiles([]);
+    setExtractions({});
     setFileError(null);
     setFileNotice(null);
   };
@@ -138,9 +152,11 @@ export function MessageInput({ input, onInputChange, onSubmit, isLoading, stop, 
     window.setTimeout(() => fileInputRef.current?.click(), 0);
   };
 
-  const removeFile = (index: number) => { setFiles((current) => current.filter((_, fileIndex) => fileIndex !== index)); setFileNotice(null); };
+  const removeFile = (index: number) => { const file = files[index]; setFiles((current) => current.filter((_, fileIndex) => fileIndex !== index)); if (file) setExtractions((current) => { const next = { ...current }; delete next[fileKey(file)]; return next; }); setFileNotice(null); };
   const replaceFile = (index: number) => {
+    const file = files[index];
     setFiles((current) => current.filter((_, fileIndex) => fileIndex !== index));
+    if (file) setExtractions((current) => { const next = { ...current }; delete next[fileKey(file)]; return next; });
     setFileNotice("Choose a replacement file.");
     window.setTimeout(() => fileInputRef.current?.click(), 0);
   };
@@ -151,7 +167,7 @@ export function MessageInput({ input, onInputChange, onSubmit, isLoading, stop, 
       <form ref={formRef} onSubmit={handleSubmit} onDragOver={(event) => { if (canAttachFiles) event.preventDefault(); }} onDrop={(event) => { if (!canAttachFiles) return; event.preventDefault(); addFiles(event.dataTransfer.files); }} className="mx-auto max-w-5xl rounded-3xl border border-border-main/60 bg-surface p-3 shadow-sm transition-all focus-within:border-accent/40 focus-within:ring-4 focus-within:ring-accent/5">
         {files.length > 0 && (
           <div className="grid gap-2 px-2 pb-2 sm:grid-cols-2" aria-label="Selected attachments">
-            {files.map((file, index) => <AttachmentPreview key={`${file.name}-${file.size}`} file={file} onRemove={() => removeFile(index)} onReplace={() => replaceFile(index)} />)}
+            {files.map((file, index) => <AttachmentPreview key={`${file.name}-${file.size}`} file={file} extraction={extractions[fileKey(file)]} onRetry={() => { void queueExtraction(file); }} onRemove={() => removeFile(index)} onReplace={() => replaceFile(index)} />)}
             <div className="flex items-center justify-between px-1 text-[10px] text-text-muted sm:col-span-2"><span>{files.length} of {MAX_FILES} files attached</span><span>{formatFileSize(totalFileSize)} / 12 MB</span></div>
           </div>
         )}
@@ -187,10 +203,12 @@ export function MessageInput({ input, onInputChange, onSubmit, isLoading, stop, 
   );
 }
 
-function AttachmentPreview({ file, onRemove, onReplace }: { file: File; onRemove: () => void; onReplace: () => void }) {
+function AttachmentPreview({ file, extraction, onRetry, onRemove, onReplace }: { file: File; extraction?: AttachmentExtractionState; onRetry: () => void; onRemove: () => void; onReplace: () => void }) {
   const previewUrl = useMemo(() => file.type.startsWith("image/") ? URL.createObjectURL(file) : null, [file]);
   useEffect(() => () => { if (previewUrl) URL.revokeObjectURL(previewUrl); }, [previewUrl]);
-  return <div className="flex min-w-0 items-center gap-2 rounded-xl border border-border-main/60 bg-bg-main/60 p-2" data-attachment-status="ready"><div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-cream-highlight text-accent">{previewUrl ? <><span className="sr-only">Image preview</span><img src={previewUrl} alt={`Preview of ${file.name}`} className="h-full w-full object-cover" /></> : <FileText className="h-5 w-5" />}</div><div className="min-w-0 flex-1"><p className="truncate text-xs font-semibold text-text-main" title={file.name}>{file.name}</p><p className="mt-0.5 text-[10px] text-text-muted">{getFileKindLabel(file)} · {formatFileSize(file.size)}</p><p className="mt-0.5 flex items-center gap-1 text-[10px] font-medium text-emerald-700"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />Ready to attach</p></div><div className="flex shrink-0 flex-col items-end gap-1"><button type="button" onClick={onReplace} className="text-[10px] font-semibold text-text-muted underline underline-offset-2 hover:text-text-main">Replace</button><button type="button" onClick={onRemove} aria-label={`Remove ${file.name}`} className="rounded-md p-1 text-text-muted hover:bg-black/10 hover:text-text-main"><X className="h-3.5 w-3.5" /></button></div></div>;
+  const extractionLabel = extraction?.status === "reading" ? `Reading file · ${extraction.progress}%` : extraction?.status === "ocr" ? `OCR in progress · ${extraction.progress}%` : extraction?.status === "ready" ? `${extraction.source === "ocr" ? "OCR" : "Text"} extracted · ${extraction.characterCount.toLocaleString()} characters` : extraction?.status === "empty" ? (extraction.message || "No readable text found") : extraction?.status === "failed" ? (extraction.message || "Extraction failed") : "Preparing extraction…";
+  const extractionReady = extraction?.status === "ready";
+  return <div className="min-w-0 rounded-xl border border-border-main/60 bg-bg-main/60 p-2" data-attachment-status={extraction?.status || "reading"}><div className="flex items-center gap-2"><div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-cream-highlight text-accent">{previewUrl ? <><span className="sr-only">Image preview</span><img src={previewUrl} alt={`Preview of ${file.name}`} className="h-full w-full object-cover" /></> : <FileText className="h-5 w-5" />}</div><div className="min-w-0 flex-1"><p className="truncate text-xs font-semibold text-text-main" title={file.name}>{file.name}</p><p className="mt-0.5 text-[10px] text-text-muted">{getFileKindLabel(file)} · {formatFileSize(file.size)}</p><p className={cn("mt-0.5 text-[10px] font-medium", extractionReady ? "text-emerald-700" : extraction?.status === "failed" ? "text-red-600" : "text-text-muted")}>{extractionReady ? "✓ " : ""}{extractionLabel}</p></div><div className="flex shrink-0 flex-col items-end gap-1"><button type="button" onClick={onReplace} className="text-[10px] font-semibold text-text-muted underline underline-offset-2 hover:text-text-main">Replace</button><button type="button" onClick={onRemove} aria-label={`Remove ${file.name}`} className="rounded-md p-1 text-text-muted hover:bg-black/10 hover:text-text-main"><X className="h-3.5 w-3.5" /></button></div></div>{extractionReady && extraction.text && <details className="mt-2 rounded-lg border border-border-main/50 bg-surface px-2 py-1.5"><summary className="cursor-pointer text-[10px] font-semibold text-text-muted">View extracted text</summary><pre className="mt-1 max-h-24 overflow-auto whitespace-pre-wrap text-[10px] leading-4 text-text-muted">{extraction.text.slice(0, 2000)}</pre></details>}{(extraction?.status === "failed" || extraction?.status === "empty") && <button type="button" onClick={onRetry} className="mt-2 text-[10px] font-semibold text-accent underline underline-offset-2">Retry extraction</button>}</div>;
 }
 
 function AttachmentOption({ icon, label, onClick, disabled }: { icon: React.ReactNode; label: string; onClick: () => void; disabled: boolean }) {
@@ -209,6 +227,8 @@ function getFileKindLabel(file: File): string {
   if (/\.(csv|json)$/i.test(file.name)) return "Data";
   return "Text";
 }
+
+type AttachmentExtractionState = AttachmentExtractionResult & { progress: number };
 
 type SpeechRecognitionEventLike = { resultIndex: number; results: ArrayLike<ArrayLike<{ transcript: string }>> };
 type SpeechRecognitionLike = { start: () => void; stop: () => void; lang: string; interimResults: boolean; continuous: boolean; onresult: ((event: SpeechRecognitionEventLike) => void) | null; onend: (() => void) | null; onerror: (() => void) | null };

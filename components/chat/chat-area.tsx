@@ -47,7 +47,7 @@ interface ChatAreaProps {
   messages: any[];
   input: string;
   onInputChange: (event: React.ChangeEvent<HTMLTextAreaElement>) => void;
-  onSend: (event: React.FormEvent<HTMLFormElement>, files: File[]) => void | Promise<void>;
+  onSend: (event: React.FormEvent<HTMLFormElement>, files: File[], extractedText?: string) => void | Promise<void>;
   isLoading: boolean;
   isPreparingResearch: boolean;
   stop: () => void;
@@ -119,7 +119,7 @@ export function ChatArea({ mode, onModeChange, activeAgentTask, agentExecution, 
     window.speechSynthesis.speak(new SpeechSynthesisUtterance(text.slice(0, 8_000)));
   }, [messages, isLoading, voiceMode]);
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>, files: File[]) => {
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>, files: File[], extractedText?: string) => {
     const localProviderReady = customProvider?.requiresApiKey === false;
     if (!getApiKey(selectedModel) && !localProviderReady) {
       event.preventDefault();
@@ -128,7 +128,7 @@ export function ChatArea({ mode, onModeChange, activeAgentTask, agentExecution, 
       document.dispatchEvent(new CustomEvent("open-settings"));
       return;
     }
-    void onSend(event, files);
+    void onSend(event, files, extractedText);
   };
 
   return (

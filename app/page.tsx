@@ -173,10 +173,11 @@ export default function Home() {
     startNewConversation();
   };
 
-  const handleSend = async (event: React.FormEvent<HTMLFormElement>, files: File[]) => {
+  const handleSend = async (event: React.FormEvent<HTMLFormElement>, files: File[], extractedText?: string) => {
     event.preventDefault();
     const text = input.trim();
     if (!text && files.length === 0) return;
+    const requestText = [text, extractedText?.trim() ? `[Untrusted extracted attachment text]\n${extractedText.trim()}` : ""].filter(Boolean).join("\n\n");
     const fileParts = await Promise.all(files.map(fileToUIPart));
     let activeResearchContext: ResearchContext | null = null;
     if (isResearchIntent(text)) {
@@ -201,9 +202,9 @@ export default function Home() {
     setEditingMessageId(null);
     if (messageId) {
       const originalFiles = (messages.find((message) => message.id === messageId)?.parts?.filter((part) => part.type === "file") || []) as typeof fileParts;
-      await sendMessage({ text, files: [...originalFiles, ...fileParts], messageId });
+      await sendMessage({ text: requestText, files: [...originalFiles, ...fileParts], messageId });
     } else {
-      await sendMessage({ text, files: fileParts });
+      await sendMessage({ text: requestText, files: fileParts });
     }
   };
 
