@@ -88,6 +88,13 @@ test("Sidebar organizes workspace, recent chats, library, and support controls",
   assert.doesNotMatch(sidebar, /Export conversations|Import conversations|Delete all conversations/);
 });
 
+test("sidebar collapse state persists between sessions", async () => {
+  const page = await read("app/page.tsx");
+  assert.match(page, /susan_sidebar_collapsed_v1/);
+  assert.match(page, /localStorage\.getItem\(SIDEBAR_COLLAPSED_STORAGE_KEY\)/);
+  assert.match(page, /localStorage\.setItem\(SIDEBAR_COLLAPSED_STORAGE_KEY, String\(next\)\)/);
+});
+
 test("workspace empty states provide next steps and Plugins points users to key management", async () => {
   const workspaces = await read("components/workspace/workspace-hub.tsx");
   assert.match(workspaces, /Create a project above/);

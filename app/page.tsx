@@ -33,6 +33,8 @@ import { getProjects, WorkspaceProject } from "@/lib/workspace-storage";
 import { isResearchIntent } from "@/lib/research-intent.mjs";
 import type { ResearchContext, SearchSource } from "@/lib/search-types";
 
+const SIDEBAR_COLLAPSED_STORAGE_KEY = "susan_sidebar_collapsed_v1";
+
 export default function Home() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -56,6 +58,14 @@ export default function Home() {
   const safeTaskSnapshot = useRef<AgentTask | null>(null);
   const { records, ready: tasksReady, save: saveAgentTask, remove: removeAgentTask } = useAgentTasks();
   const restoredTask = useRef(false);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const savedPreference = window.localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY);
+      if (savedPreference === "true" || savedPreference === "false") setIsSidebarCollapsed(savedPreference === "true");
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     const refreshProjects = () => setProjects(getProjects());
@@ -416,7 +426,11 @@ export default function Home() {
         onSelectPinnedAgent={handleSelectPinnedAgent}
         onOpenSettings={() => { setSettingsTab("keys"); setIsSettingsOpen(true); }}
         collapsed={isSidebarCollapsed}
-        onToggleCollapsed={() => setIsSidebarCollapsed((collapsed) => !collapsed)}
+        onToggleCollapsed={() => setIsSidebarCollapsed((collapsed) => {
+          const next = !collapsed;
+          window.localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, String(next));
+          return next;
+        })}
         onNewChat={handleNewChat}
         onOpenConversation={(id) => { handleLoadConversation(id); setActiveSection("chat"); setMode("chat"); }}
         onOpenAbout={() => { setIsSettingsOpen(false); setIsAboutOpen(true); }}
