@@ -1,9 +1,11 @@
 "use client";
 
-import { Plus, Settings, X, Info, Home, MessageSquare, Bot, Globe2, FolderKanban, Workflow, Network, Puzzle, FileText, History, PanelLeftClose, PanelLeftOpen, CircleHelp } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Plus, Settings, X, Info, Home, MessageSquare, Bot, Globe2, FolderKanban, Workflow, Network, Puzzle, FileText, History, PanelLeftClose, PanelLeftOpen, CircleHelp, Search, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ModelSelector, ModelOption } from "./model-selector";
 import { PwaInstallButton } from "@/components/pwa/pwa-install-button";
+import { getConversations, ConversationSummary } from "@/lib/chat-storage";
 
 interface SidebarProps {
   isOpen: boolean;
@@ -15,6 +17,7 @@ interface SidebarProps {
   selectedModel: ModelOption;
   onSelectModel: (model: ModelOption) => void;
   onNewChat: () => void;
+  onOpenConversation: (id: string) => void;
   onOpenAbout: () => void;
   onOpenTour: () => void;
   collapsed: boolean;
@@ -31,11 +34,19 @@ export function Sidebar({
   selectedModel,
   onSelectModel,
   onNewChat,
+  onOpenConversation,
   onOpenAbout,
   onOpenTour,
   collapsed,
   onToggleCollapsed
 }: SidebarProps) {
+  const [recentChats, setRecentChats] = useState<ConversationSummary[]>([]);
+  useEffect(() => {
+    const refreshRecentChats = () => setRecentChats(getConversations().slice(0, 5));
+    const timer = window.setTimeout(refreshRecentChats, 0);
+    window.addEventListener("conversations-updated", refreshRecentChats);
+    return () => { window.clearTimeout(timer); window.removeEventListener("conversations-updated", refreshRecentChats); };
+  }, []);
   const navigate = (section: SidebarProps["activeSection"]) => {
     onNavigate(section);
     if (window.innerWidth < 1024) onClose();
@@ -98,17 +109,22 @@ export function Sidebar({
             {!collapsed && "New Chat"}
           </button>
 
-          <nav className="mb-5 space-y-1" aria-label="Primary navigation">
+          {!collapsed && <p className="mb-2 px-2 text-[10px] font-bold uppercase tracking-[0.18em] text-white/40">Workspace</p>}
+          <nav className="mb-5 space-y-1" aria-label="Workspace navigation">
             <SidebarNavItem icon={<Home className="h-4 w-4" />} label="Home" active={activeSection === "home"} collapsed={collapsed} onClick={() => navigate("home")} />
             <SidebarNavItem icon={<MessageSquare className="h-4 w-4" />} label="Chat" active={activeSection === "chat"} collapsed={collapsed} onClick={() => navigate("chat")} />
             <SidebarNavItem icon={<Globe2 className="h-4 w-4" />} label="Web Search" collapsed={collapsed} onClick={() => { window.dispatchEvent(new CustomEvent("open-search")); if (window.innerWidth < 1024) onClose(); }} />
             <SidebarNavItem icon={<Bot className="h-4 w-4" />} label="Agent Mode" active={activeSection === "agent"} collapsed={collapsed} onClick={() => navigate("agent")} />
+          </nav>
+          {!collapsed && <div className="mb-5 border-t border-white/10 pt-4"><div className="mb-2 flex items-center justify-between px-2"><span className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-white/40"><History className="h-3.5 w-3.5" />Recent chats</span><button type="button" onClick={() => navigate("history")} className="text-[10px] font-semibold text-cream-highlight hover:text-white">View all</button></div>{recentChats.length > 0 ? <div className="space-y-1">{recentChats.map((chat) => <button key={chat.id} type="button" onClick={() => { onOpenConversation(chat.id); navigate("chat"); }} className="group flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-xs text-white/70 hover:bg-white/10 hover:text-white"><MessageSquare className="h-3.5 w-3.5 shrink-0 text-white/40 group-hover:text-cream-highlight" /><span className="min-w-0 flex-1 truncate">{chat.title || "Untitled chat"}</span><span className="hidden text-[9px] text-white/35 group-hover:inline">{formatRecentDate(chat.date)}</span></button>)}</div> : <button type="button" onClick={() => navigate("history")} className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-xs text-white/45 hover:bg-white/10 hover:text-white"><Search className="h-3.5 w-3.5" />No saved chats yet</button>}</div>}
+          {!collapsed && <p className="mb-2 px-2 text-[10px] font-bold uppercase tracking-[0.18em] text-white/40">Library</p>}
+          <nav className="mb-5 space-y-1" aria-label="Library navigation">
+            <SidebarNavItem icon={<History className="h-4 w-4" />} label="History" active={activeSection === "history"} collapsed={collapsed} onClick={() => navigate("history")} />
             <SidebarNavItem icon={<FolderKanban className="h-4 w-4" />} label="Projects" active={activeSection === "projects"} collapsed={collapsed} onClick={() => navigate("projects")} />
             <SidebarNavItem icon={<Workflow className="h-4 w-4" />} label="Workflows" active={activeSection === "workflows"} collapsed={collapsed} onClick={() => navigate("workflows")} />
             <SidebarNavItem icon={<Network className="h-4 w-4" />} label="Knowledge Base" active={activeSection === "knowledge"} collapsed={collapsed} onClick={() => navigate("knowledge")} />
             <SidebarNavItem icon={<Puzzle className="h-4 w-4" />} label="Plugins" active={activeSection === "plugins"} collapsed={collapsed} onClick={() => navigate("plugins")} />
             <SidebarNavItem icon={<FileText className="h-4 w-4" />} label="Documents" active={activeSection === "documents"} collapsed={collapsed} onClick={() => navigate("documents")} />
-            <SidebarNavItem icon={<History className="h-4 w-4" />} label="History" active={activeSection === "history"} collapsed={collapsed} onClick={() => navigate("history")} />
           </nav>
           {!collapsed && <div className="mb-3 flex items-center justify-between px-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/45"><span>Pinned agents</span><span>⌃</span></div>}
           <div className={cn("mb-4 space-y-1", collapsed && "mb-2")}>
@@ -121,6 +137,7 @@ export function Sidebar({
 
         {/* Footer */}
         <div className={cn("border-t border-white/10 flex flex-col gap-2", collapsed ? "items-center p-3" : "p-5")} style={{ paddingBottom: "max(1.25rem, env(safe-area-inset-bottom))" }}>
+          {!collapsed && <div className="mb-1 flex items-center justify-between px-2"><span className="text-[10px] font-bold uppercase tracking-[0.18em] text-white/40">Preferences & support</span><ChevronRight className="h-3.5 w-3.5 text-white/30" /></div>}
           <button
             onClick={onOpenSettings}
             title="Settings"
@@ -161,4 +178,10 @@ function SidebarNavItem({ icon, label, active = false, collapsed, onClick }: { i
 
 function PinnedAgent({ label, collapsed, onClick }: { label: "General Assistant" | "Data & Report Agent" | "Study & Research Agent"; collapsed: boolean; onClick: () => void }) {
   return <button type="button" onClick={onClick} aria-label={collapsed ? label : undefined} title={collapsed ? label : undefined} className={cn("flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-xs text-white/70 hover:bg-white/10 hover:text-white", collapsed && "justify-center px-2")}><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-white/10 text-cream-highlight">✦</span>{!collapsed && <span className="truncate">{label}</span>}</button>;
+}
+
+function formatRecentDate(timestamp: number): string {
+  const date = new Date(timestamp);
+  const today = new Date();
+  return date.toDateString() === today.toDateString() ? date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : date.toLocaleDateString([], { month: "short", day: "numeric" });
 }

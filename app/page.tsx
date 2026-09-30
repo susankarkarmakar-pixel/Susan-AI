@@ -424,6 +424,7 @@ export default function Home() {
           else if (selectedModel === "jules") { setMode("chat"); setActiveSection("chat"); }
         }}
         onNewChat={handleNewChat}
+        onOpenConversation={(id) => { handleLoadConversation(id); setActiveSection("chat"); setMode("chat"); }}
         onOpenAbout={() => { setIsSettingsOpen(false); setIsAboutOpen(true); }}
         onOpenTour={() => document.dispatchEvent(new Event("open-first-use-tour"))}
       />
