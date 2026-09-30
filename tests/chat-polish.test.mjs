@@ -82,6 +82,10 @@ test("attachments support local extraction and pass untrusted text context", asy
   assert.match(composer, /role="progressbar"/);
   assert.match(composer, /Delete \$\{file\.name\}/);
   assert.match(composer, /Full preview of/);
+  assert.match(composer, /Summarize the key points from/);
+  assert.match(composer, /Use in next message/);
+  assert.match(composer, /MAX_ATTACHMENT_CONTEXT_CHARACTERS/);
+  assert.match(composer, /safe context budget/);
   assert.match(page, /Untrusted extracted attachment text/);
 });
 
