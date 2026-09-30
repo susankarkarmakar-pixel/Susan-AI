@@ -13,13 +13,21 @@ Susan AI provides one streamlined chat interface for DeepSeek, Claude, Hugging F
 
 ## Demo & screenshot gallery
 
-The current UI is organized as a privacy-focused workspace with a navigation sidebar, model selector, conversation area, responsive composer, and Agent Mode controls. The gallery below includes the latest local preview and the Agent Workspace visual target used to guide the ongoing UI implementation.
+The current UI is organized as a privacy-focused workspace with a navigation sidebar, inline model selector, conversation area, responsive composer, attachment workflows, and Agent Mode controls. The gallery below includes the current desktop chat workspace, the mobile chat experience, and the Agent Workspace visual target used to guide the ongoing UI implementation.
 
 ### Chat workspace
 
 <div align="center">
   <img src="docs/screenshots/susan-ai-chat-workspace.webp" alt="Susan AI chat workspace with navigation sidebar, model selector, prompt cards, and message composer" width="100%" />
 </div>
+
+### Mobile chat workspace
+
+<div align="center">
+  <img src="docs/screenshots/susan-ai-mobile-chat.jpg" alt="Susan AI mobile chat workspace with responsive header, welcome prompts, model selector, attachment control, and message composer" width="360" />
+</div>
+
+The mobile layout keeps the model selector and message actions inside the composer, with compact spacing for narrow Android and iOS viewports. Settings and About open as mobile-friendly full-height sheets, while the chat composer preserves attachment, voice, and send controls without horizontal overflow.
 
 ### Agent workspace visual target
 
