@@ -15,6 +15,16 @@ test("API-key settings expose first-party test buttons and keep errors inline", 
   assert.match(input, /role=\{connectionTest\.state === "failed" \? "alert"/);
 });
 
+test("settings provides grouped workspace navigation, account state, and help links", async () => {
+  const settings = await read("components/settings/settings-modal.tsx");
+  assert.match(settings, /Account & Workspace/);
+  assert.match(settings, /Get Help/);
+  assert.match(settings, /Local workspace profile/);
+  assert.match(settings, /Provider setup guides/);
+  assert.match(settings, /group: "Workspace"/);
+  assert.match(settings, /group: "AI & Chat"/);
+});
+
 test("first-use tour explains Agent, Workflows, and Knowledge Base and can be replayed", async () => {
   const tour = await read("components/onboarding/first-use-tour.tsx");
   const sidebar = await read("components/sidebar/sidebar.tsx");
