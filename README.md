@@ -94,6 +94,7 @@ Run the same checks used before deployment:
 
 ```bash
 npm run lint
+npm run test:mobile
 npm test
 npm run build
 ```
