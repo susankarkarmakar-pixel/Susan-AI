@@ -61,6 +61,9 @@ test("attachments support local extraction and pass untrusted text context", asy
   const page = await read("app/page.tsx");
   assert.match(extraction, /pdfjs-dist\/legacy\/build\/pdf\.mjs/);
   assert.match(extraction, /tesseract\.js/);
+  assert.match(extraction, /ocrPdfPages/);
+  assert.match(extraction, /createElement\("canvas"\)/);
+  assert.match(extraction, /No readable text was found/);
   assert.match(extraction, /AttachmentExtractionStatus/);
   assert.match(composer, /extractAttachmentText/);
   assert.match(page, /Untrusted extracted attachment text/);

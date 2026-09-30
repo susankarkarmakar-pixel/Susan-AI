@@ -46,19 +46,65 @@ async function extractPdfText(file: File, onProgress?: (progress: number) => voi
     const page = await document.getPage(pageNumber);
     const content = await page.getTextContent();
     pages.push(content.items.map((item) => "str" in item ? item.str : "").join(" "));
-    onProgress?.(Math.round((pageNumber / document.numPages) * 100));
+    onProgress?.(Math.round((pageNumber / document.numPages) * 35));
   }
-  return makeTextResult(pages.join("\n\n"), "pdf-text", document.numPages);
+  const textResult = makeTextResult(pages.join("\n\n"), "pdf-text", document.numPages);
+  if (textResult.status === "ready") return textResult;
+  const ocrText = await ocrPdfPages(document, onProgress);
+  return makeTextResult(ocrText, "ocr", document.numPages);
 }
 
 async function extractImageText(file: File, onProgress?: (progress: number) => void): Promise<AttachmentExtractionResult> {
-  onProgress?.(5);
+  const text = await runOcr([file], onProgress);
+  return makeTextResult(text, "ocr");
+}
+
+async function ocrPdfPages(document: { numPages: number; getPage: (pageNumber: number) => Promise<unknown> }, onProgress?: (progress: number) => void): Promise<string> {
   const { createWorker } = await import("tesseract.js");
-  const worker = await createWorker("eng", 1, { logger: (event) => { if (event.status === "recognizing text") onProgress?.(Math.round(event.progress * 100)); } });
+  const worker = await createWorker("eng", 1, { logger: (event) => { if (event.status === "recognizing text") onProgress?.(35 + Math.round(event.progress * 65)); } });
+  const pages: string[] = [];
   try {
-    const result = await worker.recognize(file);
-    return makeTextResult(result.data.text, "ocr");
+    for (let pageNumber = 1; pageNumber <= document.numPages; pageNumber += 1) {
+      const page = await document.getPage(pageNumber) as PdfRenderPageLike;
+      const viewport = page.getViewport({ scale: 1.5 });
+      const canvas = documentCanvas(viewport.width, viewport.height);
+      await page.render({ canvasContext: canvas.context, canvas: canvas.canvas, viewport }).promise;
+      const image = await canvas.toBlob();
+      if (image) {
+        const result = await worker.recognize(image);
+        pages.push(result.data.text);
+      }
+      onProgress?.(35 + Math.round((pageNumber / document.numPages) * 65));
+    }
   } finally {
     await worker.terminate();
   }
+  return pages.join("\n\n");
 }
+
+async function runOcr(inputs: Blob[], onProgress?: (progress: number) => void): Promise<string> {
+  onProgress?.(5);
+  const { createWorker } = await import("tesseract.js");
+  const worker = await createWorker("eng", 1, { logger: (event) => { if (event.status === "recognizing text") onProgress?.(Math.round(event.progress * 100)); } });
+  const pages: string[] = [];
+  try {
+    for (const input of inputs) pages.push((await worker.recognize(input)).data.text);
+  } finally {
+    await worker.terminate();
+  }
+  return pages.join("\n\n");
+}
+
+function documentCanvas(width: number, height: number): { canvas: HTMLCanvasElement; context: CanvasRenderingContext2D; toBlob: () => Promise<Blob | null> } {
+  const canvas = globalThis.document.createElement("canvas");
+  canvas.width = Math.ceil(width);
+  canvas.height = Math.ceil(height);
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("Canvas rendering is unavailable in this browser.");
+  return { canvas, context, toBlob: () => new Promise((resolve) => canvas.toBlob(resolve, "image/png")) };
+}
+
+type PdfRenderPageLike = {
+  getViewport: (options: { scale: number }) => { width: number; height: number };
+  render: (options: { canvasContext: CanvasRenderingContext2D; canvas: HTMLCanvasElement; viewport: { width: number; height: number } }) => { promise: Promise<void> };
+};
