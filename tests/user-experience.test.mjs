@@ -81,6 +81,10 @@ test("Sidebar organizes workspace, recent chats, library, and support controls",
   assert.match(sidebar, /Library/);
   assert.match(sidebar, /Preferences & support/);
   assert.match(sidebar, /getConversations/);
+  assert.match(sidebar, /Expand library/);
+  assert.match(sidebar, /General Assistant/);
+  assert.match(sidebar, /w-\[72px\]/);
+  assert.doesNotMatch(sidebar, /ModelSelector/);
   assert.doesNotMatch(sidebar, /Export conversations|Import conversations|Delete all conversations/);
 });
 

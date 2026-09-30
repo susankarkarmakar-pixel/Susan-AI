@@ -417,12 +417,6 @@ export default function Home() {
         onOpenSettings={() => { setSettingsTab("keys"); setIsSettingsOpen(true); }}
         collapsed={isSidebarCollapsed}
         onToggleCollapsed={() => setIsSidebarCollapsed((collapsed) => !collapsed)}
-        selectedModel={selectedModel}
-        onSelectModel={(model) => {
-          setSelectedModel(model);
-          if (model === "jules") { setMode("agent"); setActiveSection("agent"); }
-          else if (selectedModel === "jules") { setMode("chat"); setActiveSection("chat"); }
-        }}
         onNewChat={handleNewChat}
         onOpenConversation={(id) => { handleLoadConversation(id); setActiveSection("chat"); setMode("chat"); }}
         onOpenAbout={() => { setIsSettingsOpen(false); setIsAboutOpen(true); }}
