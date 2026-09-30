@@ -95,6 +95,8 @@ Run the same checks used before deployment:
 ```bash
 npm run lint
 npm run test:mobile
+npx playwright install chromium
+npm run test:e2e:mobile
 npm test
 npm run build
 ```
