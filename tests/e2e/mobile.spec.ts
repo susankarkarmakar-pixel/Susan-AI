@@ -24,6 +24,10 @@ test.describe("mobile Susan AI smoke flow", () => {
     await expect(page.getByRole("button", { name: "Open settings" })).toBeVisible();
     await expect(page.getByText("Welcome to Susan AI")).toBeVisible();
     await expect(page.getByRole("button", { name: "Send message" })).toBeVisible();
+    const composer = page.getByRole("textbox", { name: "Message Susan AI" });
+    const composerBox = await composer.boundingBox();
+    expect(composerBox?.width ?? 0).toBeGreaterThan(200);
+    await expect(page.getByRole("button", { name: /Select model, current model/ })).toBeVisible();
     await expectNoHorizontalOverflow(page);
   });
 

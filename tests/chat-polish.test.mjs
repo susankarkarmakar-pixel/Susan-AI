@@ -86,7 +86,7 @@ test("attachments support local extraction and pass untrusted text context", asy
   assert.match(composer, /Attach files · AI can make mistakes/);
   assert.match(composer, /p-2 shadow-sm.*sm:p-3/);
   assert.match(composer, /p-2 transition-colors sm:p-2.5/);
-  assert.match(await read("components/chat/model-control-panel.tsx"), /w-\[min\(8rem,40vw\)\]/);
+  assert.match(await read("components/chat/model-control-panel.tsx"), /w-full max-w-full/);
   assert.match(composer, /Summarize the key points from/);
   assert.match(composer, /Use in next message/);
   assert.match(composer, /MAX_ATTACHMENT_CONTEXT_CHARACTERS/);
