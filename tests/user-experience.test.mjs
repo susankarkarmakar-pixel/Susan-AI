@@ -95,6 +95,16 @@ test("sidebar collapse state persists between sessions", async () => {
   assert.match(page, /localStorage\.setItem\(SIDEBAR_COLLAPSED_STORAGE_KEY, String\(next\)\)/);
 });
 
+test("About sections describe current product capabilities and privacy model", async () => {
+  const about = await read("components/about/about-modal.tsx");
+  assert.match(about, /Inline model control/);
+  assert.match(about, /Automatic fallback/);
+  assert.match(about, /Attachment workflows/);
+  assert.match(about, /Encrypted browser-local keys/);
+  assert.match(about, /Provider credentials stay under your control/);
+  assert.match(about, /License & Use/);
+});
+
 test("workspace empty states provide next steps and Plugins points users to key management", async () => {
   const workspaces = await read("components/workspace/workspace-hub.tsx");
   assert.match(workspaces, /Create a project above/);
