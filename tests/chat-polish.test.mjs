@@ -36,6 +36,10 @@ test("model controls and scoped prompts are sent to the API with server-side bou
   assert.match(settings, /Project-specific instructions/);
   assert.match(composer, /ModelControlPanel/);
   assert.match(composer, /Choose attachment type/);
+  assert.match(composer, /Ready to attach/);
+  assert.match(composer, /Replace/);
+  assert.match(composer, /already attached/);
+  assert.match(composer, /Preview of/);
   assert.match(modelPanel, /Response effort/);
   assert.doesNotMatch(composer, /assistant-profile/);
   assert.doesNotMatch(composer, /option value="coding"/);

@@ -1,6 +1,7 @@
 "use client";
+/* eslint-disable @next/next/no-img-element -- previews use short-lived local object URLs. */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowUp, FileText, Image as ImageIcon, Mic, Paperclip, Square, Upload, Volume2, VolumeX, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { AiEffort } from "@/lib/app-settings";
@@ -42,6 +43,7 @@ export function MessageInput({ input, onInputChange, onSubmit, isLoading, stop, 
   const formRef = useRef<HTMLFormElement>(null);
   const [files, setFiles] = useState<File[]>([]);
   const [fileError, setFileError] = useState<string | null>(null);
+  const [fileNotice, setFileNotice] = useState<string | null>(null);
   const [attachmentMenuOpen, setAttachmentMenuOpen] = useState(false);
   const [attachmentFilter, setAttachmentFilter] = useState<"all" | "images" | "documents" | "data">("all");
   const [dictating, setDictating] = useState(false);
@@ -63,6 +65,7 @@ export function MessageInput({ input, onInputChange, onSubmit, isLoading, stop, 
     }
     const nextFiles = [...files];
     let error: string | null = null;
+    const notices: string[] = [];
     for (const file of Array.from(selectedFiles)) {
       if (nextFiles.length >= MAX_FILES) {
         error = `You can attach up to ${MAX_FILES} files.`;
@@ -81,10 +84,12 @@ export function MessageInput({ input, onInputChange, onSubmit, isLoading, stop, 
         error = "Attachments must be 12 MB or smaller in total.";
         break;
       }
-      if (!nextFiles.some((existing) => existing.name === file.name && existing.size === file.size)) nextFiles.push(file);
+      if (nextFiles.some((existing) => existing.name === file.name && existing.size === file.size)) notices.push(`${file.name} is already attached.`);
+      else nextFiles.push(file);
     }
     setFiles(nextFiles);
     setFileError(error);
+    setFileNotice(notices.length > 0 ? notices.join(" ") : null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -119,11 +124,13 @@ export function MessageInput({ input, onInputChange, onSubmit, isLoading, stop, 
     onSubmit(event, files);
     setFiles([]);
     setFileError(null);
+    setFileNotice(null);
   };
 
   const chooseAttachmentType = (filter: typeof attachmentFilter) => {
     if (!canAttachFiles) {
-      setFileError(attachmentSupportMessage || "Attachments are not supported by this provider.");
+      setFileError(attachmentSupportMessage || "Attachments are not supported for this provider.");
+      setFileNotice(null);
       return;
     }
     setAttachmentFilter(filter);
@@ -131,23 +138,21 @@ export function MessageInput({ input, onInputChange, onSubmit, isLoading, stop, 
     window.setTimeout(() => fileInputRef.current?.click(), 0);
   };
 
-  const removeFile = (index: number) => setFiles((current) => current.filter((_, fileIndex) => fileIndex !== index));
+  const removeFile = (index: number) => { setFiles((current) => current.filter((_, fileIndex) => fileIndex !== index)); setFileNotice(null); };
+  const replaceFile = (index: number) => {
+    setFiles((current) => current.filter((_, fileIndex) => fileIndex !== index));
+    setFileNotice("Choose a replacement file.");
+    window.setTimeout(() => fileInputRef.current?.click(), 0);
+  };
   const isEmpty = input.trim().length === 0 && files.length === 0;
 
   return (
     <div className="relative z-10 w-full bg-bg-main px-3 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2 sm:px-4 sm:pt-3 md:px-8">
       <form ref={formRef} onSubmit={handleSubmit} onDragOver={(event) => { if (canAttachFiles) event.preventDefault(); }} onDrop={(event) => { if (!canAttachFiles) return; event.preventDefault(); addFiles(event.dataTransfer.files); }} className="mx-auto max-w-5xl rounded-3xl border border-border-main/60 bg-surface p-3 shadow-sm transition-all focus-within:border-accent/40 focus-within:ring-4 focus-within:ring-accent/5">
         {files.length > 0 && (
-          <div className="flex flex-wrap gap-2 px-2 pb-2" aria-label="Selected attachments">
-            {files.map((file, index) => (
-              <div key={`${file.name}-${file.size}`} className="flex max-w-full items-center gap-1.5 rounded-lg bg-black/5 px-2 py-1 text-xs text-text-main">
-                <span className="max-w-[180px] truncate">{file.name}</span>
-                <button type="button" onClick={() => removeFile(index)} aria-label={`Remove ${file.name}`} className="rounded p-0.5 text-text-muted hover:bg-black/10 hover:text-text-main">
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            ))}
-            <span className="self-center text-[10px] text-text-muted">{(totalFileSize / (1024 * 1024)).toFixed(1)} / 12 MB</span>
+          <div className="grid gap-2 px-2 pb-2 sm:grid-cols-2" aria-label="Selected attachments">
+            {files.map((file, index) => <AttachmentPreview key={`${file.name}-${file.size}`} file={file} onRemove={() => removeFile(index)} onReplace={() => replaceFile(index)} />)}
+            <div className="flex items-center justify-between px-1 text-[10px] text-text-muted sm:col-span-2"><span>{files.length} of {MAX_FILES} files attached</span><span>{formatFileSize(totalFileSize)} / 12 MB</span></div>
           </div>
         )}
         <div className="flex items-end gap-2">
@@ -176,13 +181,33 @@ export function MessageInput({ input, onInputChange, onSubmit, isLoading, stop, 
         <span className="ml-auto text-[10px] text-text-muted" title="Approximate text-only token count; provider counts and attachment tokens may differ">This chat {estimatedTokens} text tokens (estimate)</span>
       </div>
       {fileError && <p role="alert" aria-live="polite" className="mx-auto mt-2 max-w-3xl text-center text-xs text-red-600">{fileError}</p>}
+      {fileNotice && <p role="status" aria-live="polite" className="mx-auto mt-2 max-w-3xl text-center text-xs text-text-muted">{fileNotice}</p>}
       <div className="mx-auto mt-2 max-w-5xl text-center text-[11px] text-text-muted">Enter to send · Shift+Enter for a new line · Ctrl/Cmd+K new chat · / commands <span className="mx-1">·</span>{canAttachFiles ? "Attach images, PDFs, text, CSV, or JSON files." : (attachmentSupportMessage || "Attachments are unavailable for this provider.")} <span className="mx-1">·</span> AI can make mistakes. Please double-check important information.</div>
     </div>
   );
 }
 
+function AttachmentPreview({ file, onRemove, onReplace }: { file: File; onRemove: () => void; onReplace: () => void }) {
+  const previewUrl = useMemo(() => file.type.startsWith("image/") ? URL.createObjectURL(file) : null, [file]);
+  useEffect(() => () => { if (previewUrl) URL.revokeObjectURL(previewUrl); }, [previewUrl]);
+  return <div className="flex min-w-0 items-center gap-2 rounded-xl border border-border-main/60 bg-bg-main/60 p-2" data-attachment-status="ready"><div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-cream-highlight text-accent">{previewUrl ? <><span className="sr-only">Image preview</span><img src={previewUrl} alt={`Preview of ${file.name}`} className="h-full w-full object-cover" /></> : <FileText className="h-5 w-5" />}</div><div className="min-w-0 flex-1"><p className="truncate text-xs font-semibold text-text-main" title={file.name}>{file.name}</p><p className="mt-0.5 text-[10px] text-text-muted">{getFileKindLabel(file)} · {formatFileSize(file.size)}</p><p className="mt-0.5 flex items-center gap-1 text-[10px] font-medium text-emerald-700"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />Ready to attach</p></div><div className="flex shrink-0 flex-col items-end gap-1"><button type="button" onClick={onReplace} className="text-[10px] font-semibold text-text-muted underline underline-offset-2 hover:text-text-main">Replace</button><button type="button" onClick={onRemove} aria-label={`Remove ${file.name}`} className="rounded-md p-1 text-text-muted hover:bg-black/10 hover:text-text-main"><X className="h-3.5 w-3.5" /></button></div></div>;
+}
+
 function AttachmentOption({ icon, label, onClick, disabled }: { icon: React.ReactNode; label: string; onClick: () => void; disabled: boolean }) {
   return <button type="button" role="menuitem" onClick={onClick} disabled={disabled} className={cn("flex w-full items-center gap-2 rounded-xl px-2 py-2 text-left text-xs font-medium transition-colors", disabled ? "cursor-not-allowed text-text-muted/50" : "text-text-main hover:bg-black/5")}>{icon}<span>{label}</span></button>;
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function getFileKindLabel(file: File): string {
+  if (file.type.startsWith("image/")) return "Image";
+  if (file.type === "application/pdf" || /\.pdf$/i.test(file.name)) return "PDF";
+  if (/\.(csv|json)$/i.test(file.name)) return "Data";
+  return "Text";
 }
 
 type SpeechRecognitionEventLike = { resultIndex: number; results: ArrayLike<ArrayLike<{ transcript: string }>> };
