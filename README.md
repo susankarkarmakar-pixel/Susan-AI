@@ -15,6 +15,8 @@ Susan AI provides one streamlined chat interface for DeepSeek, Claude, Hugging F
 
 The current UI is organized as a privacy-focused workspace with a navigation sidebar, inline model selector, conversation area, responsive composer, attachment workflows, and Agent Mode controls. The gallery below includes the current desktop chat workspace, the mobile chat experience, and the Agent Workspace visual target used to guide the ongoing UI implementation.
 
+**Live demo:** [Open Susan AI on Vercel](https://susan-ai.vercel.app/)
+
 ### Chat workspace
 
 <div align="center">
@@ -64,17 +66,37 @@ The mobile layout keeps the model selector and message actions inside the compos
 
 ## Requirements
 
-- Node.js 20 or newer.
+- Node.js 22 or newer.
 - An API key for at least one supported provider. Free-tier quota is provider- and account-dependent; Susan AI does not ship shared keys.
 
-## Local development
+## Installation & local development
+
+Clone the repository, install the locked dependency tree, and start the Next.js development server:
 
 ```bash
+git clone https://github.com/susankarkarmakar-pixel/Susan-AI.git
+cd Susan-AI
 npm ci
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000), open **Settings**, add a provider key, select that provider, and send a message.
+Open [http://localhost:3000](http://localhost:3000), open **Settings → API Keys**, add a key for at least one provider, select that model in the composer, and send a message. Keys and conversations are stored in the current browser profile; do not commit credentials.
+
+Environment overrides are optional for local development. Copy the example file only when you need search, distributed rate limiting, or another server-side setting:
+
+```bash
+cp .env.example .env.local
+```
+
+Edit `.env.local` with the required values for your deployment, then restart `npm run dev`. Never commit `.env.local` or real API keys.
+
+Run the same checks used before deployment:
+
+```bash
+npm run lint
+npm test
+npm run build
+```
 
 ## Custom providers
 
@@ -156,13 +178,12 @@ The workflow publishes an NSIS installer and a portable `.exe` to the GitHub Rel
 
 ## Online deployment
 
-Susan AI is compatible with Vercel's free Hobby deployment for testing and small personal usage. The repository includes `vercel.json` with the correct Next.js build settings.
+The current production demo is available at [susan-ai.vercel.app](https://susan-ai.vercel.app/). Verify the deployment health at [`/api/health`](https://susan-ai.vercel.app/api/health). Susan AI is compatible with Vercel's free Hobby deployment for testing and small personal usage, and the repository includes `vercel.json` with the correct Next.js build settings.
 
 1. Open [Vercel](https://vercel.com/new) and import this GitHub repository.
 2. Keep the detected framework as **Next.js** and deploy with the default settings.
-3. After deployment, verify `/api/health` and then configure provider keys in the app's Settings.
-
-The temporary sandbox preview is only for testing and is not a permanent production URL. A permanent public URL requires connecting the repository to a hosting account such as Vercel.
+3. After deployment, verify `https://your-domain.example/api/health` and then configure provider keys in the app's Settings.
+4. Add any required server-side secrets—such as `BRAVE_SEARCH_API_KEY` or Upstash rate-limit variables—in the hosting provider's environment settings, never in the repository.
 
 ## Production validation
 
