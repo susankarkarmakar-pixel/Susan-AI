@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element */
+
 import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { ArrowLeft, ArrowRight, Check, Mail, ShieldCheck, Sparkles } from "lucide-react";
@@ -20,7 +22,7 @@ export default function SignInPage() {
       <section className="relative hidden w-[45%] overflow-hidden bg-[#2b1b14] p-10 text-white lg:flex lg:flex-col">
         <div className="absolute -right-28 -top-28 h-80 w-80 rounded-full bg-[#9e6945]/30 blur-3xl" />
         <div className="absolute -bottom-24 -left-24 h-72 w-72 rounded-full bg-[#c08b5c]/20 blur-3xl" />
-        <Link href="/" className="relative flex items-center gap-3"><span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#f2dfbf] text-[#6b3d23]"><Sparkles className="h-5 w-5" /></span><span><span className="block font-serif text-xl font-semibold">Susan AI</span><span className="block text-[11px] text-white/55">Your personal AI workspace</span></span></Link>
+        <Link href="/" className="relative flex items-center gap-3"><img src="/susan-ai-logo-sidebar-dark.png" alt="Susan AI — Sanket Pixel Technologies" className="h-auto w-56 object-contain object-left" /></Link>
         <div className="relative mt-auto max-w-md pb-7"><p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#e7bb8d]">Welcome back</p><h1 className="mt-4 font-serif text-5xl leading-[1.05] tracking-tight">A calmer way to think, create and get things done.</h1><p className="mt-6 text-sm leading-7 text-white/65">Bring your models, tools and projects together in one private workspace designed around your way of working.</p><div className="mt-8 grid gap-3 text-sm text-white/80"><Benefit text="One workspace for chat, search and agents" /><Benefit text="Your API keys stay in your browser" /><Benefit text="Secure, simple and distraction-free" /></div></div>
         <p className="relative mt-8 text-[11px] text-white/35">© 2026 Sanket Pixel Technologies</p>
       </section>
