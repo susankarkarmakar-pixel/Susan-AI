@@ -10,6 +10,7 @@ import type { ModelOption } from "@/components/sidebar/model-selector";
 import { ModelControlPanel } from "./model-control-panel";
 import { extractAttachmentText, type AttachmentExtractionResult, type OcrLanguage } from "@/lib/attachment-extraction";
 import { categorizeAttachment } from "@/lib/attachment-categorization";
+import { getApiKey } from "@/lib/key-storage";
 
 const MAX_FILE_SIZE = 4 * 1024 * 1024;
 const MAX_FILES = 3;
@@ -57,6 +58,8 @@ export function MessageInput({ input, onInputChange, onSubmit, isLoading, stop, 
   const [isDraggingFiles, setIsDraggingFiles] = useState(false);
   const [dictating, setDictating] = useState(false);
   const recognitionRef = useRef<{ start: () => void; stop: () => void; onresult: ((event: SpeechRecognitionEventLike) => void) | null; onend: (() => void) | null; onerror: (() => void) | null } | null>(null);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const recordingChunksRef = useRef<Blob[]>([]);
   const dragDepthRef = useRef(0);
   const totalFileSize = files.reduce((sum, file) => sum + file.size, 0);
   const attachmentAccept = attachmentFilter === "images" ? "image/*" : attachmentFilter === "documents" ? ".pdf,.txt,.md" : attachmentFilter === "data" ? ".txt,.md,.csv,.json" : ACCEPTED_FILES;
@@ -115,9 +118,21 @@ export function MessageInput({ input, onInputChange, onSubmit, isLoading, stop, 
   };
 
   const toggleDictation = () => {
-    if (dictating) { recognitionRef.current?.stop(); setDictating(false); return; }
+    if (dictating) {
+      recognitionRef.current?.stop();
+      recorderRef.current?.stop();
+      setDictating(false);
+      return;
+    }
     const Recognition = (window as WindowWithSpeech).SpeechRecognition || (window as WindowWithSpeech).webkitSpeechRecognition;
-    if (!Recognition) { setFileError("Dictation is not supported in this browser. Try Chrome or Edge."); return; }
+    if (!Recognition) {
+      if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
+        setFileError("Dictation is not supported in this browser. Try Chrome or Edge.");
+        return;
+      }
+      void startWhisperRecording();
+      return;
+    }
     const recognition = new Recognition();
     recognition.lang = navigator.language || "en-US";
     recognition.interimResults = true;
@@ -132,6 +147,52 @@ export function MessageInput({ input, onInputChange, onSubmit, isLoading, stop, 
     setFileError(null);
     setDictating(true);
     recognition.start();
+  };
+
+  const startWhisperRecording = async () => {
+    if (!getApiKey("openai")) {
+      setFileError("Browser dictation is unavailable. Add an OpenAI API key to use Whisper fallback dictation.");
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
+      recordingChunksRef.current = [];
+      recorder.ondataavailable = (event) => { if (event.data.size > 0) recordingChunksRef.current.push(event.data); };
+      recorder.onstop = () => {
+        stream.getTracks().forEach((track) => track.stop());
+        const blob = new Blob(recordingChunksRef.current, { type: recorder.mimeType || "audio/webm" });
+        void transcribeRecording(blob);
+      };
+      recorderRef.current = recorder;
+      setFileError(null);
+      setDictating(true);
+      recorder.start();
+    } catch {
+      setFileError("Microphone access was denied or unavailable. Check browser permissions and try again.");
+    }
+  };
+
+  const transcribeRecording = async (blob: Blob) => {
+    setFileNotice("Transcribing your recording…");
+    try {
+      const form = new FormData();
+      form.append("apiKey", getApiKey("openai") || "");
+      form.append("language", navigator.language || "en");
+      form.append("audio", blob, "susan-dictation.webm");
+      const response = await fetch("/api/voice/transcribe", { method: "POST", body: form, cache: "no-store" });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || typeof result.text !== "string") throw new Error(typeof result.error === "string" ? result.error : "Transcription failed.");
+      const transcript = result.text.trim();
+      if (transcript) onInputChange({ target: { value: `${input}${input && !input.endsWith(" ") ? " " : ""}${transcript}` } } as React.ChangeEvent<HTMLTextAreaElement>);
+      setFileNotice("Dictation added to the composer.");
+    } catch (error) {
+      setFileError(error instanceof Error ? error.message : "Transcription failed. Check your OpenAI key and try again.");
+      setFileNotice(null);
+    } finally {
+      setDictating(false);
+      recorderRef.current = null;
+    }
   };
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
