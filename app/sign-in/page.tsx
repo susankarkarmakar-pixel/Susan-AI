@@ -37,7 +37,6 @@ export default function SignInPage() {
     return () => { active = false; };
   }, [router]);
 
-  const showUnavailable = (provider: string) => setMessage(`${provider} sign-in is not connected yet. ${googleConfigured === true ? "Google sign-in is available securely." : "Please refresh after the sign-in provider is configured."}`);
   // This full navigation starts Google's external OAuth redirect chain.
   // eslint-disable-next-line @next/next/no-location-assign-relative-destination
   const startGoogleSignIn = () => { if (googleConfigured !== true) return; setSigningIn(true); window.location.href = "/api/auth/google"; };
@@ -68,8 +67,8 @@ export default function SignInPage() {
 
           <div className="grid gap-3">
             <button type="button" onClick={startGoogleSignIn} disabled={signingIn || googleConfigured !== true} aria-busy={signingIn} aria-disabled={googleConfigured !== true} className="flex h-12 items-center justify-center gap-3 rounded-xl bg-[#2b1b14] px-4 text-sm font-semibold text-white transition hover:bg-[#43291d] disabled:cursor-not-allowed disabled:opacity-60"><GoogleMark /> {signingIn ? <><Spinner /> Connecting…</> : googleConfigured === false ? "Google sign-in unavailable" : googleConfigured === null ? "Checking Google sign-in…" : "Continue with Google"} {!signingIn && googleConfigured === true && <span className="ml-auto rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-medium text-white/65">Secure OAuth</span>}</button>
-            <button type="button" onClick={() => showUnavailable("GitHub")} aria-label="GitHub sign-in not connected" className="flex h-12 items-center justify-center gap-3 rounded-xl border border-[#e2d8ce] bg-white px-4 text-sm font-semibold text-[#2b1b14] transition hover:border-[#bca693] hover:bg-[#fcfaf7]"><GitHubMark /> <span>GitHub sign-in</span> <span className="ml-auto rounded-full bg-[#f4eee8] px-2 py-0.5 text-[10px] font-medium text-[#806b5b]">Soon</span></button>
-            <button type="button" onClick={() => showUnavailable("Apple")} aria-label="Apple sign-in not connected" className="flex h-12 items-center justify-center gap-3 rounded-xl border border-[#e2d8ce] bg-white px-4 text-sm font-semibold text-[#2b1b14] transition hover:border-[#bca693] hover:bg-[#fcfaf7]"><AppleMark /> <span>Apple sign-in</span> <span className="ml-auto rounded-full bg-[#f4eee8] px-2 py-0.5 text-[10px] font-medium text-[#806b5b]">Soon</span></button>
+            <button type="button" disabled aria-disabled="true" aria-label="GitHub sign-in unavailable" title="GitHub sign-in is coming soon" className="flex h-12 cursor-not-allowed items-center justify-center gap-3 rounded-xl border border-[#e2d8ce] bg-[#fbfaf8] px-4 text-sm font-semibold text-[#9b8c81] opacity-80"><GitHubMark /> <span>GitHub sign-in</span> <span className="ml-auto rounded-full bg-[#f4eee8] px-2 py-0.5 text-[10px] font-medium text-[#806b5b]">Soon</span></button>
+            <button type="button" disabled aria-disabled="true" aria-label="Apple sign-in unavailable" title="Apple sign-in is coming soon" className="flex h-12 cursor-not-allowed items-center justify-center gap-3 rounded-xl border border-[#e2d8ce] bg-[#fbfaf8] px-4 text-sm font-semibold text-[#9b8c81] opacity-80"><AppleMark /> <span>Apple sign-in</span> <span className="ml-auto rounded-full bg-[#f4eee8] px-2 py-0.5 text-[10px] font-medium text-[#806b5b]">Soon</span></button>
           </div>
 
           <div className="my-7 flex items-center gap-3 text-[11px] font-medium uppercase tracking-[0.16em] text-[#aa998b]"><span className="h-px flex-1 bg-[#eadfd5]" /> email sign-in (coming soon) <span className="h-px flex-1 bg-[#eadfd5]" /></div>

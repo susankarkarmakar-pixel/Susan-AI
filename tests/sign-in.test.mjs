@@ -8,9 +8,11 @@ const callback = await readFile(new URL("../app/api/auth/google/callback/route.t
 const sessionRoute = await readFile(new URL("../app/api/auth/session/route.ts", import.meta.url), "utf8");
 
 test("sign-in page keeps unavailable providers honest and accessible", () => {
-  assert.match(page, /Google sign-in is available securely/);
-  assert.match(page, /GitHub sign-in not connected/);
-  assert.match(page, /Apple sign-in not connected/);
+  assert.match(page, /GitHub sign-in unavailable/);
+  assert.match(page, /Apple sign-in unavailable/);
+  assert.match(page, /GitHub sign-in is coming soon/);
+  assert.match(page, /Apple sign-in is coming soon/);
+  assert.match(page, /disabled aria-disabled="true"/);
   assert.match(page, /aria-live="polite"/);
   assert.match(page, /Secure OAuth/);
   assert.match(page, /googleConfigured !== true/);
