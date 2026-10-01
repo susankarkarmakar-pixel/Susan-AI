@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { BookOpenText, Check, Code2, FileSearch, FileText, Lightbulb, Link2, PenLine, Sparkles } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ArrowDown, BookOpenText, Check, Code2, FileSearch, FileText, Lightbulb, Link2, PenLine, Sparkles } from "lucide-react";
 import { MessageBubble } from "./message-bubble";
 import { isResearchIntent } from "@/lib/research-intent.mjs";
 
@@ -25,13 +25,34 @@ interface ChatMessagesProps {
 
 export function ChatMessages({ messages, isStreaming, isPreparingResearch, onRetry, onEditMessage, onDeleteMessage, onPrompt, hideWelcome }: ChatMessagesProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const isAtBottomRef = useRef(true);
+  const [hasNewMessagesBelow, setHasNewMessagesBelow] = useState(false);
 
-  // Auto-scroll to bottom when new messages arrive or while streaming
+  // Keep the latest output in view only while the reader was already at the bottom.
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
+    const element = scrollRef.current;
+    if (!element) return;
+    if (isAtBottomRef.current) {
+      element.scrollTop = element.scrollHeight;
+      setHasNewMessagesBelow(false);
+    } else setHasNewMessagesBelow(true);
   }, [messages, isStreaming]);
+
+  const handleScroll = () => {
+    const element = scrollRef.current;
+    if (!element) return;
+    const atBottom = element.scrollHeight - element.scrollTop - element.clientHeight < 56;
+    isAtBottomRef.current = atBottom;
+    if (atBottom) setHasNewMessagesBelow(false);
+  };
+
+  const jumpToLatest = () => {
+    const element = scrollRef.current;
+    if (!element) return;
+    isAtBottomRef.current = true;
+    element.scrollTo({ top: element.scrollHeight, behavior: "smooth" });
+    setHasNewMessagesBelow(false);
+  };
 
   if (messages.length === 0 && hideWelcome) {
     return <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 custom-scrollbar" />;
@@ -72,6 +93,8 @@ export function ChatMessages({ messages, isStreaming, isPreparingResearch, onRet
     <div
       ref={scrollRef}
       className="flex-1 overflow-y-auto p-4 custom-scrollbar scroll-smooth"
+      onScroll={handleScroll}
+      aria-label="Conversation messages"
     >
       <div className="max-w-3xl mx-auto flex flex-col w-full pb-4">
         {messages.map((msg, index) => {
@@ -108,6 +131,7 @@ export function ChatMessages({ messages, isStreaming, isPreparingResearch, onRet
             : <MessageBubble role="assistant" content="" isStreaming={true} />
         )}
       </div>
+      {hasNewMessagesBelow && <button type="button" onClick={jumpToLatest} className="sticky bottom-3 left-1/2 z-10 mx-auto mt-3 flex -translate-x-1/2 items-center gap-2 rounded-full border border-border-main/70 bg-surface px-4 py-2 text-xs font-semibold text-text-main shadow-lg transition hover:border-accent/40 hover:text-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent" aria-label="Jump to latest message">{isStreaming ? "New response is arriving" : "New messages below"}<ArrowDown className="h-3.5 w-3.5" /></button>}
     </div>
   );
 }
