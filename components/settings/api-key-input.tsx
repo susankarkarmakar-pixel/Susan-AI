@@ -20,6 +20,7 @@ interface ApiKeyInputProps {
   isSaved: boolean;
   onTest?: () => void;
   connectionTest?: ApiKeyConnectionTest;
+  testWithoutKey?: boolean;
 }
 
 export function ApiKeyInput({
@@ -33,6 +34,7 @@ export function ApiKeyInput({
   isSaved,
   onTest,
   connectionTest,
+  testWithoutKey = false,
 }: ApiKeyInputProps) {
   const [showPassword, setShowPassword] = useState(false);
 
@@ -81,7 +83,7 @@ export function ApiKeyInput({
       </div>
       {isSaved && value && <p className="text-[11px] text-text-muted">Key is masked in this field · ending {value.slice(-4)}</p>}
       {helpText && <p className="text-xs leading-5 text-text-muted">{helpText}</p>}
-      {onTest && <button type="button" onClick={onTest} disabled={!value.trim() || connectionTest?.state === "testing"} className="mt-1 inline-flex min-h-9 items-center gap-1.5 self-start rounded-lg border border-border-main/70 bg-surface px-3 py-2 text-xs font-semibold text-text-main hover:border-accent/40 hover:bg-cream-highlight hover:text-accent disabled:cursor-not-allowed disabled:opacity-45" aria-label={`Test ${label} connection`}>
+      {onTest && <button type="button" onClick={onTest} disabled={(!testWithoutKey && !value.trim()) || connectionTest?.state === "testing"} className="mt-1 inline-flex min-h-9 items-center gap-1.5 self-start rounded-lg border border-border-main/70 bg-surface px-3 py-2 text-xs font-semibold text-text-main hover:border-accent/40 hover:bg-cream-highlight hover:text-accent disabled:cursor-not-allowed disabled:opacity-45" aria-label={`Test ${label} connection`}>
         {connectionTest?.state === "testing" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : connectionTest?.state === "connected" ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-700" /> : connectionTest?.state === "failed" ? <XCircle className="h-3.5 w-3.5 text-red-700" /> : <Activity className="h-3.5 w-3.5" />}
         {connectionTest?.state === "testing" ? "Testing…" : "Test connection"}
       </button>}

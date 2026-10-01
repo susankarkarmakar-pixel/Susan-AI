@@ -145,16 +145,23 @@ export function SettingsModal({ isOpen, onClose, initialTab = "general" }: Setti
     setConnectionTests((current) => { const next = { ...current }; delete next[provider]; return next; });
   };
 
-  const testConnection = async (provider: "openai" | "google" | "anthropic" | "deepseek" | "xai" | "perplexity" | "together") => {
+  const testConnection = async (provider: string, customProvider?: CustomProvider) => {
     const apiKey = keys[provider]?.trim();
-    if (!apiKey || connectionTests[provider]?.state === "testing") return;
+    const isLocal = customProvider?.requiresApiKey === false;
+    const testKey = isLocal ? "local" : apiKey;
+    if (!testKey || connectionTests[provider]?.state === "testing") return;
     setConnectionTests((current) => ({ ...current, [provider]: { state: "testing", message: "" } }));
     try {
       const response = await fetch("/api/providers/test", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         cache: "no-store",
-        body: JSON.stringify({ provider, apiKey }),
+        body: JSON.stringify({
+          provider,
+          apiKey: testKey,
+          ...(provider === "cloudflare" ? { cloudflareAccountId: keys.cloudflareAccountId } : {}),
+          ...(customProvider ? { customProvider } : {}),
+        }),
       });
       const result: unknown = await response.json().catch(() => ({}));
       const message = result && typeof result === "object" && typeof (result as { error?: unknown; message?: unknown }).error === "string"
@@ -336,6 +343,8 @@ export function SettingsModal({ isOpen, onClose, initialTab = "general" }: Setti
             value={keys.huggingface || ""}
             onChange={(val) => handleKeyChange("huggingface", val)}
             isSaved={!!savedKeys.huggingface}
+            onTest={() => void testConnection("huggingface")}
+            connectionTest={connectionTests.huggingface}
           />
           <ApiKeyInput
             label="Google API Key (Gemini)"
@@ -377,6 +386,8 @@ export function SettingsModal({ isOpen, onClose, initialTab = "general" }: Setti
             value={keys.qwen || ""}
             onChange={(val) => handleKeyChange("qwen", val)}
             isSaved={!!savedKeys.qwen}
+            onTest={() => void testConnection("qwen")}
+            connectionTest={connectionTests.qwen}
           />
           <ApiKeyInput
             label="Kimi API Key"
@@ -386,6 +397,8 @@ export function SettingsModal({ isOpen, onClose, initialTab = "general" }: Setti
             value={keys.kimi || ""}
             onChange={(val) => handleKeyChange("kimi", val)}
             isSaved={!!savedKeys.kimi}
+            onTest={() => void testConnection("kimi")}
+            connectionTest={connectionTests.kimi}
           />
           <ApiKeyInput
             label="Sarvam API Key"
@@ -395,6 +408,8 @@ export function SettingsModal({ isOpen, onClose, initialTab = "general" }: Setti
             value={keys.sarvam || ""}
             onChange={(val) => handleKeyChange("sarvam", val)}
             isSaved={!!savedKeys.sarvam}
+            onTest={() => void testConnection("sarvam")}
+            connectionTest={connectionTests.sarvam}
           />
           <ApiKeyInput
             label="OpenRouter API Key (free router)"
@@ -404,22 +419,24 @@ export function SettingsModal({ isOpen, onClose, initialTab = "general" }: Setti
             value={keys.openrouter || ""}
             onChange={(val) => handleKeyChange("openrouter", val)}
             isSaved={!!savedKeys.openrouter}
+            onTest={() => void testConnection("openrouter")}
+            connectionTest={connectionTests.openrouter}
           />
-          <ApiKeyInput label="Groq API Key" provider="groq" placeholder="gsk_..." helpUrl="https://console.groq.com/keys" helpText="Free-plan limits apply (currently up to 1,000 requests/day for the selected GPT-OSS model; account limits may vary)." value={keys.groq || ""} onChange={(val) => handleKeyChange("groq", val)} isSaved={!!savedKeys.groq} />
-          <ApiKeyInput label="Cerebras API Key" provider="cerebras" placeholder="Cerebras API key" helpUrl="https://cloud.cerebras.ai/" helpText="The current $5 free trial requires a verified payment method and expires after 30 days. No permanent free tier is documented." value={keys.cerebras || ""} onChange={(val) => handleKeyChange("cerebras", val)} isSaved={!!savedKeys.cerebras} />
-          <ApiKeyInput label="Mistral API Key" provider="mistral" placeholder="Mistral API key" helpUrl="https://console.mistral.ai/api-keys" helpText="Mistral Free mode needs no card and includes limited monthly API credits for evaluation/prototyping." value={keys.mistral || ""} onChange={(val) => handleKeyChange("mistral", val)} isSaved={!!savedKeys.mistral} />
-          <ApiKeyInput label="NVIDIA NIM API Key" provider="nvidia" placeholder="NVIDIA API key" helpUrl="https://build.nvidia.com/settings/api-keys" helpText="Uses Nemotron 3.5 Lightning. Use a build.nvidia.com API key, not an NGC registry key. Hosted inference is free to prototype (typically up to 40 RPM for most models) and is evaluation-only, not production; exact limits vary by account/model." value={keys.nvidia || ""} onChange={(val) => handleKeyChange("nvidia", val)} isSaved={!!savedKeys.nvidia} />
+          <ApiKeyInput label="Groq API Key" provider="groq" placeholder="gsk_..." helpUrl="https://console.groq.com/keys" helpText="Free-plan limits apply (currently up to 1,000 requests/day for the selected GPT-OSS model; account limits may vary)." value={keys.groq || ""} onChange={(val) => handleKeyChange("groq", val)} isSaved={!!savedKeys.groq} onTest={() => void testConnection("groq")} connectionTest={connectionTests.groq} />
+          <ApiKeyInput label="Cerebras API Key" provider="cerebras" placeholder="Cerebras API key" helpUrl="https://cloud.cerebras.ai/" helpText="The current $5 free trial requires a verified payment method and expires after 30 days. No permanent free tier is documented." value={keys.cerebras || ""} onChange={(val) => handleKeyChange("cerebras", val)} isSaved={!!savedKeys.cerebras} onTest={() => void testConnection("cerebras")} connectionTest={connectionTests.cerebras} />
+          <ApiKeyInput label="Mistral API Key" provider="mistral" placeholder="Mistral API key" helpUrl="https://console.mistral.ai/api-keys" helpText="Mistral Free mode needs no card and includes limited monthly API credits for evaluation/prototyping." value={keys.mistral || ""} onChange={(val) => handleKeyChange("mistral", val)} isSaved={!!savedKeys.mistral} onTest={() => void testConnection("mistral")} connectionTest={connectionTests.mistral} />
+          <ApiKeyInput label="NVIDIA NIM API Key" provider="nvidia" placeholder="NVIDIA API key" helpUrl="https://build.nvidia.com/settings/api-keys" helpText="Uses Nemotron 3.5 Lightning. Use a build.nvidia.com API key, not an NGC registry key. Hosted inference is free to prototype (typically up to 40 RPM for most models) and is evaluation-only, not production; exact limits vary by account/model." value={keys.nvidia || ""} onChange={(val) => handleKeyChange("nvidia", val)} isSaved={!!savedKeys.nvidia} onTest={() => void testConnection("nvidia")} connectionTest={connectionTests.nvidia} />
           <div className="rounded-xl border border-border-main/60 bg-bg-main/60 p-3">
-            <ApiKeyInput label="Cloudflare Workers AI API Token" provider="cloudflare" placeholder="Cloudflare API token" helpUrl="https://dash.cloudflare.com/profile/api-tokens" helpText="Use a token with Workers AI Read and Edit permissions. Free allocation is 10,000 Neurons/day; usage above it may require a paid plan." value={keys.cloudflare || ""} onChange={(val) => handleKeyChange("cloudflare", val)} isSaved={!!savedKeys.cloudflare} />
+            <ApiKeyInput label="Cloudflare Workers AI API Token" provider="cloudflare" placeholder="Cloudflare API token" helpUrl="https://dash.cloudflare.com/profile/api-tokens" helpText="Use a token with Workers AI Read and Edit permissions. Free allocation is 10,000 Neurons/day; usage above it may require a paid plan." value={keys.cloudflare || ""} onChange={(val) => handleKeyChange("cloudflare", val)} isSaved={!!savedKeys.cloudflare} onTest={() => void testConnection("cloudflare")} connectionTest={connectionTests.cloudflare} />
             <label className="block text-sm font-medium text-text-main" htmlFor="cloudflare-account-id">Cloudflare Account ID</label>
             <input id="cloudflare-account-id" type="text" autoComplete="off" inputMode="text" maxLength={32} value={keys.cloudflareAccountId || ""} onChange={(event) => handleKeyChange("cloudflareAccountId", event.target.value)} placeholder="32-character account ID" className="mt-1.5 w-full rounded-xl border border-border-main bg-surface px-3 py-2.5 text-sm text-text-main outline-none focus:border-text-main focus:ring-1 focus:ring-text-main/20" />
             <p className="mt-1.5 text-xs leading-5 text-text-muted">Find this in your Cloudflare dashboard. Both the token and account ID stay in browser-local key storage.</p>
           </div>
-          <ApiKeyInput label="SambaNova SambaCloud API Key" provider="sambanova" placeholder="SambaNova API key" helpUrl="https://cloud.sambanova.ai/apis" helpText="The free tier applies when no payment method is linked. DeepSeek V3.1 currently allows 20 requests/day and 200,000 tokens/day." value={keys.sambanova || ""} onChange={(val) => handleKeyChange("sambanova", val)} isSaved={!!savedKeys.sambanova} />
+          <ApiKeyInput label="SambaNova SambaCloud API Key" provider="sambanova" placeholder="SambaNova API key" helpUrl="https://cloud.sambanova.ai/apis" helpText="The free tier applies when no payment method is linked. DeepSeek V3.1 currently allows 20 requests/day and 200,000 tokens/day." value={keys.sambanova || ""} onChange={(val) => handleKeyChange("sambanova", val)} isSaved={!!savedKeys.sambanova} onTest={() => void testConnection("sambanova")} connectionTest={connectionTests.sambanova} />
           <ApiKeyInput label="xAI Grok API Key" provider="xai" placeholder="xai-..." helpUrl="https://console.x.ai/team/default/api-keys" helpText="Uses Grok 4.7 for chat, coding, and reasoning." value={keys.xai || ""} onChange={(val) => handleKeyChange("xai", val)} isSaved={!!savedKeys.xai} onTest={() => void testConnection("xai")} connectionTest={connectionTests.xai} />
           <ApiKeyInput label="Perplexity API Key" provider="perplexity" placeholder="pplx-..." helpUrl="https://www.perplexity.ai/settings/api" helpText="Sonar provides web-grounded answers with current sources." value={keys.perplexity || ""} onChange={(val) => handleKeyChange("perplexity", val)} isSaved={!!savedKeys.perplexity} onTest={() => void testConnection("perplexity")} connectionTest={connectionTests.perplexity} />
           <ApiKeyInput label="Together AI API Key" provider="together" placeholder="Together API key" helpUrl="https://api.together.ai/settings/api-keys" helpText="Uses Llama through Together's OpenAI-compatible API." value={keys.together || ""} onChange={(val) => handleKeyChange("together", val)} isSaved={!!savedKeys.together} onTest={() => void testConnection("together")} connectionTest={connectionTests.together} />
-          {customProviders.filter((provider) => provider.requiresApiKey !== false).map((provider) => <ApiKeyInput key={provider.id} label={`${provider.name} API Key`} provider={provider.id} placeholder="Provider API key" helpUrl={provider.baseUrl} value={keys[provider.id] || ""} onChange={(val) => handleKeyChange(provider.id, val)} isSaved={!!savedKeys[provider.id]} />)}
+          {customProviders.map((provider) => <ApiKeyInput key={provider.id} label={provider.requiresApiKey === false ? `${provider.name} (local)` : `${provider.name} API Key`} provider={provider.id} placeholder={provider.requiresApiKey === false ? "No API key required" : "Provider API key"} value={keys[provider.id] || ""} onChange={(val) => handleKeyChange(provider.id, val)} isSaved={provider.requiresApiKey === false ? true : !!savedKeys[provider.id]} onTest={() => void testConnection(provider.id, provider)} connectionTest={connectionTests[provider.id]} testWithoutKey={provider.requiresApiKey === false} helpUrl={provider.baseUrl} />)}
         </div>
 
         {/* Footer */}
