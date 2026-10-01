@@ -207,6 +207,7 @@ export function MessageInput({ input, onInputChange, onSubmit, isLoading, stop, 
     const extractedText = fullExtractedText.length > MAX_ATTACHMENT_CONTEXT_CHARACTERS ? `${fullExtractedText.slice(0, MAX_ATTACHMENT_CONTEXT_CHARACTERS)}\n\n[Additional attachment text omitted to stay within the safe context budget.]` : fullExtractedText;
     const contextNotice = fullExtractedText.length > MAX_ATTACHMENT_CONTEXT_CHARACTERS ? `Attachment context was limited to ${MAX_ATTACHMENT_CONTEXT_CHARACTERS.toLocaleString()} characters for this message.` : null;
     onSubmit(event, files, extractedText || undefined);
+    if (event.defaultPrevented) return;
     setFiles([]);
     setExtractions({});
     setContextEnabled({});
