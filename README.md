@@ -13,29 +13,35 @@ Susan AI provides one streamlined chat interface for DeepSeek, Claude, Hugging F
 
 ## Demo & screenshot gallery
 
-The current UI is organized as a privacy-focused workspace with a navigation sidebar, inline model selector, conversation area, responsive composer, attachment workflows, and Agent Mode controls. The gallery below includes the current desktop chat workspace, the mobile chat experience, and the Agent Workspace visual target used to guide the ongoing UI implementation.
+The gallery below is captured from the current production deployment at [susan-ai.vercel.app](https://susan-ai.vercel.app/). It replaces the previous reference/mockup images with fresh desktop and mobile captures of the live privacy-first workspace, including the inline model picker and grouped Settings control center.
 
 **Live demo:** [Open Susan AI on Vercel](https://susan-ai.vercel.app/)
 
-### Chat workspace
+### Production desktop workspace
 
 <div align="center">
-  <img src="docs/screenshots/susan-ai-chat-workspace.webp" alt="Susan AI chat workspace with navigation sidebar, model selector, prompt cards, and message composer" width="100%" />
+  <img src="docs/screenshots/susan-ai-home-desktop.png" alt="Susan AI production desktop workspace with grouped sidebar, welcome actions, and inline AI model composer" width="100%" />
 </div>
 
-### Mobile chat workspace
+### Inline model selector
 
 <div align="center">
-  <img src="docs/screenshots/susan-ai-mobile-chat.jpg" alt="Susan AI mobile chat workspace with responsive header, welcome prompts, model selector, attachment control, and message composer" width="360" />
+  <img src="docs/screenshots/susan-ai-model-selector.png" alt="Susan AI production desktop workspace with the inline model selector active in the composer" width="100%" />
 </div>
 
-The mobile layout keeps the model selector and message actions inside the composer, with compact spacing for narrow Android and iOS viewports. Settings and About open as mobile-friendly full-height sheets, while the chat composer preserves attachment, voice, and send controls without horizontal overflow.
-
-### Agent workspace visual target
+### Settings control center
 
 <div align="center">
-  <img src="docs/screenshots/susan-ai-agent-workspace-reference.png" alt="Susan AI Agent Workspace visual target with task plan, charts, execution activity, tools, and generated files" width="100%" />
+  <img src="docs/screenshots/susan-ai-settings.png" alt="Susan AI production Settings control center with provider and privacy controls" width="100%" />
 </div>
+
+### Mobile workspace
+
+<div align="center">
+  <img src="docs/screenshots/susan-ai-home-mobile.png" alt="Susan AI production mobile workspace with responsive header, prompt cards, and composer model control" width="390" />
+</div>
+
+These are live-deployment captures rather than design references. The desktop view highlights the organized Workspace, Recent Chats, Library, and Preferences & Support sections; the composer keeps model selection inline. The mobile capture shows the compact responsive header, stacked prompt cards, bottom composer actions, and responsive model control.
 
 ### Featured workflow elements
 
