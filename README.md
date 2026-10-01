@@ -20,7 +20,7 @@ The current UI is organized as a privacy-focused workspace with a navigation sid
 ### Chat workspace
 
 <div align="center">
-  <img src="docs/screenshots/susan-ai-chat-workspace.webp" alt="Susan AI chat workspace with navigation sidebar, model selector, prompt cards, and message composer" width="100%" />
+  <img src="docs/screenshots/susan-ai-chat-workspace.png" alt="Susan AI chat workspace with navigation sidebar, model selector, prompt cards, and message composer" width="100%" />
 </div>
 
 ### Mobile chat workspace
