@@ -18,7 +18,7 @@ import { getApiKey } from "@/lib/key-storage";
 import { getCustomProviders } from "@/lib/custom-providers";
 import { getProviderDescriptor, getProviderDisplayName, supportsProviderCapability } from "@/lib/provider-capabilities";
 import { getChatErrorAction } from "@/lib/chat-error-actions.mjs";
-import type { AiEffort } from "@/lib/app-settings";
+import { getAppSettings, type AiEffort } from "@/lib/app-settings";
 import type { WorkspaceProject } from "@/lib/workspace-storage";
 import { SearchWorkspace } from "@/components/search/search-workspace";
 import { AccountButton } from "@/components/auth/account-button";
@@ -74,7 +74,10 @@ export function ChatArea({ mode, onModeChange, activeAgentTask, agentExecution, 
   const [fallbackNotice, setFallbackNotice] = useState<string | null>(null);
   const [isAgentPanelOpen, setIsAgentPanelOpen] = useState(false);
   const [voiceMode, setVoiceMode] = useState(false);
+  const [voiceSettings, setVoiceSettings] = useState(() => getAppSettings());
   const spokenMessageRef = useRef<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioUrlRef = useRef<string | null>(null);
   const handledErrorRef = useRef<string | null>(null);
   const fallbackAttemptRef = useRef<{ attempts: number; errorKey: string | null }>({ attempts: 0, errorKey: null });
   const customProvider = getCustomProviders().find((provider) => provider.id === selectedModel);
@@ -115,15 +118,58 @@ export function ChatArea({ mode, onModeChange, activeAgentTask, agentExecution, 
   }, [error, mode, modelName, onRetry, onSelectModel, selectedModel]);
 
   useEffect(() => {
-    if (!voiceMode || isLoading || typeof window === "undefined" || !("speechSynthesis" in window)) return;
+    const refreshVoiceSettings = () => setVoiceSettings(getAppSettings());
+    window.addEventListener("app-settings-updated", refreshVoiceSettings);
+    return () => window.removeEventListener("app-settings-updated", refreshVoiceSettings);
+  }, []);
+
+  useEffect(() => {
+    if (!voiceMode || !voiceSettings.voiceAutoRead || isLoading || typeof window === "undefined") return;
     const latest = [...messages].reverse().find((message) => message.role === "assistant");
     if (!latest || latest.id === spokenMessageRef.current) return;
     const text = typeof latest.content === "string" ? latest.content : messageText(latest);
     if (!text) return;
     spokenMessageRef.current = latest.id;
+    audioRef.current?.pause();
+    if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current);
+    audioRef.current = null;
+    audioUrlRef.current = null;
+    const openAiKey = getApiKey("openai");
+    if (voiceSettings.voiceOutput === "openai" && openAiKey) {
+      const controller = new AbortController();
+      void fetch("/api/voice/speak", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ apiKey: openAiKey, text: text.slice(0, 8_000), speed: voiceSettings.voiceRate }),
+        signal: controller.signal,
+        cache: "no-store",
+      }).then(async (response) => {
+        if (!response.ok) throw new Error("OpenAI voice output failed.");
+        const audio = new Audio(URL.createObjectURL(await response.blob()));
+        audioUrlRef.current = audio.src;
+        audioRef.current = audio;
+        await audio.play();
+      }).catch(() => {
+        if (voiceSettings.voiceOutput === "openai" && !("speechSynthesis" in window)) setToastError("OpenAI voice output failed. Check your OpenAI key and quota.");
+      });
+      return () => controller.abort();
+    }
+    if (!("speechSynthesis" in window)) {
+      if (!openAiKey) globalThis.setTimeout(() => setToastError("Voice output needs browser speech support or an OpenAI API key."), 0);
+      return;
+    }
     window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(new SpeechSynthesisUtterance(text.slice(0, 8_000)));
-  }, [messages, isLoading, voiceMode]);
+    const utterance = new SpeechSynthesisUtterance(text.slice(0, 8_000));
+    utterance.rate = voiceSettings.voiceRate;
+    utterance.lang = voiceSettings.voiceLanguage === "bn" ? "bn-BD" : voiceSettings.voiceLanguage === "en" ? "en-US" : navigator.language;
+    window.speechSynthesis.speak(utterance);
+  }, [messages, isLoading, voiceMode, voiceSettings]);
+
+  useEffect(() => () => {
+    window.speechSynthesis?.cancel();
+    audioRef.current?.pause();
+    if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current);
+  }, []);
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>, files: File[], extractedText?: string) => {
     const localProviderReady = customProvider?.requiresApiKey === false;
@@ -176,7 +222,7 @@ export function ChatArea({ mode, onModeChange, activeAgentTask, agentExecution, 
           {mode === "agent" && activeAgentTask && <AgentOutputWorkspace task={activeAgentTask} execution={agentExecution} />}
           <ChatMessages messages={messages} isStreaming={isLoading} isPreparingResearch={isPreparingResearch} onRetry={onRetry} onEditMessage={onEditMessage} onDeleteMessage={onDeleteMessage} onPrompt={onPrompt} hideWelcome={mode === "agent" && Boolean(activeAgentTask)} />
           {mode === "agent" && <AgentBottomComposer onCreateTask={onCreateAgentTask} activeTask={Boolean(activeAgentTask)} />}
-          {mode === "chat" && <div className="border-t border-border-main/50 bg-bg-main/95 pt-2 backdrop-blur-md"><MessageInput key={selectedModel} input={input} onInputChange={onInputChange} onSubmit={handleSubmit} isLoading={isLoading} stop={stop} canAttachFiles={canAttachFiles} attachmentSupportMessage={attachmentSupportMessage} selectedModel={selectedModel} onSelectModel={onSelectModel} projects={projects} selectedProjectId={selectedProjectId} onSelectedProjectChange={onSelectedProjectChange} isEditingMessage={isEditingMessage} onCancelEdit={onCancelEdit} estimatedTokens={estimatedTokens} effort={effort} onEffortChange={onEffortChange} voiceMode={voiceMode} onVoiceModeChange={(enabled) => { if (enabled) { const latest = [...messages].reverse().find((message) => message.role === "assistant"); spokenMessageRef.current = latest?.id || null; } else window.speechSynthesis?.cancel(); setVoiceMode(enabled); }} /></div>}
+          {mode === "chat" && <div className="border-t border-border-main/50 bg-bg-main/95 pt-2 backdrop-blur-md"><MessageInput key={selectedModel} input={input} onInputChange={onInputChange} onSubmit={handleSubmit} isLoading={isLoading} stop={stop} canAttachFiles={canAttachFiles} attachmentSupportMessage={attachmentSupportMessage} selectedModel={selectedModel} onSelectModel={onSelectModel} projects={projects} selectedProjectId={selectedProjectId} onSelectedProjectChange={onSelectedProjectChange} isEditingMessage={isEditingMessage} onCancelEdit={onCancelEdit} estimatedTokens={estimatedTokens} effort={effort} onEffortChange={onEffortChange} voiceMode={voiceMode} onVoiceModeChange={(enabled) => { if (enabled) { const latest = [...messages].reverse().find((message) => message.role === "assistant"); spokenMessageRef.current = latest?.id || null; } else { window.speechSynthesis?.cancel(); audioRef.current?.pause(); } setVoiceMode(enabled); }} /></div>}
         </main>
         {mode === "agent" && <AgentSidePanel activeTask={activeAgentTask} execution={agentExecution} events={executionEvents} onRollback={onRollbackAgentTask} mobileOpen={isAgentPanelOpen} onClose={() => setIsAgentPanelOpen(false)} />}
         </>}

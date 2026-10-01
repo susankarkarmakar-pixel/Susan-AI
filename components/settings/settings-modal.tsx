@@ -52,6 +52,10 @@ export function SettingsModal({ isOpen, onClose, initialTab = "general" }: Setti
   const [temperature, setTemperature] = useState(0.7);
   const [maxOutputTokens, setMaxOutputTokens] = useState(2048);
   const [assistantProfile, setAssistantProfile] = useState<AppSettings["assistantProfile"]>("general");
+  const [voiceOutput, setVoiceOutput] = useState<AppSettings["voiceOutput"]>("browser");
+  const [voiceAutoRead, setVoiceAutoRead] = useState(true);
+  const [voiceRate, setVoiceRate] = useState(1);
+  const [voiceLanguage, setVoiceLanguage] = useState<AppSettings["voiceLanguage"]>("auto");
   const [systemPrompts, setSystemPrompts] = useState<AppSettings["systemPrompts"]>({ general: "", coding: "", research: "" });
   const [projectInstructions, setProjectInstructions] = useState<Record<string, string>>({});
   const [projects, setProjects] = useState<WorkspaceProject[]>([]);
@@ -78,6 +82,10 @@ export function SettingsModal({ isOpen, onClose, initialTab = "general" }: Setti
         setTemperature(appSettings.temperature);
         setMaxOutputTokens(appSettings.maxOutputTokens);
         setAssistantProfile(appSettings.assistantProfile);
+        setVoiceOutput(appSettings.voiceOutput);
+        setVoiceAutoRead(appSettings.voiceAutoRead);
+        setVoiceRate(appSettings.voiceRate);
+        setVoiceLanguage(appSettings.voiceLanguage);
         setSystemPrompts(appSettings.systemPrompts);
         setProjectInstructions(appSettings.projectInstructions);
         const availableProjects = getProjects();
@@ -449,7 +457,7 @@ export function SettingsModal({ isOpen, onClose, initialTab = "general" }: Setti
           </div>
         </div>
 
-        </> : <SettingsTabContent activeTab={activeTab} autoSave={autoSave} setAutoSave={(value) => { setAutoSave(value); updateAppSettings({ autoSave: value }); }} streaming={streaming} setStreaming={(value) => { setStreaming(value); updateAppSettings({ streaming: value }); }} notifications={notifications} setNotifications={(value) => { setNotifications(value); updateAppSettings({ notifications: value }); }} temperature={temperature} setTemperature={(value) => { setTemperature(value); updateAppSettings({ temperature: value }); }} maxOutputTokens={maxOutputTokens} setMaxOutputTokens={(value) => { setMaxOutputTokens(value); updateAppSettings({ maxOutputTokens: value }); }} assistantProfile={assistantProfile} setAssistantProfile={(value) => { setAssistantProfile(value); updateAppSettings({ assistantProfile: value }); }} systemPrompts={systemPrompts} setSystemPrompts={(value) => { setSystemPrompts(value); updateAppSettings({ systemPrompts: value }); }} projects={projects} projectInstructions={projectInstructions} promptProjectId={promptProjectId} setPromptProjectId={setPromptProjectId} setProjectInstructions={(value) => { setProjectInstructions(value); updateAppSettings({ projectInstructions: value }); }} />}
+        </> : <SettingsTabContent activeTab={activeTab} autoSave={autoSave} setAutoSave={(value) => { setAutoSave(value); updateAppSettings({ autoSave: value }); }} streaming={streaming} setStreaming={(value) => { setStreaming(value); updateAppSettings({ streaming: value }); }} notifications={notifications} setNotifications={(value) => { setNotifications(value); updateAppSettings({ notifications: value }); }} temperature={temperature} setTemperature={(value) => { setTemperature(value); updateAppSettings({ temperature: value }); }} maxOutputTokens={maxOutputTokens} setMaxOutputTokens={(value) => { setMaxOutputTokens(value); updateAppSettings({ maxOutputTokens: value }); }} assistantProfile={assistantProfile} setAssistantProfile={(value) => { setAssistantProfile(value); updateAppSettings({ assistantProfile: value }); }} voiceOutput={voiceOutput} setVoiceOutput={(value) => { setVoiceOutput(value); updateAppSettings({ voiceOutput: value }); }} voiceAutoRead={voiceAutoRead} setVoiceAutoRead={(value) => { setVoiceAutoRead(value); updateAppSettings({ voiceAutoRead: value }); }} voiceRate={voiceRate} setVoiceRate={(value) => { setVoiceRate(value); updateAppSettings({ voiceRate: value }); }} voiceLanguage={voiceLanguage} setVoiceLanguage={(value) => { setVoiceLanguage(value); updateAppSettings({ voiceLanguage: value }); }} systemPrompts={systemPrompts} setSystemPrompts={(value) => { setSystemPrompts(value); updateAppSettings({ systemPrompts: value }); }} projects={projects} projectInstructions={projectInstructions} promptProjectId={promptProjectId} setPromptProjectId={setPromptProjectId} setProjectInstructions={(value) => { setProjectInstructions(value); updateAppSettings({ projectInstructions: value }); }} />}
           </main>
         </div>
 
@@ -480,6 +488,14 @@ interface SettingsTabContentProps {
   setMaxOutputTokens: (value: number) => void;
   assistantProfile: AppSettings["assistantProfile"];
   setAssistantProfile: (value: AppSettings["assistantProfile"]) => void;
+  voiceOutput: AppSettings["voiceOutput"];
+  setVoiceOutput: (value: AppSettings["voiceOutput"]) => void;
+  voiceAutoRead: boolean;
+  setVoiceAutoRead: (value: boolean) => void;
+  voiceRate: number;
+  setVoiceRate: (value: number) => void;
+  voiceLanguage: AppSettings["voiceLanguage"];
+  setVoiceLanguage: (value: AppSettings["voiceLanguage"]) => void;
   systemPrompts: AppSettings["systemPrompts"];
   setSystemPrompts: (value: AppSettings["systemPrompts"]) => void;
   projects: WorkspaceProject[];
@@ -489,7 +505,7 @@ interface SettingsTabContentProps {
   setProjectInstructions: (value: Record<string, string>) => void;
 }
 
-function SettingsTabContent({ activeTab, autoSave, setAutoSave, streaming, setStreaming, notifications, setNotifications, temperature, setTemperature, maxOutputTokens, setMaxOutputTokens, assistantProfile, setAssistantProfile, systemPrompts, setSystemPrompts, projects, projectInstructions, promptProjectId, setPromptProjectId, setProjectInstructions }: SettingsTabContentProps) {
+function SettingsTabContent({ activeTab, autoSave, setAutoSave, streaming, setStreaming, notifications, setNotifications, temperature, setTemperature, maxOutputTokens, setMaxOutputTokens, assistantProfile, setAssistantProfile, voiceOutput, setVoiceOutput, voiceAutoRead, setVoiceAutoRead, voiceRate, setVoiceRate, voiceLanguage, setVoiceLanguage, systemPrompts, setSystemPrompts, projects, projectInstructions, promptProjectId, setPromptProjectId, setProjectInstructions }: SettingsTabContentProps) {
   const { theme, setTheme } = useTheme();
   if (activeTab === "account") return <SettingsPanel title="Account & Workspace" subtitle="Understand your current workspace, profile state, and local data ownership"><section className="rounded-2xl border border-border-main/60 bg-surface p-5"><div className="flex items-start gap-3"><span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-cream-highlight text-accent"><UserRound className="h-5 w-5" /></span><div><h2 className="text-sm font-semibold text-text-main">Local workspace profile</h2><p className="mt-1 text-xs leading-5 text-text-muted">You are using Susan AI in a browser-local workspace. No account sign-in is required for chats, projects, local models, or BYOK settings.</p></div></div><div className="mt-4 grid gap-3 sm:grid-cols-3"><StatusTile label="Workspace" value="Browser-local" /><StatusTile label="Projects" value={String(projects.length)} /><StatusTile label="Key storage" value={getKeyStorageSecurity()} /></div></section><section className="rounded-2xl border border-border-main/60 bg-surface p-5"><div className="flex items-start gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700"><ShieldCheck className="h-5 w-5" /></span><div><h2 className="text-sm font-semibold text-text-main">Data ownership</h2><p className="mt-1 text-xs leading-5 text-text-muted">Conversations, projects, knowledge notes, and provider configuration stay in this browser unless you explicitly send a request to a selected cloud provider or export data.</p></div></div></section><section className="rounded-2xl border border-dashed border-border-main/70 bg-black/[0.02] p-5"><h2 className="text-sm font-semibold text-text-main">Account sign-in</h2><p className="mt-1 text-xs leading-5 text-text-muted">No server account is connected to this workspace yet. Account-backed sync and multi-device sessions can be added later without changing the local-first workflow.</p><span className="mt-3 inline-flex rounded-full bg-black/5 px-3 py-1 text-[11px] font-semibold text-text-muted">Local mode active</span></section></SettingsPanel>;
   if (activeTab === "help") return <SettingsPanel title="Get Help" subtitle="Quick-start guides, provider documentation, and ways to report a problem"><section className="rounded-2xl border border-border-main/60 bg-cream-highlight/40 p-5"><div className="flex items-start gap-3"><span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-surface text-accent"><BookOpen className="h-5 w-5" /></span><div><h2 className="text-sm font-semibold text-text-main">Quick start</h2><p className="mt-1 text-xs leading-5 text-text-muted">Choose a model, add a BYOK key or connect Ollama/LM Studio, then start a chat. Use Agent Mode when the task needs planning, files, tools, or a generated report.</p></div></div><div className="mt-4 grid gap-2 sm:grid-cols-2"><HelpLink href="https://github.com/susankarkarmakar-pixel/Susan-AI#readme" label="Read the project guide" /><HelpLink href="https://github.com/susankarkarmakar-pixel/Susan-AI/issues" label="Report a problem" /></div></section><section className="rounded-2xl border border-border-main/60 bg-surface p-5"><h2 className="text-sm font-semibold text-text-main">Provider setup guides</h2><div className="mt-3 grid gap-2 sm:grid-cols-2"><HelpLink href="https://aistudio.google.com/apikey" label="Google Gemini API key" /><HelpLink href="https://platform.openai.com/api-keys" label="OpenAI API key" /><HelpLink href="https://console.anthropic.com/settings/keys" label="Anthropic / Claude key" /><HelpLink href="https://ollama.com/download" label="Install Ollama" /><HelpLink href="https://lmstudio.ai/download" label="Install LM Studio" /><HelpLink href="https://lmstudio.ai/docs/developer/core/server" label="LM Studio server guide" /></div></section><section className="rounded-2xl border border-border-main/60 bg-surface p-5"><h2 className="text-sm font-semibold text-text-main">Need more help?</h2><p className="mt-1 text-xs leading-5 text-text-muted">Include the provider name, browser/desktop environment, and the non-sensitive error message. Never include API keys in an issue or support request.</p><div className="mt-3 flex flex-wrap gap-2"><a href="mailto:susankarkarmakar@gmail.com?subject=Susan%20AI%20Help" className="inline-flex items-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-xs font-semibold text-white hover:opacity-90">Contact developer <ExternalLink className="h-3 w-3" /></a><a href="https://github.com/susankarkarmakar-pixel/Susan-AI" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-xl border border-border-main/70 px-4 py-2.5 text-xs font-semibold text-text-main hover:border-accent/50">GitHub repository <ExternalLink className="h-3 w-3" /></a></div></section></SettingsPanel>;
@@ -498,6 +514,20 @@ function SettingsTabContent({ activeTab, autoSave, setAutoSave, streaming, setSt
   if (activeTab === "chat") return <SettingsPanel title="Chat & Files" subtitle="Tune generation, assistant behavior, and conversation preferences">
     <ToggleRow icon={Database} title="Auto-save conversations" text="Automatically save conversations to browser storage" value={autoSave} onChange={setAutoSave} />
     <ToggleRow icon={Zap} title="Enable streaming responses" text="Show AI responses as they are generated" value={streaming} onChange={setStreaming} />
+    <section className="rounded-2xl border border-border-main/60 bg-surface p-4 sm:p-5" aria-labelledby="voice-accessibility-heading">
+      <h2 id="voice-accessibility-heading" className="text-sm font-semibold text-text-main">Voice & Accessibility</h2>
+      <p className="mt-1 text-xs leading-5 text-text-muted">Voice mode uses browser speech by default. OpenAI TTS is an optional fallback and uses your saved OpenAI key.</p>
+      <div className="mt-4 grid gap-4 sm:grid-cols-2">
+        <label className="block text-xs font-semibold text-text-main" htmlFor="voice-output-setting">Voice output
+          <select id="voice-output-setting" value={voiceOutput} onChange={(event) => setVoiceOutput(event.target.value as AppSettings["voiceOutput"])} className="mt-1.5 w-full rounded-xl border border-border-main bg-surface px-3 py-2.5 text-sm font-normal text-text-main focus-visible:outline-2 focus-visible:outline-accent"><option value="browser">Browser voice</option><option value="openai">OpenAI TTS fallback</option></select>
+        </label>
+        <label className="block text-xs font-semibold text-text-main" htmlFor="voice-language-setting">Voice language
+          <select id="voice-language-setting" value={voiceLanguage} onChange={(event) => setVoiceLanguage(event.target.value as AppSettings["voiceLanguage"])} className="mt-1.5 w-full rounded-xl border border-border-main bg-surface px-3 py-2.5 text-sm font-normal text-text-main focus-visible:outline-2 focus-visible:outline-accent"><option value="auto">Auto-detect</option><option value="en">English</option><option value="bn">বাংলা</option></select>
+        </label>
+      </div>
+      <label className="mt-4 flex items-center justify-between gap-3 text-sm text-text-main"><span><b className="block text-xs">Auto-read AI responses</b><small className="text-[11px] text-text-muted">Read new assistant messages while Voice Mode is enabled</small></span><input type="checkbox" checked={voiceAutoRead} onChange={(event) => setVoiceAutoRead(event.target.checked)} className="h-5 w-5 accent-accent" /></label>
+      <label className="mt-4 block text-xs font-semibold text-text-main" htmlFor="voice-rate-setting">Speaking speed <output className="ml-2 font-normal text-text-muted">{voiceRate.toFixed(1)}×</output><input id="voice-rate-setting" type="range" min="0.5" max="2" step="0.1" value={voiceRate} onChange={(event) => setVoiceRate(Number(event.target.value))} className="mt-3 w-full accent-accent" /><span className="flex justify-between text-[10px] font-normal text-text-muted"><span>Slower</span><span>Faster</span></span></label>
+    </section>
     <section className="rounded-2xl border border-border-main/60 bg-surface p-4 sm:p-5" aria-labelledby="generation-settings-heading">
       <h2 id="generation-settings-heading" className="text-sm font-semibold text-text-main">Generation controls</h2>
       <p className="mt-1 text-xs leading-5 text-text-muted">Applied to providers that support these settings. Their effect can vary by model.</p>

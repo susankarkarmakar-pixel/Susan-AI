@@ -1,6 +1,8 @@
 export type AppTheme = "system" | "light" | "dark";
 export type AssistantProfile = "general" | "coding" | "research";
 export type AiEffort = "low" | "medium" | "high" | "max";
+export type VoiceOutput = "browser" | "openai";
+export type VoiceLanguage = "auto" | "en" | "bn";
 export type AssistantSystemPrompts = Record<AssistantProfile, string>;
 
 export interface AppSettings {
@@ -15,6 +17,10 @@ export interface AppSettings {
   temperature: number;
   maxOutputTokens: number;
   effort: AiEffort;
+  voiceOutput: VoiceOutput;
+  voiceAutoRead: boolean;
+  voiceRate: number;
+  voiceLanguage: VoiceLanguage;
   assistantProfile: AssistantProfile;
   systemPrompts: AssistantSystemPrompts;
   projectInstructions: Record<string, string>;
@@ -33,6 +39,10 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   temperature: 0.7,
   maxOutputTokens: 2048,
   effort: "medium",
+  voiceOutput: "browser",
+  voiceAutoRead: true,
+  voiceRate: 1,
+  voiceLanguage: "auto",
   assistantProfile: "general",
   systemPrompts: { general: "", coding: "", research: "" },
   projectInstructions: {},
@@ -65,6 +75,10 @@ export function getAppSettings(): AppSettings {
       temperature: finiteNumber(candidate.temperature) ? clamp(candidate.temperature, 0, 2) : DEFAULT_APP_SETTINGS.temperature,
       maxOutputTokens: finiteNumber(candidate.maxOutputTokens) ? clamp(Math.round(candidate.maxOutputTokens), 256, 8192) : DEFAULT_APP_SETTINGS.maxOutputTokens,
       effort: isAiEffort(candidate.effort) ? candidate.effort : DEFAULT_APP_SETTINGS.effort,
+      voiceOutput: candidate.voiceOutput === "openai" || candidate.voiceOutput === "browser" ? candidate.voiceOutput : DEFAULT_APP_SETTINGS.voiceOutput,
+      voiceAutoRead: typeof candidate.voiceAutoRead === "boolean" ? candidate.voiceAutoRead : DEFAULT_APP_SETTINGS.voiceAutoRead,
+      voiceRate: finiteNumber(candidate.voiceRate) ? clamp(candidate.voiceRate, 0.5, 2) : DEFAULT_APP_SETTINGS.voiceRate,
+      voiceLanguage: candidate.voiceLanguage === "en" || candidate.voiceLanguage === "bn" || candidate.voiceLanguage === "auto" ? candidate.voiceLanguage : DEFAULT_APP_SETTINGS.voiceLanguage,
       assistantProfile: isAssistantProfile(candidate.assistantProfile) ? candidate.assistantProfile : DEFAULT_APP_SETTINGS.assistantProfile,
       systemPrompts: normalizeSystemPrompts(candidate.systemPrompts),
       projectInstructions: normalizeProjectInstructions(candidate.projectInstructions),
