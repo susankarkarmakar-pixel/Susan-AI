@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { BookOpenText, Check, Code2, FileSearch, FileText, Lightbulb, Link2, PenLine, Sparkles } from "lucide-react";
 import { MessageBubble } from "./message-bubble";
 import { isResearchIntent } from "@/lib/research-intent.mjs";
@@ -11,6 +11,8 @@ export type Message = {
   role: "user" | "assistant" | "system" | "data";
   content: string;
 };
+
+const NEAR_BOTTOM_THRESHOLD = 96;
 
 interface ChatMessagesProps {
   messages: Message[];
@@ -25,13 +27,50 @@ interface ChatMessagesProps {
 
 export function ChatMessages({ messages, isStreaming, isPreparingResearch, onRetry, onEditMessage, onDeleteMessage, onPrompt, hideWelcome }: ChatMessagesProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const autoFollowRef = useRef(true);
+  const lastMessageIdRef = useRef<string | undefined>(undefined);
+  const animationFrameRef = useRef<number | null>(null);
+  const [showJumpToLatest, setShowJumpToLatest] = useState(false);
 
-  // Auto-scroll to bottom when new messages arrive or while streaming
+  const isNearBottom = useCallback(() => {
+    const element = scrollRef.current;
+    if (!element) return true;
+    return element.scrollHeight - element.scrollTop - element.clientHeight <= NEAR_BOTTOM_THRESHOLD;
+  }, []);
+
+  const scrollToLatest = useCallback((behavior: ScrollBehavior = "auto") => {
+    const element = scrollRef.current;
+    if (!element) return;
+    autoFollowRef.current = true;
+    setShowJumpToLatest(false);
+    element.scrollTo({ top: element.scrollHeight, behavior });
+  }, []);
+
+  const handleScroll = useCallback(() => {
+    const nearBottom = isNearBottom();
+    autoFollowRef.current = nearBottom;
+    setShowJumpToLatest(!nearBottom);
+  }, [isNearBottom]);
+
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    const latestMessage = messages[messages.length - 1];
+    const latestMessageId = latestMessage?.id;
+    const latestIsNewUserMessage = latestMessageId !== lastMessageIdRef.current && latestMessage?.role === "user";
+    lastMessageIdRef.current = latestMessageId;
+    if (latestIsNewUserMessage) autoFollowRef.current = true;
+    if (!autoFollowRef.current) {
+      setShowJumpToLatest(true);
+      return;
     }
-  }, [messages, isStreaming]);
+    if (animationFrameRef.current !== null) cancelAnimationFrame(animationFrameRef.current);
+    animationFrameRef.current = requestAnimationFrame(() => {
+      scrollToLatest();
+      animationFrameRef.current = null;
+    });
+    return () => {
+      if (animationFrameRef.current !== null) cancelAnimationFrame(animationFrameRef.current);
+    };
+  }, [isPreparingResearch, isStreaming, messages, scrollToLatest]);
 
   if (messages.length === 0 && hideWelcome) {
     return <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 custom-scrollbar" />;
@@ -69,11 +108,9 @@ export function ChatMessages({ messages, isStreaming, isPreparingResearch, onRet
   }
 
   return (
-    <div
-      ref={scrollRef}
-      className="flex-1 overflow-y-auto p-4 custom-scrollbar scroll-smooth"
-    >
-      <div className="max-w-3xl mx-auto flex flex-col w-full pb-4">
+    <div className="relative min-h-0 flex-1">
+      <div ref={scrollRef} onScroll={handleScroll} className="h-full overflow-y-auto p-4 custom-scrollbar">
+        <div className="mx-auto flex w-full max-w-3xl flex-col pb-4">
         {messages.map((msg, index) => {
           const lastUserMessage = getPreviousUserMessage(messages, index);
           const isResearchResponse = msg.role === "assistant" && isResearchIntent(lastUserMessage?.content || "");
@@ -107,7 +144,9 @@ export function ChatMessages({ messages, isStreaming, isPreparingResearch, onRet
             ? <ResearchLoadingCard />
             : <MessageBubble role="assistant" content="" isStreaming={true} />
         )}
+        </div>
       </div>
+      {showJumpToLatest && <button type="button" onClick={() => scrollToLatest("smooth")} aria-label="Jump to latest response" className="absolute bottom-4 left-1/2 z-10 -translate-x-1/2 rounded-full border border-border-main/80 bg-surface px-3 py-2 text-xs font-semibold text-text-main shadow-lg transition hover:border-accent/40 hover:text-accent focus-visible:outline-2 focus-visible:outline-accent">↓ Jump to latest</button>}
     </div>
   );
 }
