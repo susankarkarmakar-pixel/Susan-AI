@@ -56,6 +56,7 @@ export default function Home() {
   const [agentExecution, setAgentExecution] = useState<Pick<AgentExecutionOutcome, "message" | "output" | "table" | "sheetTables" | "error" | "ok"> | null>(null);
   const [executionEvents, setExecutionEvents] = useState<ExecutionEvent[]>([]);
   const safeTaskSnapshot = useRef<AgentTask | null>(null);
+  const handledRouteIntent = useRef(false);
   const { records, ready: tasksReady, save: saveAgentTask, remove: removeAgentTask } = useAgentTasks();
   const restoredTask = useRef(false);
 
@@ -261,6 +262,46 @@ export default function Home() {
       setMode("agent");
     }
   };
+
+  useEffect(() => {
+    if (handledRouteIntent.current) return;
+    handledRouteIntent.current = true;
+    const params = new URLSearchParams(window.location.search);
+    const conversationId = params.get("open-conversation");
+    if (conversationId) {
+      const conversation = loadSavedConversation(conversationId);
+      if (conversation) {
+        if (conversation.model === "manus" || conversation.model === "jules") {
+          const fallback = ["google", "openrouter", "openai", "anthropic", "deepseek", "qwen", "kimi", "sarvam", "huggingface", "groq", "cerebras", "mistral", "nvidia", "cloudflare", "sambanova"].find((provider) => getApiKey(provider, keys)) || "google";
+          // A saved conversation carries a non-chat model; select a usable chat provider while restoring the route.
+          // eslint-disable-next-line react-hooks/set-state-in-effect
+          setSelectedModel(fallback);
+        } else setSelectedModel(conversation.model as ModelOption);
+        setMode("chat");
+        setActiveSection("chat");
+      }
+    } else {
+      const section = params.get("section");
+      const validSections: WorkspaceSection[] = ["home", "chat", "agent", "projects", "workflows", "knowledge", "plugins", "documents", "history"];
+      const modeParam = params.get("mode");
+      if (section && validSections.includes(section as WorkspaceSection)) {
+        const nextSection = section as WorkspaceSection;
+        setActiveSection(nextSection);
+        if (nextSection === "agent") setMode("agent");
+        else if (nextSection === "chat" || nextSection === "home") setMode("chat");
+      } else if (modeParam === "chat" || modeParam === "search" || modeParam === "agent") {
+        setMode(modeParam);
+        setActiveSection(modeParam === "search" ? "home" : modeParam);
+      }
+      if (params.get("open") === "settings") {
+        setSettingsTab("keys");
+        setIsSettingsOpen(true);
+      }
+    }
+    if (params.has("action") && params.get("action") === "analyze") setActiveSection("documents");
+    if (params.toString()) window.history.replaceState({}, "", window.location.pathname);
+  }, [keys, loadSavedConversation, setMode]);
+
   const handleStartWorkspaceAgent = (goal: string, attachments: AgentAttachment[] = []) => {
     ensureInstantChatModel();
     setActiveSection("agent");
@@ -503,7 +544,7 @@ export default function Home() {
       )}
       <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} initialTab={settingsTab} />
       <AboutModal isOpen={isAboutOpen} onClose={() => setIsAboutOpen(false)} />
-      <FirstUseTour onNavigate={handleSidebarNavigate} />
+      <FirstUseTour onNavigate={handleSidebarNavigate} onStartSampleChat={(prompt) => { handleSidebarNavigate("chat"); startNewConversation(); setInput(prompt); }} />
       <CommandPalette onNewChat={handleNewChat} onNavigate={handleSidebarNavigate} onOpenSettings={() => { setSettingsTab("chat"); setIsSettingsOpen(true); }} />
     </div>
   );

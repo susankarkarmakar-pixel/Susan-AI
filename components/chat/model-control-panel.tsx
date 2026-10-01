@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, ChevronDown, CircleAlert, Cloud, Cpu, RefreshCw, ShieldCheck, Zap } from "lucide-react";
+import { Check, ChevronDown, CircleAlert, Cloud, Cpu, RefreshCw, Search, ShieldCheck, Zap } from "lucide-react";
 import { INSTANT_CHAT_PROVIDERS } from "@/lib/ai-providers";
 import { getApiKey, getKeys, ApiKeys } from "@/lib/key-storage";
 import { CustomProvider, getCustomProviders } from "@/lib/custom-providers";
@@ -32,6 +32,8 @@ export function ModelControlPanel({ selectedModel, onSelectModel, effort, onEffo
   const [keys, setKeys] = useState<ApiKeys>({});
   const [customProviders, setCustomProviders] = useState<CustomProvider[]>([]);
   const [autoFallback, setAutoFallback] = useState(true);
+  const [query, setQuery] = useState("");
+  const [connectedOnly, setConnectedOnly] = useState(false);
 
   const refresh = () => {
     setKeys(getKeys());
@@ -71,8 +73,12 @@ export function ModelControlPanel({ selectedModel, onSelectModel, effort, onEffo
   ];
   const selected = choices.find((choice) => choice.id === selectedModel) || choices[0];
   const readyChoices = choices.filter((choice) => choice.ready);
-  const localChoices = choices.filter((choice) => choice.local);
-  const cloudChoices = choices.filter((choice) => !choice.local);
+  const matchingChoices = choices.filter((choice) => {
+    const matchesQuery = `${choice.name} ${choice.description} ${choice.id}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase());
+    return matchesQuery && (!connectedOnly || choice.ready);
+  });
+  const matchingLocalChoices = matchingChoices.filter((choice) => choice.local);
+  const matchingCloudChoices = matchingChoices.filter((choice) => !choice.local);
 
   const toggleFallback = () => {
     const next = !autoFallback;
@@ -91,11 +97,16 @@ export function ModelControlPanel({ selectedModel, onSelectModel, effort, onEffo
     {open && <>
       <button type="button" aria-label="Close model panel" className="fixed inset-0 z-30 cursor-default" onClick={() => setOpen(false)} />
       <div role="dialog" aria-label="Model control panel" className="absolute bottom-[calc(100%+0.6rem)] left-0 z-40 w-[min(360px,calc(100vw-1.5rem))] overflow-hidden rounded-2xl border border-border-main/80 bg-surface p-3 shadow-2xl">
-        <div className="flex items-start justify-between gap-3 border-b border-border-main/50 pb-3"><div><p className="text-sm font-semibold text-text-main">Choose response model</p><p className="mt-0.5 text-[11px] text-text-muted">Switch without leaving the chat composer.</p></div><button type="button" onClick={refresh} className="rounded-lg p-1.5 text-text-muted hover:bg-black/5 hover:text-accent" aria-label="Refresh connected models" title="Refresh connected models"><RefreshCw className="h-3.5 w-3.5" /></button></div>
+        <div className="flex items-start justify-between gap-3 border-b border-border-main/50 pb-3"><div><p className="text-sm font-semibold text-text-main">Choose response model</p><p className="mt-0.5 text-[11px] text-text-muted">{readyChoices.length} of {choices.length} connected · switch without leaving chat.</p></div><button type="button" onClick={refresh} className="rounded-lg p-1.5 text-text-muted hover:bg-black/5 hover:text-accent" aria-label="Refresh connected models" title="Refresh connected models"><RefreshCw className="h-3.5 w-3.5" /></button></div>
+        <div className="mt-3 flex gap-2">
+          <label className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-border-main/70 bg-bg-main px-2.5"><Search className="h-3.5 w-3.5 shrink-0 text-text-muted" /><input autoFocus type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Find a provider or model" aria-label="Search providers and models" className="min-w-0 flex-1 bg-transparent py-2 text-xs text-text-main outline-none placeholder:text-text-muted/70" /></label>
+          <button type="button" aria-pressed={connectedOnly} onClick={() => setConnectedOnly((value) => !value)} className={`shrink-0 rounded-xl border px-2.5 text-[10px] font-semibold transition-colors ${connectedOnly ? "border-accent/40 bg-cream-highlight text-accent" : "border-border-main/70 bg-bg-main text-text-muted hover:text-text-main"}`}>Connected only</button>
+        </div>
         <div className="mt-3 max-h-[min(22rem,55vh)] space-y-3 overflow-y-auto pr-1">
-          {localChoices.length > 0 && <ModelGroup title="Local models" icon={<ShieldCheck className="h-3.5 w-3.5" />} choices={localChoices} selectedModel={selectedModel} onSelect={(id) => { onSelectModel(id); setOpen(false); }} />}
-          <ModelGroup title="Cloud & BYOK models" icon={<Cloud className="h-3.5 w-3.5" />} choices={cloudChoices} selectedModel={selectedModel} onSelect={(id) => { onSelectModel(id); setOpen(false); }} />
-          {readyChoices.length === 0 && <div className="rounded-xl bg-amber-50 p-3 text-xs leading-5 text-amber-900"><CircleAlert className="mr-1 inline h-3.5 w-3.5" />No connected model found. Add a key or connect a local model in Settings.</div>}
+          {matchingLocalChoices.length > 0 && <ModelGroup title="Local models" icon={<ShieldCheck className="h-3.5 w-3.5" />} choices={matchingLocalChoices} selectedModel={selectedModel} onSelect={(id) => { onSelectModel(id); setOpen(false); }} />}
+          {matchingCloudChoices.length > 0 && <ModelGroup title="Cloud & BYOK models" icon={<Cloud className="h-3.5 w-3.5" />} choices={matchingCloudChoices} selectedModel={selectedModel} onSelect={(id) => { onSelectModel(id); setOpen(false); }} />}
+          {matchingChoices.length === 0 && (readyChoices.length === 0 ? <div className="rounded-xl bg-amber-50 p-3 text-xs leading-5 text-amber-950"><CircleAlert className="mr-1 inline h-3.5 w-3.5" />No connected model found. Add a provider key in Settings, then return here.</div> : <div className="rounded-xl border border-border-main/60 bg-bg-main p-3 text-xs leading-5 text-text-muted">No models match that search. Try another name or turn off “Connected only”.</div>)}
+          {connectedOnly && readyChoices.length > 0 && matchingChoices.length > 0 && <p className="px-1 text-[10px] text-text-muted">Showing connected models only. Disable the filter to see providers that still need a key.</p>}
         </div>
         <div className="mt-3 grid gap-3 border-t border-border-main/50 pt-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
           <label className="block"><span className="mb-1 block text-[10px] font-bold uppercase tracking-[0.12em] text-text-muted">Response effort</span><select value={effort} onChange={(event) => onEffortChange(event.target.value as AiEffort)} className="min-h-9 w-full rounded-lg border border-border-main/70 bg-bg-main px-2 text-xs font-semibold text-text-main outline-none focus-visible:ring-2 focus-visible:ring-accent/30"><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option><option value="max">Max</option></select></label>

@@ -71,7 +71,7 @@ export function Sidebar({ isOpen, onClose, activeSection, onNavigate, onSelectPi
           </nav>
 
           {!collapsed && <div className="mb-2 flex items-center justify-between border-t border-white/10 pt-4"><SidebarSectionLabel collapsed={false}>Recent chats</SidebarSectionLabel><button type="button" onClick={() => navigate("history")} className="text-[10px] font-semibold text-cream-highlight transition-colors hover:text-white">View all</button></div>}
-          {!collapsed && <div className="mb-4 space-y-0.5">{recentChats.length > 0 ? recentChats.map((chat) => <button key={chat.id} type="button" onClick={() => { onOpenConversation(chat.id); navigate("chat"); }} className="group flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-xs text-white/65 transition-colors hover:bg-white/10 hover:text-white"><MessageSquare className="h-3.5 w-3.5 shrink-0 text-white/35 group-hover:text-cream-highlight" /><span className="min-w-0 flex-1 truncate">{chat.title || "Untitled chat"}</span><span className="hidden text-[9px] text-white/35 group-hover:inline">{formatRecentDate(chat.date)}</span></button>) : <button type="button" onClick={() => navigate("history")} className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-xs text-white/45 transition-colors hover:bg-white/10 hover:text-white"><Search className="h-3.5 w-3.5" />No saved chats yet</button>}</div>}
+          {!collapsed && <div className="mb-4 space-y-0.5">{recentChats.length > 0 ? recentChats.map((chat) => <button key={chat.id} type="button" onClick={() => { onOpenConversation(chat.id); navigate("chat"); }} className="group flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-xs text-white/75 transition-colors hover:bg-white/10 hover:text-white"><MessageSquare className="h-3.5 w-3.5 shrink-0 text-white/65 group-hover:text-cream-highlight" /><span className="min-w-0 flex-1 truncate">{chat.title || "Untitled chat"}</span><span className="hidden text-[9px] text-white/65 group-hover:inline">{formatRecentDate(chat.date)}</span></button>) : <button type="button" onClick={() => navigate("history")} className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-xs text-white/70 transition-colors hover:bg-white/10 hover:text-white"><Search className="h-3.5 w-3.5" />No saved chats yet</button>}</div>}
 
           <div className="border-t border-white/10 pt-4">
             <div className="mb-2 flex items-center justify-between"><SidebarSectionLabel collapsed={collapsed}>Library</SidebarSectionLabel>{!collapsed && <button type="button" onClick={() => setMoreOpen((open) => !open)} aria-expanded={moreOpen} aria-label={moreOpen ? "Collapse library" : "Expand library"} className="rounded-md p-1 text-white/40 transition-colors hover:bg-white/10 hover:text-white"><ChevronDown className={cn("h-3.5 w-3.5 transition-transform", !moreOpen && "-rotate-90")} /></button>}</div>
@@ -87,12 +87,12 @@ export function Sidebar({ isOpen, onClose, activeSection, onNavigate, onSelectPi
         </div>
 
         <footer className={cn("flex shrink-0 flex-col gap-1 border-t border-white/10", collapsed ? "items-center p-3" : "p-4")} style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}>
-          {!collapsed && <p className="mb-1 px-2 text-[10px] font-bold uppercase tracking-[0.16em] text-white/35">Preferences & support</p>}
+          {!collapsed && <p className="mb-1 px-2 text-[10px] font-bold uppercase tracking-[0.16em] text-white/65">Preferences & support</p>}
           <FooterAction icon={<Settings className="h-4 w-4" />} label="Settings" collapsed={collapsed} onClick={onOpenSettings} />
           <FooterAction icon={<CircleHelp className="h-4 w-4" />} label="Quick tour" collapsed={collapsed} onClick={onOpenTour} />
           <FooterAction icon={<Info className="h-4 w-4" />} label="About" collapsed={collapsed} onClick={onOpenAbout} />
           <PwaInstallButton collapsed={collapsed} />
-          {!collapsed && <p className="mt-2 text-center text-[10px] text-white/35">© 2026 Sanket Pixel Technologies</p>}
+          {!collapsed && <p className="mt-2 text-center text-[10px] text-white/65">© 2026 Sanket Pixel Technologies</p>}
         </footer>
       </aside>
     </>
@@ -100,7 +100,7 @@ export function Sidebar({ isOpen, onClose, activeSection, onNavigate, onSelectPi
 }
 
 function SidebarSectionLabel({ children, collapsed }: { children: React.ReactNode; collapsed: boolean }) {
-  return collapsed ? <span className="sr-only">{children}</span> : <p className="px-2 text-[10px] font-bold uppercase tracking-[0.18em] text-white/35">{children}</p>;
+  return collapsed ? <span className="sr-only">{children}</span> : <p className="px-2 text-[10px] font-bold uppercase tracking-[0.18em] text-white/65">{children}</p>;
 }
 
 function SidebarNavItem({ icon, label, active = false, collapsed, onClick }: { icon: React.ReactNode; label: string; active?: boolean; collapsed: boolean; onClick: () => void }) {
@@ -108,7 +108,7 @@ function SidebarNavItem({ icon, label, active = false, collapsed, onClick }: { i
 }
 
 function PinnedAgent({ label, collapsed, onClick }: { label: "General Assistant" | "Data & Report Agent" | "Study & Research Agent"; collapsed: boolean; onClick: () => void }) {
-  return <button type="button" onClick={onClick} aria-label={collapsed ? label : undefined} title={collapsed ? label : undefined} className={cn("flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[11px] text-white/50 transition-colors hover:bg-white/10 hover:text-white", collapsed && "justify-center px-1")}><span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-white/10 text-[10px] text-cream-highlight">✦</span>{!collapsed && <span className="truncate">{label}</span>}</button>;
+  return <button type="button" onClick={onClick} aria-label={collapsed ? label : undefined} title={collapsed ? label : undefined} className={cn("flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[11px] text-white/75 transition-colors hover:bg-white/10 hover:text-white", collapsed && "justify-center px-1")}><span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-white/10 text-[10px] text-cream-highlight">✦</span>{!collapsed && <span className="truncate">{label}</span>}</button>;
 }
 
 function FooterAction({ icon, label, collapsed, onClick }: { icon: React.ReactNode; label: string; collapsed: boolean; onClick: () => void }) {
