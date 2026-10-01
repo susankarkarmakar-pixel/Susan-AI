@@ -49,7 +49,7 @@ jobs:
         run: npm test
 
   build-android:
-    name: Build Android APK
+    name: Build Android APK and signed App Bundle
     needs: validate
     runs-on: ubuntu-latest
     steps:
@@ -93,21 +93,88 @@ jobs:
           npx cap add android
           npx cap sync android
 
+      - name: Validate Android signing secrets
+        shell: bash
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          for name in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
+            if [ -z "${!name:-}" ]; then
+              echo "Missing required GitHub secret: ${name}" >&2
+              exit 1
+            fi
+          done
+
+      - name: Configure Android release signing
+        shell: bash
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/susan-ai-release.keystore
+          test -s android/susan-ai-release.keystore
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("android/app/build.gradle")
+          text = path.read_text()
+          signing = '''
+              signingConfigs {
+                  release {
+                      storeFile file(System.getenv("ANDROID_KEYSTORE_FILE"))
+                      storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                      keyAlias System.getenv("ANDROID_KEY_ALIAS")
+                      keyPassword System.getenv("ANDROID_KEY_PASSWORD")
+                  }
+              }
+          '''
+          if "signingConfigs {" not in text:
+              text = text.replace("    buildTypes {", signing + "\n    buildTypes {", 1)
+          marker = "    buildTypes {"
+          start = text.index(marker)
+          release_start = text.index("release {", start)
+          if "signingConfig signingConfigs.release" not in text[release_start:release_start + 300]:
+              insertion = "release {\n            signingConfig signingConfigs.release"
+              text = text[:release_start] + text[release_start:].replace("release {", insertion, 1)
+          path.write_text(text)
+          PY
+          grep -q 'signingConfig signingConfigs.release' android/app/build.gradle
+
       - name: Build installable debug APK
         working-directory: android
         run: ./gradlew assembleDebug --no-daemon --stacktrace
 
-      - name: Rename APK
+      - name: Build signed release App Bundle
+        working-directory: android
+        env:
+          ANDROID_KEYSTORE_FILE: ${{ github.workspace }}/android/susan-ai-release.keystore
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: ./gradlew bundleRelease --no-daemon --stacktrace
+
+      - name: Rename Android artifacts
         shell: bash
         run: |
           mkdir -p release
           cp android/app/build/outputs/apk/debug/app-debug.apk "release/Susan-AI-${GITHUB_REF_NAME}-android.apk"
+          cp android/app/build/outputs/bundle/release/app-release.aab "release/Susan-AI-${GITHUB_REF_NAME}-android-release.aab"
+          rm -f android/susan-ai-release.keystore
 
       - name: Upload Android artifact
         uses: actions/upload-artifact@v4
         with:
           name: susan-ai-android
-          path: release/*.apk
+          path: |
+            release/*.apk
+            release/*.aab
           if-no-files-found: error
 
   build-windows:
