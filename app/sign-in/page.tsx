@@ -13,6 +13,7 @@ export default function SignInPage() {
   const [message, setMessage] = useState("");
   const [checkingSession, setCheckingSession] = useState(true);
   const [signingIn, setSigningIn] = useState(false);
+  const [googleConfigured, setGoogleConfigured] = useState<boolean | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -27,18 +28,19 @@ export default function SignInPage() {
     fetch("/api/auth/session", { cache: "no-store" }).then((response) => {
       if (!response.ok) throw new Error(`Session check failed with HTTP ${response.status}.`);
       return response.json();
-    }).then((data: { user?: unknown }) => {
+    }).then((data: { user?: unknown; googleConfigured?: boolean }) => {
       if (!active) return;
+      setGoogleConfigured(data.googleConfigured === true);
       if (data.user) router.replace("/dashboard");
       else setCheckingSession(false);
-    }).catch(() => { if (active) { setMessage("We could not verify your existing session. You can still try signing in below."); setCheckingSession(false); } });
+    }).catch(() => { if (active) { setGoogleConfigured(null); setMessage("We could not verify your existing session or sign-in providers. Please refresh and try again."); setCheckingSession(false); } });
     return () => { active = false; };
   }, [router]);
 
-  const showUnavailable = (provider: string) => setMessage(`${provider} sign-in is not connected yet. Google sign-in is the available secure option right now.`);
+  const showUnavailable = (provider: string) => setMessage(`${provider} sign-in is not connected yet. ${googleConfigured === true ? "Google sign-in is available securely." : "Please refresh after the sign-in provider is configured."}`);
   // This full navigation starts Google's external OAuth redirect chain.
   // eslint-disable-next-line @next/next/no-location-assign-relative-destination
-  const startGoogleSignIn = () => { setSigningIn(true); window.location.href = "/api/auth/google"; };
+  const startGoogleSignIn = () => { if (googleConfigured !== true) return; setSigningIn(true); window.location.href = "/api/auth/google"; };
   const submitEmail = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const normalizedEmail = email.trim();
@@ -65,7 +67,7 @@ export default function SignInPage() {
           <div className="mb-8 text-center lg:text-left"><div className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#f4e4cc] text-[#8d5938] lg:mx-0"><Sparkles className="h-5 w-5" /></div><h2 className="font-serif text-3xl font-semibold tracking-tight">Sign in to your workspace</h2><p className="mt-2 text-sm leading-6 text-[#806b5b]">Continue with your preferred account to access Susan AI.</p></div>
 
           <div className="grid gap-3">
-            <button type="button" onClick={startGoogleSignIn} disabled={signingIn} aria-busy={signingIn} className="flex h-12 items-center justify-center gap-3 rounded-xl bg-[#2b1b14] px-4 text-sm font-semibold text-white transition hover:bg-[#43291d] disabled:cursor-wait disabled:opacity-75"><GoogleMark /> {signingIn ? <><Spinner /> Connecting…</> : "Continue with Google"} {!signingIn && <span className="ml-auto rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-medium text-white/65">Secure OAuth</span>}</button>
+            <button type="button" onClick={startGoogleSignIn} disabled={signingIn || googleConfigured !== true} aria-busy={signingIn} aria-disabled={googleConfigured !== true} className="flex h-12 items-center justify-center gap-3 rounded-xl bg-[#2b1b14] px-4 text-sm font-semibold text-white transition hover:bg-[#43291d] disabled:cursor-not-allowed disabled:opacity-60"><GoogleMark /> {signingIn ? <><Spinner /> Connecting…</> : googleConfigured === false ? "Google sign-in unavailable" : googleConfigured === null ? "Checking Google sign-in…" : "Continue with Google"} {!signingIn && googleConfigured === true && <span className="ml-auto rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-medium text-white/65">Secure OAuth</span>}</button>
             <button type="button" onClick={() => showUnavailable("GitHub")} aria-label="GitHub sign-in not connected" className="flex h-12 items-center justify-center gap-3 rounded-xl border border-[#e2d8ce] bg-white px-4 text-sm font-semibold text-[#2b1b14] transition hover:border-[#bca693] hover:bg-[#fcfaf7]"><GitHubMark /> <span>GitHub sign-in</span> <span className="ml-auto rounded-full bg-[#f4eee8] px-2 py-0.5 text-[10px] font-medium text-[#806b5b]">Soon</span></button>
             <button type="button" onClick={() => showUnavailable("Apple")} aria-label="Apple sign-in not connected" className="flex h-12 items-center justify-center gap-3 rounded-xl border border-[#e2d8ce] bg-white px-4 text-sm font-semibold text-[#2b1b14] transition hover:border-[#bca693] hover:bg-[#fcfaf7]"><AppleMark /> <span>Apple sign-in</span> <span className="ml-auto rounded-full bg-[#f4eee8] px-2 py-0.5 text-[10px] font-medium text-[#806b5b]">Soon</span></button>
           </div>

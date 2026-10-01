@@ -5,13 +5,16 @@ import test from "node:test";
 const page = await readFile(new URL("../app/sign-in/page.tsx", import.meta.url), "utf8");
 const route = await readFile(new URL("../app/api/auth/google/route.ts", import.meta.url), "utf8");
 const callback = await readFile(new URL("../app/api/auth/google/callback/route.ts", import.meta.url), "utf8");
+const sessionRoute = await readFile(new URL("../app/api/auth/session/route.ts", import.meta.url), "utf8");
 
 test("sign-in page keeps unavailable providers honest and accessible", () => {
-  assert.match(page, /Google sign-in is the available secure option right now/);
+  assert.match(page, /Google sign-in is available securely/);
   assert.match(page, /GitHub sign-in not connected/);
   assert.match(page, /Apple sign-in not connected/);
   assert.match(page, /aria-live="polite"/);
   assert.match(page, /Secure OAuth/);
+  assert.match(page, /googleConfigured !== true/);
+  assert.match(page, /Google sign-in unavailable/);
   assert.match(page, /email sign-in \(coming soon\)/);
 });
 
@@ -32,4 +35,10 @@ test("sign-in handles failed session checks and OAuth upstream failures", () => 
   assert.match(callback, /Could not reach Google to complete sign-in/);
   assert.match(callback, /Could not reach Google to load your profile/);
   assert.match(callback, /\.json\(\)\.catch\(\(\) => \(\{\}\)\)/);
+});
+
+test("session exposes provider readiness without exposing OAuth secrets", () => {
+  assert.match(sessionRoute, /isGoogleAuthConfigured/);
+  assert.match(sessionRoute, /googleConfigured/);
+  assert.doesNotMatch(sessionRoute, /GOOGLE_CLIENT_SECRET/);
 });
