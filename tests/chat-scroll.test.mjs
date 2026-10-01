@@ -9,6 +9,8 @@ test("chat scrolling respects user position during streaming", () => {
   assert.match(source, /autoFollowRef/);
   assert.match(source, /onScroll=\{handleScroll\}/);
   assert.match(source, /requestAnimationFrame/);
+  assert.match(source, /unseenContentRef/);
+  assert.match(source, /prefers-reduced-motion: reduce/);
   assert.doesNotMatch(source, /scroll-smooth/);
 });
 

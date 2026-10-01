@@ -28,6 +28,7 @@ interface ChatMessagesProps {
 export function ChatMessages({ messages, isStreaming, isPreparingResearch, onRetry, onEditMessage, onDeleteMessage, onPrompt, hideWelcome }: ChatMessagesProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const autoFollowRef = useRef(true);
+  const unseenContentRef = useRef(false);
   const lastMessageIdRef = useRef<string | undefined>(undefined);
   const animationFrameRef = useRef<number | null>(null);
   const [showJumpToLatest, setShowJumpToLatest] = useState(false);
@@ -42,14 +43,21 @@ export function ChatMessages({ messages, isStreaming, isPreparingResearch, onRet
     const element = scrollRef.current;
     if (!element) return;
     autoFollowRef.current = true;
+    unseenContentRef.current = false;
     setShowJumpToLatest(false);
-    element.scrollTo({ top: element.scrollHeight, behavior });
+    const reducedMotion = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    element.scrollTo({ top: element.scrollHeight, behavior: reducedMotion ? "auto" : behavior });
   }, []);
 
   const handleScroll = useCallback(() => {
     const nearBottom = isNearBottom();
     autoFollowRef.current = nearBottom;
-    setShowJumpToLatest(!nearBottom);
+    if (nearBottom) {
+      unseenContentRef.current = false;
+      setShowJumpToLatest(false);
+    } else if (unseenContentRef.current) {
+      setShowJumpToLatest(true);
+    }
   }, [isNearBottom]);
 
   useEffect(() => {
@@ -59,6 +67,7 @@ export function ChatMessages({ messages, isStreaming, isPreparingResearch, onRet
     lastMessageIdRef.current = latestMessageId;
     if (latestIsNewUserMessage) autoFollowRef.current = true;
     if (!autoFollowRef.current) {
+      unseenContentRef.current = true;
       setShowJumpToLatest(true);
       return;
     }
