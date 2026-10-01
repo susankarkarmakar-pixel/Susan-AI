@@ -5,7 +5,10 @@ import { getAppUrl, isGoogleAuthConfigured, stateCookie } from "@/lib/google-aut
 export const runtime = "nodejs";
 
 export async function GET(request: Request) {
-  if (!isGoogleAuthConfigured()) return NextResponse.json({ error: "Google sign-in is not configured yet. Add GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET and AUTH_SECRET in Vercel." }, { status: 503 });
+  if (!isGoogleAuthConfigured()) {
+    const message = encodeURIComponent("Google sign-in is not configured yet. Add GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET and AUTH_SECRET in Vercel.");
+    return NextResponse.redirect(`${getAppUrl(request)}/sign-in?auth_error=${message}`);
+  }
   const state = randomBytes(32).toString("hex");
   const callback = `${getAppUrl(request)}/api/auth/google/callback`;
   const params = new URLSearchParams({ client_id: process.env.GOOGLE_CLIENT_ID!, redirect_uri: callback, response_type: "code", scope: "openid email profile", access_type: "online", prompt: "select_account", state });

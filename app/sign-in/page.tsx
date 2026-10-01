@@ -28,18 +28,20 @@ export default function SignInPage() {
       if (!active) return;
       if (data.user) router.replace("/dashboard");
       else setCheckingSession(false);
-    }).catch(() => { if (active) setCheckingSession(false); });
+    }).catch(() => { if (active) { setMessage("We could not verify your existing session. You can still try signing in below."); setCheckingSession(false); } });
     return () => { active = false; };
   }, [router]);
 
-  const showUnavailable = (provider: string) => setMessage(`${provider} sign-in will be available after its secure OAuth setup is added in Vercel.`);
+  const showUnavailable = (provider: string) => setMessage(`${provider} sign-in is not connected yet. Google sign-in is the available secure option right now.`);
   // This full navigation starts Google's external OAuth redirect chain.
   // eslint-disable-next-line @next/next/no-location-assign-relative-destination
   const startGoogleSignIn = () => { setSigningIn(true); window.location.href = "/api/auth/google"; };
   const submitEmail = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!email.trim()) return setMessage("Enter your email address to continue.");
-    setMessage("Email sign-in needs a verified email delivery provider before it can send a secure magic link.");
+    const normalizedEmail = email.trim();
+    if (!normalizedEmail) return setMessage("Enter your email address to continue.");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) return setMessage("Enter a valid email address, such as you@example.com.");
+    setMessage("Email sign-in is coming soon. Use Google to access your workspace securely today.");
   };
 
   if (checkingSession) return <main className="flex min-h-dvh items-center justify-center bg-[#f7f4ef]"><div className="flex items-center gap-2 text-sm text-[#806b5b]"><span className="h-2 w-2 animate-pulse rounded-full bg-[#9b6a48]" /> Checking your secure session…</div></main>;
@@ -55,19 +57,19 @@ export default function SignInPage() {
       </section>
 
       <section className="flex w-full flex-col px-5 py-7 sm:px-12 sm:py-10 lg:w-[55%] lg:px-20">
-        <Link href="/" className="mb-10 inline-flex w-fit items-center gap-1.5 text-xs font-semibold text-[#806b5b] transition hover:text-[#2b1b14]"><ArrowLeft className="h-3.5 w-3.5" /> Back to Susan AI</Link>
+        <Link href="/" className="mb-7 inline-flex w-fit items-center gap-2 sm:mb-10"><img src="/susan-ai-logo-sidebar.png" alt="Susan AI" className="h-7 w-auto max-w-36 object-contain object-left sm:hidden" /><span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#806b5b] transition hover:text-[#2b1b14]"><ArrowLeft className="h-3.5 w-3.5" /> Back to Susan AI</span></Link>
         <div className="mx-auto w-full max-w-sm">
           <div className="mb-8 text-center lg:text-left"><div className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#f4e4cc] text-[#8d5938] lg:mx-0"><Sparkles className="h-5 w-5" /></div><h2 className="font-serif text-3xl font-semibold tracking-tight">Sign in to your workspace</h2><p className="mt-2 text-sm leading-6 text-[#806b5b]">Continue with your preferred account to access Susan AI.</p></div>
 
           <div className="grid gap-3">
             <button type="button" onClick={startGoogleSignIn} disabled={signingIn} className="flex h-12 items-center justify-center gap-3 rounded-xl bg-[#2b1b14] px-4 text-sm font-semibold text-white transition hover:bg-[#43291d] disabled:cursor-wait disabled:opacity-75"><GoogleMark /> {signingIn ? <><Spinner /> Connecting…</> : "Continue with Google"} {!signingIn && <span className="ml-auto rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-medium text-white/65">Ready</span>}</button>
-            <button type="button" onClick={() => showUnavailable("GitHub")} className="flex h-12 items-center justify-center gap-3 rounded-xl border border-[#e2d8ce] bg-white px-4 text-sm font-semibold text-[#2b1b14] transition hover:border-[#bca693] hover:bg-[#fcfaf7]"><GitHubMark /> Continue with GitHub <span className="ml-auto rounded-full bg-[#f4eee8] px-2 py-0.5 text-[10px] font-medium text-[#806b5b]">Setup</span></button>
-            <button type="button" onClick={() => showUnavailable("Apple")} className="flex h-12 items-center justify-center gap-3 rounded-xl border border-[#e2d8ce] bg-white px-4 text-sm font-semibold text-[#2b1b14] transition hover:border-[#bca693] hover:bg-[#fcfaf7]"><AppleMark /> Continue with Apple <span className="ml-auto rounded-full bg-[#f4eee8] px-2 py-0.5 text-[10px] font-medium text-[#806b5b]">Setup</span></button>
+            <button type="button" onClick={() => showUnavailable("GitHub")} aria-label="GitHub sign-in not connected" className="flex h-12 items-center justify-center gap-3 rounded-xl border border-[#e2d8ce] bg-white px-4 text-sm font-semibold text-[#2b1b14] transition hover:border-[#bca693] hover:bg-[#fcfaf7]"><GitHubMark /> <span>GitHub sign-in</span> <span className="ml-auto rounded-full bg-[#f4eee8] px-2 py-0.5 text-[10px] font-medium text-[#806b5b]">Soon</span></button>
+            <button type="button" onClick={() => showUnavailable("Apple")} aria-label="Apple sign-in not connected" className="flex h-12 items-center justify-center gap-3 rounded-xl border border-[#e2d8ce] bg-white px-4 text-sm font-semibold text-[#2b1b14] transition hover:border-[#bca693] hover:bg-[#fcfaf7]"><AppleMark /> <span>Apple sign-in</span> <span className="ml-auto rounded-full bg-[#f4eee8] px-2 py-0.5 text-[10px] font-medium text-[#806b5b]">Soon</span></button>
           </div>
 
           <div className="my-7 flex items-center gap-3 text-[11px] font-medium uppercase tracking-[0.16em] text-[#aa998b]"><span className="h-px flex-1 bg-[#eadfd5]" /> or continue with email <span className="h-px flex-1 bg-[#eadfd5]" /></div>
-          <form onSubmit={submitEmail} className="space-y-3"><label htmlFor="signin-email" className="sr-only">Email address</label><div className="flex h-12 items-center gap-3 rounded-xl border border-[#e2d8ce] bg-white px-3.5 transition focus-within:border-[#9b6a48] focus-within:ring-4 focus-within:ring-[#d6b18c]/20"><Mail className="h-4 w-4 shrink-0 text-[#aa998b]" /><input id="signin-email" type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" className="min-w-0 flex-1 bg-transparent text-sm text-[#2b1b14] outline-none placeholder:text-[#b8aaa0]" /></div><button type="submit" className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-[#d6c5b5] bg-[#f8f1e8] text-sm font-semibold text-[#5d3925] transition hover:bg-[#f1e5d7]">Continue with email <ArrowRight className="h-4 w-4" /></button></form>
-          {message && <div role="alert" className="mt-4 flex items-start gap-2 rounded-xl border border-[#ead8c5] bg-[#fff8ef] px-3.5 py-3 text-xs leading-5 text-[#80552f]"><ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" /><span>{message}</span></div>}
+          <form onSubmit={submitEmail} className="space-y-3"><label htmlFor="signin-email" className="sr-only">Email address</label><div className="flex h-12 items-center gap-3 rounded-xl border border-[#e2d8ce] bg-white px-3.5 transition focus-within:border-[#9b6a48] focus-within:ring-4 focus-within:ring-[#d6b18c]/20"><Mail className="h-4 w-4 shrink-0 text-[#aa998b]" /><input id="signin-email" type="email" inputMode="email" autoComplete="email" required maxLength={254} value={email} onChange={(event) => { setEmail(event.target.value); if (message) setMessage(""); }} placeholder="you@example.com" className="min-w-0 flex-1 bg-transparent text-sm text-[#2b1b14] outline-none placeholder:text-[#b8aaa0]" /></div><button type="submit" className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-[#d6c5b5] bg-[#f8f1e8] text-sm font-semibold text-[#5d3925] transition hover:bg-[#f1e5d7]">Email sign-in <ArrowRight className="h-4 w-4" /></button></form>
+          {message && <div role="alert" aria-live="polite" className="mt-4 flex items-start gap-2 rounded-xl border border-[#ead8c5] bg-[#fff8ef] px-3.5 py-3 text-xs leading-5 text-[#80552f]"><ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" /><span>{message}</span></div>}
           <p className="mt-7 flex items-start gap-2 text-[11px] leading-5 text-[#aa998b]"><ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#8eab91]" /> By continuing, you agree to use Susan AI responsibly. Your Google session is protected with a secure, HttpOnly cookie.</p>
           <p className="mt-8 text-center text-xs text-[#aa998b]">New to Susan AI? <Link href="/" className="font-semibold text-[#8d5938] hover:underline">Explore the workspace</Link></p>
         </div>
