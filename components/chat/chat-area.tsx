@@ -71,6 +71,7 @@ interface ChatAreaProps {
 
 export function ChatArea({ mode, onModeChange, activeAgentTask, agentExecution, executionEvents, onCreateAgentTask, onRunAgentTask, onApproveAgentStep, onRejectAgentStep, onRollbackAgentTask, onPauseAgentTask, onResumeAgentTask, onRetryAgentTask, onCancelAgentTask, onClearAgentTask, onOpenSidebar, selectedModel, onSelectModel, messages, input, onInputChange, onSend, isLoading, isPreparingResearch, requestLifecycle, stop, error, onRetry, onEditMessage, onDeleteMessage, projects, selectedProjectId, onSelectedProjectChange, isEditingMessage, onCancelEdit, estimatedTokens, conversationTitle, onPrompt, effort, onEffortChange }: ChatAreaProps) {
   const [toastError, setToastError] = useState<string | null>(null);
+  const [missingKeyPrompt, setMissingKeyPrompt] = useState(false);
   const [fallbackNotice, setFallbackNotice] = useState<string | null>(null);
   const [isAgentPanelOpen, setIsAgentPanelOpen] = useState(false);
   const [voiceMode, setVoiceMode] = useState(false);
@@ -175,11 +176,10 @@ export function ChatArea({ mode, onModeChange, activeAgentTask, agentExecution, 
     const localProviderReady = customProvider?.requiresApiKey === false;
     if (!getApiKey(selectedModel) && !localProviderReady) {
       event.preventDefault();
-      setToastError(`Please add your ${modelName} API key in Settings first.`);
-      window.setTimeout(() => setToastError(null), 5000);
-      document.dispatchEvent(new CustomEvent("open-settings"));
+      setMissingKeyPrompt(true);
       return;
     }
+    setMissingKeyPrompt(false);
     void onSend(event, files, extractedText);
   };
 
@@ -213,6 +213,7 @@ export function ChatArea({ mode, onModeChange, activeAgentTask, agentExecution, 
         {mode === "search" ? <SearchWorkspace /> : <>
         <main className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
           {toastError && <div role="alert" className="absolute left-1/2 top-4 z-30 -translate-x-1/2 rounded-lg bg-red-500/90 px-4 py-2 text-sm font-medium text-white shadow-lg backdrop-blur-sm">{toastError}</div>}
+          {missingKeyPrompt && <div role="status" aria-live="polite" className="absolute left-1/2 top-4 z-30 flex w-[calc(100%-1.5rem)] max-w-xl -translate-x-1/2 flex-col gap-3 rounded-2xl border border-accent/25 bg-surface/95 px-4 py-4 text-sm text-text-main shadow-xl backdrop-blur-sm sm:px-5"><div><p className="font-semibold">Connect a provider to continue</p><p className="mt-1 text-xs leading-5 text-text-muted">To send your message, please add a {modelName} API key in Settings. Susan AI uses your own provider key and does not provide shared credentials. You can also choose a free-tier provider such as Google AI Studio or OpenRouter.</p></div><div className="flex flex-wrap items-center gap-2"><button type="button" onClick={() => { setMissingKeyPrompt(false); document.dispatchEvent(new CustomEvent("open-settings")); }} className="rounded-lg bg-accent px-3 py-2 text-xs font-semibold text-white hover:bg-accent-hover">Add API key</button><button type="button" onClick={() => setMissingKeyPrompt(false)} className="rounded-lg border border-border-main/70 px-3 py-2 text-xs font-semibold text-text-main hover:bg-black/5">Not now</button></div></div>}
           {lifecycleMessage && <div role={requestLifecycle === "failed" ? "alert" : "status"} aria-live="polite" className={`absolute left-1/2 top-4 z-10 -translate-x-1/2 rounded-full border px-3 py-1.5 text-[11px] font-medium shadow-sm ${requestLifecycle === "failed" ? "border-red-200 bg-red-50 text-red-800" : requestLifecycle === "completed" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-border-main/70 bg-surface/95 text-text-muted"}`}>{lifecycleMessage}</div>}
           {fallbackNotice && <div role="status" aria-live="polite" className="absolute left-1/2 top-4 z-20 flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-950 shadow-lg"><span aria-hidden="true" className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-amber-200 text-[10px]">↗</span>{fallbackNotice}<button type="button" onClick={() => setFallbackNotice(null)} className="ml-1 rounded px-1 text-amber-800 hover:bg-amber-100" aria-label="Dismiss model fallback notice">×</button></div>}
           {error && !toastError && <ErrorRecovery error={error} onRetry={() => onRetry()} onOpenSettings={() => document.dispatchEvent(new CustomEvent("open-settings"))} onOpenModels={onOpenSidebar} />}
