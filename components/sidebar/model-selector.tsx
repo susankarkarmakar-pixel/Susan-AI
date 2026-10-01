@@ -33,6 +33,9 @@ const MODEL_ICONS: Record<Exclude<ModelProvider, "manus">, LucideIcon> = {
   nvidia: Cpu,
   cloudflare: Cloud,
   sambanova: Globe,
+  xai: Sparkles,
+  perplexity: Globe,
+  together: Network,
   jules: Code2,
 };
 

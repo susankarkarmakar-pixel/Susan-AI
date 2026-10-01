@@ -18,6 +18,9 @@ export interface ApiKeys {
   cloudflare?: string;
   cloudflareAccountId?: string;
   sambanova?: string;
+  xai?: string;
+  perplexity?: string;
+  together?: string;
   googleSearch?: string;
   googleSearchCx?: string;
   bingSearch?: string;

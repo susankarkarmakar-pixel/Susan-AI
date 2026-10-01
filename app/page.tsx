@@ -84,7 +84,7 @@ export default function Home() {
     if (getApiKey(selectedModel, keys) || selectedCustomProvider?.requiresApiKey === false) return;
     const preferred = getApiKey("google", keys)
       ? "google"
-      : ["openai", "anthropic", "deepseek", "qwen", "kimi", "sarvam", "openrouter", "huggingface", "groq", "cerebras", "mistral", "nvidia", "cloudflare", "sambanova", "jules"].find((provider) => getApiKey(provider, keys));
+      : ["openai", "anthropic", "deepseek", "qwen", "kimi", "sarvam", "openrouter", "huggingface", "groq", "cerebras", "mistral", "nvidia", "cloudflare", "sambanova", "xai", "perplexity", "together", "jules"].find((provider) => getApiKey(provider, keys));
     if (preferred && preferred !== selectedModel) {
       // This effect synchronizes the selected model with externally stored BYOK keys.
       // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -168,7 +168,7 @@ export default function Home() {
     const conversation = loadSavedConversation(id);
     if (conversation) {
       if (conversation.model === "manus" || conversation.model === "jules") {
-        const fallback = ["google", "openrouter", "openai", "anthropic", "deepseek", "qwen", "kimi", "sarvam", "huggingface", "groq", "cerebras", "mistral", "nvidia", "cloudflare", "sambanova"].find((provider) => getApiKey(provider, keys)) || "google";
+        const fallback = ["google", "openrouter", "openai", "anthropic", "deepseek", "qwen", "kimi", "sarvam", "huggingface", "groq", "cerebras", "mistral", "nvidia", "cloudflare", "sambanova", "xai", "perplexity", "together"].find((provider) => getApiKey(provider, keys)) || "google";
         setSelectedModel(fallback);
       } else setSelectedModel(conversation.model as ModelOption);
       setMode("chat");
@@ -250,7 +250,7 @@ export default function Home() {
   };
   const ensureInstantChatModel = () => {
     if (selectedModel !== "jules") return;
-    const fallback = ["google", "openrouter", "openai", "anthropic", "deepseek", "qwen", "kimi", "sarvam", "huggingface", "groq", "cerebras", "mistral", "nvidia", "cloudflare", "sambanova"].find((provider) => getApiKey(provider, keys)) || "google";
+    const fallback = ["google", "openrouter", "openai", "anthropic", "deepseek", "qwen", "kimi", "sarvam", "huggingface", "groq", "cerebras", "mistral", "nvidia", "cloudflare", "sambanova", "xai", "perplexity", "together"].find((provider) => getApiKey(provider, keys)) || "google";
     setSelectedModel(fallback);
   };
   const handleNewChat = () => {

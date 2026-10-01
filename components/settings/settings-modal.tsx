@@ -137,7 +137,7 @@ export function SettingsModal({ isOpen, onClose, initialTab = "general" }: Setti
     setConnectionTests((current) => { const next = { ...current }; delete next[provider]; return next; });
   };
 
-  const testConnection = async (provider: "openai" | "google" | "anthropic" | "deepseek") => {
+  const testConnection = async (provider: "openai" | "google" | "anthropic" | "deepseek" | "xai" | "perplexity" | "together") => {
     const apiKey = keys[provider]?.trim();
     if (!apiKey || connectionTests[provider]?.state === "testing") return;
     setConnectionTests((current) => ({ ...current, [provider]: { state: "testing", message: "" } }));
@@ -408,6 +408,9 @@ export function SettingsModal({ isOpen, onClose, initialTab = "general" }: Setti
             <p className="mt-1.5 text-xs leading-5 text-text-muted">Find this in your Cloudflare dashboard. Both the token and account ID stay in browser-local key storage.</p>
           </div>
           <ApiKeyInput label="SambaNova SambaCloud API Key" provider="sambanova" placeholder="SambaNova API key" helpUrl="https://cloud.sambanova.ai/apis" helpText="The free tier applies when no payment method is linked. DeepSeek V3.1 currently allows 20 requests/day and 200,000 tokens/day." value={keys.sambanova || ""} onChange={(val) => handleKeyChange("sambanova", val)} isSaved={!!savedKeys.sambanova} />
+          <ApiKeyInput label="xAI Grok API Key" provider="xai" placeholder="xai-..." helpUrl="https://console.x.ai/team/default/api-keys" helpText="Uses Grok 4.7 for chat, coding, and reasoning." value={keys.xai || ""} onChange={(val) => handleKeyChange("xai", val)} isSaved={!!savedKeys.xai} onTest={() => void testConnection("xai")} connectionTest={connectionTests.xai} />
+          <ApiKeyInput label="Perplexity API Key" provider="perplexity" placeholder="pplx-..." helpUrl="https://www.perplexity.ai/settings/api" helpText="Sonar provides web-grounded answers with current sources." value={keys.perplexity || ""} onChange={(val) => handleKeyChange("perplexity", val)} isSaved={!!savedKeys.perplexity} onTest={() => void testConnection("perplexity")} connectionTest={connectionTests.perplexity} />
+          <ApiKeyInput label="Together AI API Key" provider="together" placeholder="Together API key" helpUrl="https://api.together.ai/settings/api-keys" helpText="Uses Llama through Together's OpenAI-compatible API." value={keys.together || ""} onChange={(val) => handleKeyChange("together", val)} isSaved={!!savedKeys.together} onTest={() => void testConnection("together")} connectionTest={connectionTests.together} />
           {customProviders.filter((provider) => provider.requiresApiKey !== false).map((provider) => <ApiKeyInput key={provider.id} label={`${provider.name} API Key`} provider={provider.id} placeholder="Provider API key" helpUrl={provider.baseUrl} value={keys[provider.id] || ""} onChange={(val) => handleKeyChange(provider.id, val)} isSaved={!!savedKeys[provider.id]} />)}
         </div>
 

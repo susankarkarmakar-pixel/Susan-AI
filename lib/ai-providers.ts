@@ -4,7 +4,7 @@ import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { LanguageModel } from "ai";
 import { CustomProvider } from "@/lib/custom-providers";
 
-export type ModelProvider = "deepseek" | "anthropic" | "huggingface" | "google" | "openai" | "qwen" | "kimi" | "manus" | "jules" | "sarvam" | "openrouter" | "groq" | "cerebras" | "mistral" | "nvidia" | "cloudflare" | "sambanova";
+export type ModelProvider = "deepseek" | "anthropic" | "huggingface" | "google" | "openai" | "qwen" | "kimi" | "manus" | "jules" | "sarvam" | "openrouter" | "groq" | "cerebras" | "mistral" | "nvidia" | "cloudflare" | "sambanova" | "xai" | "perplexity" | "together";
 
 export type ProviderTransport = "openai-compatible" | "anthropic" | "google" | "async";
 
@@ -50,6 +50,9 @@ export const MODELS_METADATA: Record<ModelProvider, ProviderMetadata> = {
   nvidia: { name: "NVIDIA NIM · Nemotron 3.5 Lightning", description: "Hosted NIM API · free to prototype; evaluation use only", color: "text-green-600", icon: "N", model: "nvidia/nemotron-3.5-lightning-30b-a3b", tier: "paid-or-trial", setupUrl: "https://build.nvidia.com/settings/api-keys", transport: "openai-compatible", baseURL: "https://integrate.api.nvidia.com/v1", chatAvailable: true, capabilities: { text: true, vision: false, files: false, streaming: true, tools: false, reasoning: true, async: false } },
   cloudflare: { name: "Cloudflare Workers AI", description: "10,000 free Neurons/day · Cloudflare account ID required", color: "text-orange-400", icon: "C", model: "@cf/meta/llama-3.1-8b-instruct", tier: "free-tier", setupUrl: "https://dash.cloudflare.com/profile/api-tokens", transport: "openai-compatible", chatAvailable: true, capabilities: { text: true, vision: false, files: false, streaming: true, tools: false, reasoning: false, async: false } },
   sambanova: { name: "SambaNova · DeepSeek V3.1", description: "Free tier: 20 requests/day when no payment method is linked", color: "text-red-500", icon: "S", model: "DeepSeek-V3.1", tier: "free-tier", setupUrl: "https://cloud.sambanova.ai/apis", transport: "openai-compatible", baseURL: "https://api.sambanova.ai/v1", chatAvailable: true, capabilities: { text: true, vision: false, files: false, streaming: true, tools: false, reasoning: true, async: false } },
+  xai: { name: "xAI · Grok 4.7", description: "Frontier chat, coding, and reasoning by xAI", color: "text-slate-900", icon: "X", model: "grok-4.7", tier: "paid-or-trial", setupUrl: "https://console.x.ai/team/default/api-keys", transport: "openai-compatible", baseURL: "https://api.x.ai/v1", chatAvailable: true, capabilities: { text: true, vision: true, files: false, streaming: true, tools: true, reasoning: true, async: false } },
+  perplexity: { name: "Perplexity · Sonar", description: "Web-grounded answers with current sources", color: "text-cyan-600", icon: "P", model: "sonar", tier: "paid-or-trial", setupUrl: "https://www.perplexity.ai/settings/api", transport: "openai-compatible", baseURL: "https://api.perplexity.ai", chatAvailable: true, capabilities: { text: true, vision: false, files: false, streaming: true, tools: false, reasoning: true, async: false } },
+  together: { name: "Together AI · Llama", description: "Open models through one fast API", color: "text-indigo-600", icon: "T", model: "meta-llama/Llama-3.3-70B-Instruct-Turbo", tier: "paid-or-trial", setupUrl: "https://api.together.ai/settings/api-keys", transport: "openai-compatible", baseURL: "https://api.together.ai/v1", chatAvailable: true, capabilities: { text: true, vision: false, files: false, streaming: true, tools: true, reasoning: false, async: false } },
 };
 
 export const PROVIDERS = Object.keys(MODELS_METADATA) as ModelProvider[];
