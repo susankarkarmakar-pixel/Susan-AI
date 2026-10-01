@@ -14,6 +14,7 @@ export function SearchWorkspace() {
   const [keys, setKeys] = useState<ApiKeys>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [connectionPrompt, setConnectionPrompt] = useState<string | null>(null);
   const [saved, setSaved] = useState<string[]>([]);
 
   useEffect(() => {
@@ -28,6 +29,13 @@ export function SearchWorkspace() {
     event?.preventDefault();
     const cleanQuery = query.trim();
     if (!cleanQuery) return;
+    if (provider !== "all" && !connected[provider]) {
+      setConnectionPrompt(PROVIDER_LABELS[provider]);
+      setError("");
+      setResponse(null);
+      return;
+    }
+    setConnectionPrompt(null);
     setLoading(true); setError("");
     try {
       const result = await fetch("/api/search", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query: cleanQuery, provider, keys: { googleSearch: keys.googleSearch, bingSearch: keys.bingSearch, braveSearch: keys.braveSearch }, googleCx: keys.googleSearchCx }) });
@@ -50,6 +58,7 @@ export function SearchWorkspace() {
       <div className="mb-8 text-center"><p className="text-sm font-semibold uppercase tracking-[0.18em] text-accent">Explore the web</p><h2 className="mt-2 text-3xl font-semibold tracking-tight text-text-main md:text-4xl">Find answers from the sources you trust.</h2><p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-text-muted">Use All Sources for a broader view, or choose a specific search provider when you need more control.</p></div>
       <form onSubmit={search} className="rounded-2xl border border-border-main bg-surface p-2 shadow-[0_12px_40px_rgba(43,27,20,0.08)]"><div className="flex flex-col gap-2 sm:flex-row sm:items-center"><div className="flex min-w-0 flex-1 items-center gap-3 px-3"><Search className="h-5 w-5 shrink-0 text-text-muted" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search the web..." className="min-w-0 flex-1 bg-transparent py-3 text-base text-text-main outline-none placeholder:text-text-muted/70" /></div><div className="flex items-center gap-2"><div className="relative"><SlidersHorizontal className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-muted" /><select value={provider} onChange={(event) => setProvider(event.target.value as SearchProvider)} className="appearance-none rounded-xl border border-border-main bg-bg-main py-2.5 pl-8 pr-8 text-sm font-medium text-text-main outline-none"><option value="all">All Sources</option>{(Object.keys(PROVIDER_LABELS) as Array<Exclude<SearchProvider, "all">>).map((item) => <option key={item} value={item}>{PROVIDER_LABELS[item]}{connected[item] ? " · Connected" : item === "duckduckgo" ? " · Free" : " · Not connected"}</option>)}</select></div><button type="submit" disabled={loading || !query.trim()} className="flex items-center justify-center gap-2 rounded-xl bg-sidebar-cocoa px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-sidebar-cocoa-soft disabled:cursor-not-allowed disabled:opacity-50">{loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />} Search</button></div></div></form>
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2 px-1 text-xs text-text-muted"><span>{provider === "all" ? "DuckDuckGo is available now; add optional keys in Settings for Google, Bing and Brave." : `${PROVIDER_LABELS[provider as Exclude<SearchProvider, "all">]} selected`}</span>{response && <span>{response.results.length} results · {response.providersUsed.map((item) => PROVIDER_LABELS[item]).join(", ")}</span>}</div>
+      {connectionPrompt && <div role="status" aria-live="polite" className="mt-6 rounded-2xl border border-accent/25 bg-cream-highlight/60 p-4 text-sm text-text-main shadow-sm"><p className="font-semibold">Connect a search provider to continue</p><p className="mt-1 text-xs leading-5 text-text-muted">To search with {connectionPrompt}, add its API key in Settings. Your search query will stay here while you connect the provider.</p><div className="mt-3 flex flex-wrap gap-2"><button type="button" onClick={() => { setConnectionPrompt(null); document.dispatchEvent(new CustomEvent("open-settings")); }} className="rounded-lg bg-accent px-3 py-2 text-xs font-semibold text-white hover:bg-accent-hover">Add API key</button><button type="button" onClick={() => setConnectionPrompt(null)} className="rounded-lg border border-border-main/70 px-3 py-2 text-xs font-semibold text-text-main hover:bg-black/5">Not now</button></div></div>}
       {error && <div role="alert" className="mt-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">{error}</div>}
       {!response && !loading && !error && <div className="mt-12 grid gap-3 sm:grid-cols-3">{["Latest AI tools and model updates", "Explain a complex topic in Bengali", "Find reliable sources for my report"].map((prompt) => <button key={prompt} type="button" onClick={() => { setQuery(prompt); }} className="rounded-2xl border border-border-main/70 bg-surface p-4 text-left text-sm text-text-muted transition hover:-translate-y-0.5 hover:border-accent/40 hover:text-text-main"><Search className="mb-4 h-4 w-4 text-accent" />{prompt}</button>)}</div>}
       {loading && <div className="mt-10 space-y-3">{[1, 2, 3].map((item) => <div key={item} className="h-28 animate-pulse rounded-2xl border border-border-main/60 bg-surface" />)}</div>}
