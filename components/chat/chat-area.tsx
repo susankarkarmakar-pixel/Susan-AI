@@ -23,6 +23,7 @@ import type { WorkspaceProject } from "@/lib/workspace-storage";
 import { SearchWorkspace } from "@/components/search/search-workspace";
 import { AccountButton } from "@/components/auth/account-button";
 import { FALLBACK_STORAGE_KEY, getConnectedModelIds } from "./model-control-panel";
+import { canAttemptAutomaticFallback, MAX_AUTOMATIC_FALLBACK_ATTEMPTS, type RequestLifecycle } from "@/lib/request-lifecycle";
 
 interface ChatAreaProps {
   mode: AgentMode;
@@ -50,6 +51,7 @@ interface ChatAreaProps {
   onSend: (event: React.FormEvent<HTMLFormElement>, files: File[], extractedText?: string) => void | Promise<void>;
   isLoading: boolean;
   isPreparingResearch: boolean;
+  requestLifecycle: RequestLifecycle;
   stop: () => void;
   error: Error | undefined;
   onRetry: (messageId?: string) => void;
@@ -67,42 +69,46 @@ interface ChatAreaProps {
   onEffortChange: (effort: AiEffort) => void;
 }
 
-export function ChatArea({ mode, onModeChange, activeAgentTask, agentExecution, executionEvents, onCreateAgentTask, onRunAgentTask, onApproveAgentStep, onRejectAgentStep, onRollbackAgentTask, onPauseAgentTask, onResumeAgentTask, onRetryAgentTask, onCancelAgentTask, onClearAgentTask, onOpenSidebar, selectedModel, onSelectModel, messages, input, onInputChange, onSend, isLoading, isPreparingResearch, stop, error, onRetry, onEditMessage, onDeleteMessage, projects, selectedProjectId, onSelectedProjectChange, isEditingMessage, onCancelEdit, estimatedTokens, conversationTitle, onPrompt, effort, onEffortChange }: ChatAreaProps) {
+export function ChatArea({ mode, onModeChange, activeAgentTask, agentExecution, executionEvents, onCreateAgentTask, onRunAgentTask, onApproveAgentStep, onRejectAgentStep, onRollbackAgentTask, onPauseAgentTask, onResumeAgentTask, onRetryAgentTask, onCancelAgentTask, onClearAgentTask, onOpenSidebar, selectedModel, onSelectModel, messages, input, onInputChange, onSend, isLoading, isPreparingResearch, requestLifecycle, stop, error, onRetry, onEditMessage, onDeleteMessage, projects, selectedProjectId, onSelectedProjectChange, isEditingMessage, onCancelEdit, estimatedTokens, conversationTitle, onPrompt, effort, onEffortChange }: ChatAreaProps) {
   const [toastError, setToastError] = useState<string | null>(null);
   const [fallbackNotice, setFallbackNotice] = useState<string | null>(null);
   const [isAgentPanelOpen, setIsAgentPanelOpen] = useState(false);
   const [voiceMode, setVoiceMode] = useState(false);
   const spokenMessageRef = useRef<string | null>(null);
   const handledErrorRef = useRef<string | null>(null);
-  const fallbackTriedModelsRef = useRef<Set<string>>(new Set());
+  const fallbackAttemptRef = useRef<{ attempts: number; errorKey: string | null }>({ attempts: 0, errorKey: null });
   const customProvider = getCustomProviders().find((provider) => provider.id === selectedModel);
   const providerDescriptor = getProviderDescriptor(selectedModel, customProvider);
   const modelName = providerDescriptor?.name || "Selected provider";
   const canAttachFiles = supportsProviderCapability(selectedModel, "files", customProvider);
   const attachmentSupportMessage = `${modelName} does not support file attachments. Choose a vision/file-capable model such as Claude, Gemini, or OpenAI.`;
+  const lifecycleMessage = requestLifecycle === "preparing" ? "Preparing your research context…" : requestLifecycle === "sending" ? "Sending securely to your selected model…" : requestLifecycle === "streaming" ? "Susan AI is responding…" : requestLifecycle === "completed" ? "Response complete" : requestLifecycle === "failed" ? "Request failed — review the recovery options below." : null;
 
   useEffect(() => {
     if (!error) {
-      fallbackTriedModelsRef.current.clear();
+      fallbackAttemptRef.current = { attempts: 0, errorKey: null };
       handledErrorRef.current = null;
       return;
     }
     if (mode !== "chat" || typeof window === "undefined") return;
     const errorMessage = error.message || "The provider could not complete the request.";
     const errorKey = `${selectedModel}:${errorMessage}`;
-    if (handledErrorRef.current === errorKey || fallbackTriedModelsRef.current.has(selectedModel)) return;
+    if (handledErrorRef.current === errorKey || fallbackAttemptRef.current.errorKey === errorKey) return;
     handledErrorRef.current = errorKey;
     if (window.localStorage.getItem(FALLBACK_STORAGE_KEY) === "false") return;
     const action = getChatErrorAction(errorMessage);
     if (action !== "models" && action !== "retry") return;
-    fallbackTriedModelsRef.current.add(selectedModel);
-    const nextModel = getConnectedModelIds().find((model) => model !== selectedModel && !fallbackTriedModelsRef.current.has(model));
+    if (!canAttemptAutomaticFallback(fallbackAttemptRef.current.attempts)) {
+      window.setTimeout(() => setFallbackNotice(`Automatic fallback stopped after ${MAX_AUTOMATIC_FALLBACK_ATTEMPTS} attempts. Review the error and choose a model manually.`), 0);
+      return;
+    }
+    const nextModel = getConnectedModelIds().find((model) => model !== selectedModel);
     if (!nextModel) return;
-    fallbackTriedModelsRef.current.add(nextModel);
+    fallbackAttemptRef.current = { attempts: fallbackAttemptRef.current.attempts + 1, errorKey };
     const nextProvider = getCustomProviders().find((provider) => provider.id === nextModel);
     const nextName = getProviderDisplayName(nextModel, nextProvider);
     onSelectModel(nextModel);
-    setFallbackNotice(`${modelName} could not complete that request. Susan AI switched to ${nextName} and is retrying it.`);
+    window.setTimeout(() => setFallbackNotice(`${modelName} could not complete that request. Susan AI switched to ${nextName} and is retrying it.`), 0);
     const retryTimer = window.setTimeout(() => onRetry(), 0);
     const timer = window.setTimeout(() => setFallbackNotice(null), 7000);
     return () => { window.clearTimeout(retryTimer); window.clearTimeout(timer); };
@@ -161,6 +167,7 @@ export function ChatArea({ mode, onModeChange, activeAgentTask, agentExecution, 
         {mode === "search" ? <SearchWorkspace /> : <>
         <main className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
           {toastError && <div role="alert" className="absolute left-1/2 top-4 z-30 -translate-x-1/2 rounded-lg bg-red-500/90 px-4 py-2 text-sm font-medium text-white shadow-lg backdrop-blur-sm">{toastError}</div>}
+          {lifecycleMessage && <div role={requestLifecycle === "failed" ? "alert" : "status"} aria-live="polite" className={`absolute left-1/2 top-4 z-10 -translate-x-1/2 rounded-full border px-3 py-1.5 text-[11px] font-medium shadow-sm ${requestLifecycle === "failed" ? "border-red-200 bg-red-50 text-red-800" : requestLifecycle === "completed" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-border-main/70 bg-surface/95 text-text-muted"}`}>{lifecycleMessage}</div>}
           {fallbackNotice && <div role="status" aria-live="polite" className="absolute left-1/2 top-4 z-20 flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-950 shadow-lg"><span aria-hidden="true" className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-amber-200 text-[10px]">↗</span>{fallbackNotice}<button type="button" onClick={() => setFallbackNotice(null)} className="ml-1 rounded px-1 text-amber-800 hover:bg-amber-100" aria-label="Dismiss model fallback notice">×</button></div>}
           {error && !toastError && <ErrorRecovery error={error} onRetry={() => onRetry()} onOpenSettings={() => document.dispatchEvent(new CustomEvent("open-settings"))} onOpenModels={onOpenSidebar} />}
           {mode === "agent" && activeAgentTask?.status === "awaiting_approval" && activeAgentTask.steps.find((step) => step.status === "awaiting_approval") && <ApprovalModal task={activeAgentTask} step={activeAgentTask.steps.find((step) => step.status === "awaiting_approval")!} onApprove={onApproveAgentStep} onReject={onRejectAgentStep} />}

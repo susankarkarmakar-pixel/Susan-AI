@@ -32,6 +32,7 @@ import { estimateConversationTokens, formatEstimatedTokens } from "@/lib/usage-e
 import { getProjects, WorkspaceProject } from "@/lib/workspace-storage";
 import { isResearchIntent } from "@/lib/research-intent.mjs";
 import type { ResearchContext, SearchSource } from "@/lib/search-types";
+import { getRequestLifecycle, type RequestLifecycle } from "@/lib/request-lifecycle";
 
 const SIDEBAR_COLLAPSED_STORAGE_KEY = "susan_sidebar_collapsed_v1";
 
@@ -48,6 +49,7 @@ export default function Home() {
   const [projects, setProjects] = useState<WorkspaceProject[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState("");
   const [isPreparingResearch, setIsPreparingResearch] = useState(false);
+  const [requestLifecycle, setRequestLifecycle] = useState<RequestLifecycle>("idle");
   const [researchContext, setResearchContext] = useState<ResearchContext | null>(null);
   const { keys, keyVersion } = useApiKeys();
   const { settings } = useAppSettings();
@@ -120,6 +122,16 @@ export default function Home() {
   const isLoading = useChatProps.status === "submitted" || useChatProps.status === "streaming";
   const stop = useChatProps.stop;
   const error = useChatProps.error;
+  useEffect(() => {
+    // Synchronize the explicit UI lifecycle with the AI SDK's external stream state.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setRequestLifecycle((previous) => getRequestLifecycle({
+      chatStatus: useChatProps.status === "submitted" || useChatProps.status === "streaming" ? useChatProps.status : error ? "error" : "ready",
+      isPreparing: isPreparingResearch,
+      hasError: Boolean(error),
+      previous,
+    }));
+  }, [error, isPreparingResearch, useChatProps.status]);
   const displayMessages: Message[] = messages.map((message) => ({
     id: message.id,
     role: message.role === "system" ? "system" : message.role === "assistant" ? "assistant" : "user",
@@ -178,6 +190,7 @@ export default function Home() {
     const text = input.trim();
     if (!text && files.length === 0) return;
     const requestText = [text, extractedText?.trim() ? `[Untrusted extracted attachment text]\n${extractedText.trim()}` : ""].filter(Boolean).join("\n\n");
+    setRequestLifecycle(isResearchIntent(text) ? "preparing" : "sending");
     const fileParts = await Promise.all(files.map(fileToUIPart));
     let activeResearchContext: ResearchContext | null = null;
     if (isResearchIntent(text)) {
@@ -492,6 +505,7 @@ export default function Home() {
           onSend={handleSend}
           isLoading={isLoading}
           isPreparingResearch={isPreparingResearch}
+          requestLifecycle={requestLifecycle}
           stop={stop}
           error={error}
           onRetry={handleRegenerate}

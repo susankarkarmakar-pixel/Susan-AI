@@ -33,7 +33,8 @@ test("chat exposes connected-model control and optional automatic fallback", asy
   assert.match(chat, /fallbackNotice/);
   assert.match(chat, /is retrying it/);
   assert.match(chat, /setTimeout\(\(\) => onRetry\(\), 0\)/);
-  assert.match(chat, /fallbackTriedModelsRef/);
+  assert.match(chat, /fallbackAttemptRef/);
+  assert.match(chat, /MAX_AUTOMATIC_FALLBACK_ATTEMPTS/);
   assert.match(panel, /Automatic fallback/);
   assert.match(panel, /Cloud & BYOK models/);
   assert.match(panel, /Local models/);
