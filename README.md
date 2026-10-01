@@ -165,6 +165,10 @@ You do **not** need Ollama for this workflow. LM Studio downloads and runs the Q
 
 Google/Gemini keys are looked up with compatibility aliases, so a valid saved Google key will not be treated as missing. Select **Google Gemini Flash-Lite**, click **Save Keys**, and then send the message. Typing in the composer alone does not open Settings; Settings is only requested when sending without a recognized key.
 
+## Sarvam setup
+
+Use a key generated from the [Sarvam Dashboard](https://dashboard.sarvam.ai/) and select **Sarvam 105B** in Susan AI. The app uses Sarvam's official OpenAI-compatible endpoint (`https://api.sarvam.ai/v1`) and the currently supported `sarvam-105b` model. The older `sarvam-105b-conversations` model may be unavailable for some accounts, which can cause a “model not found or unavailable to this account” error.
+
 ## Windows desktop app
 
 The repository includes an Electron wrapper. A Windows installer and portable executable are produced automatically by the GitHub Actions workflow when a version tag is pushed.

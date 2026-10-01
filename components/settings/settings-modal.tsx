@@ -391,7 +391,7 @@ export function SettingsModal({ isOpen, onClose, initialTab = "general" }: Setti
             label="Sarvam API Key"
             provider="sarvam"
             placeholder="sk-..."
-            helpUrl="https://sarvam.ai"
+            helpUrl="https://dashboard.sarvam.ai/"
             value={keys.sarvam || ""}
             onChange={(val) => handleKeyChange("sarvam", val)}
             isSaved={!!savedKeys.sarvam}
