@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, Settings, X, Info, Home, MessageSquare, Bot, Globe2, FolderKanban, Workflow, Network, Puzzle, FileText, History, PanelLeftClose, PanelLeftOpen, CircleHelp, Search, ChevronDown } from "lucide-react";
+import { Plus, Settings, X, Info, Home, MessageSquare, Bot, Globe2, FolderKanban, Workflow, Network, Puzzle, FileText, History, PanelLeftClose, PanelLeftOpen, CircleHelp, Search, ChevronDown, Landmark } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PwaInstallButton } from "@/components/pwa/pwa-install-button";
 import { getConversations, ConversationSummary } from "@/lib/chat-storage";
@@ -9,7 +9,7 @@ import { getConversations, ConversationSummary } from "@/lib/chat-storage";
 interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
-  activeSection: "home" | "chat" | "agent" | "projects" | "workflows" | "knowledge" | "plugins" | "documents" | "history";
+  activeSection: "home" | "chat" | "agent" | "civic" | "projects" | "workflows" | "knowledge" | "plugins" | "documents" | "history";
   onNavigate: (section: SidebarProps["activeSection"]) => void;
   onSelectPinnedAgent: (agent: "General Assistant" | "Data & Report Agent" | "Study & Research Agent") => void;
   onOpenSettings: () => void;
@@ -62,6 +62,7 @@ export function Sidebar({ isOpen, onClose, activeSection, onNavigate, onSelectPi
             <SidebarNavItem icon={<Home className="h-4 w-4" />} label="Home" active={activeSection === "home"} collapsed={collapsed} onClick={() => navigate("home")} />
             <SidebarNavItem icon={<MessageSquare className="h-4 w-4" />} label="Chat" active={activeSection === "chat"} collapsed={collapsed} onClick={() => navigate("chat")} />
             <SidebarNavItem icon={<Globe2 className="h-4 w-4" />} label="Web Search" collapsed={collapsed} onClick={() => { window.dispatchEvent(new CustomEvent("open-search")); if (window.innerWidth < 1024) onClose(); }} />
+            <SidebarNavItem icon={<Landmark className="h-4 w-4" />} label="Civic Services" active={activeSection === "civic"} collapsed={collapsed} onClick={() => { navigate("civic"); window.dispatchEvent(new CustomEvent("open-civic")); }} />
             <SidebarNavItem icon={<Bot className="h-4 w-4" />} label="Agent Mode" active={activeSection === "agent"} collapsed={collapsed} onClick={() => navigate("agent")} />
             <div className={cn("mt-1 space-y-0.5 border-l border-white/10", collapsed ? "ml-5 pl-0" : "ml-4 pl-2") }>
               <PinnedAgent label="General Assistant" collapsed={collapsed} onClick={() => choosePinnedAgent("General Assistant")} />

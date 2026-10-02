@@ -33,6 +33,7 @@ import { getProjects, WorkspaceProject } from "@/lib/workspace-storage";
 import { isResearchIntent } from "@/lib/research-intent.mjs";
 import type { ResearchContext, SearchSource } from "@/lib/search-types";
 import { getRequestLifecycle, type RequestLifecycle } from "@/lib/request-lifecycle";
+import { CivicServicesWorkspace } from "@/components/civic/civic-services-workspace";
 
 const SIDEBAR_COLLAPSED_STORAGE_KEY = "susan_sidebar_collapsed_v1";
 
@@ -153,15 +154,18 @@ export default function Home() {
     const handleOpenSearch = () => setMode("search");
     const handleOpenChat = () => setMode("chat");
     const handleOpenAgent = () => setMode("agent");
+    const handleOpenCivic = () => { setActiveSection("civic"); setMode("chat"); };
     document.addEventListener("open-settings", handleOpenSettings);
     document.addEventListener("open-search", handleOpenSearch);
     document.addEventListener("open-chat", handleOpenChat);
     document.addEventListener("open-agent", handleOpenAgent);
+    document.addEventListener("open-civic", handleOpenCivic);
     return () => {
       document.removeEventListener("open-settings", handleOpenSettings);
       document.removeEventListener("open-search", handleOpenSearch);
       document.removeEventListener("open-chat", handleOpenChat);
       document.removeEventListener("open-agent", handleOpenAgent);
+      document.removeEventListener("open-civic", handleOpenCivic);
     };
   }, [setMode]);
 
@@ -273,6 +277,10 @@ export default function Home() {
       setMode("chat");
     } else if (section === "agent") {
       setMode("agent");
+    } else if (section === "civic") {
+      // Civic Services is a standalone workspace; leave Chat/Agent mode behind
+      // so the section remains stable while users browse scheme details.
+      setMode("chat");
     }
   };
   const handleStartWorkspaceAgent = (goal: string, attachments: AgentAttachment[] = []) => {
@@ -469,6 +477,8 @@ export default function Home() {
           onOpenSection={(section) => setActiveSection(section)}
           onOpenSidebar={() => setIsSidebarOpen(true)}
         />
+      ) : activeSection === "civic" ? (
+        <CivicServicesWorkspace onOpenSidebar={() => setIsSidebarOpen(true)} />
       ) : activeSection === "agent" && selectedModel === "jules" ? (
         <JulesWorkspace apiKey={keys.jules || ""} onOpenSettings={() => { setSettingsTab("keys"); setIsSettingsOpen(true); }} onOpenSidebar={() => setIsSidebarOpen(true)} />
       ) : (

@@ -129,3 +129,21 @@ test("workspace empty states provide next steps and Plugins points users to key 
   assert.match(workspaces, /Add or manage API keys/);
   assert.match(workspaces, /Start workflow/);
 });
+
+test("Civic Services provides West Bengal scheme discovery and transparent application guidance", async () => {
+  const civic = await read("components/civic/civic-services-workspace.tsx");
+  const schemes = await read("lib/civic-schemes.ts");
+  const sidebar = await read("components/sidebar/sidebar.tsx");
+  assert.match(sidebar, /label="Civic Services"/);
+  assert.match(civic, /West Bengal starter catalogue/);
+  assert.match(civic, /Possible matches/);
+  assert.match(civic, /How to apply/);
+  assert.match(civic, /Where to submit/);
+  assert.match(civic, /Official information/);
+  assert.match(civic, /does not collect Aadhaar, OTPs, bank passwords/);
+  assert.match(schemes, /WEST_BENGAL_SCHEMES/);
+  assert.match(schemes, /officialInfoUrl/);
+  assert.match(schemes, /lastVerifiedAt/);
+  assert.match(schemes, /Kanyashree Prakalpa/);
+  assert.match(schemes, /Krishak Bandhu/);
+});
