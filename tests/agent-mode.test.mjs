@@ -31,3 +31,11 @@ test("pausing an Agent run invalidates the active loop and Resume continues it",
   assert.match(page, /const handlePauseAgentTask = \(\) => \{[\s\S]*agentRunRef\.current \+= 1/);
   assert.match(page, /const handleResumeAgentTask = \(\) => \{[\s\S]*void handleRunAgentTask\(task\)/);
 });
+
+test("Agent workspace explains its available tools and keeps Chat models distinct", async () => {
+  const composer = await read("components/agent/agent-task-composer.tsx");
+  assert.match(composer, /Susan Safe Agent/);
+  assert.match(composer, /Safe task planning/);
+  assert.match(composer, /Chat models such as Gemini, OpenAI, Claude and DeepSeek power Chat Mode/);
+  assert.match(composer, /Google Jules is available separately/);
+});

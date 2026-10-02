@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, ClipboardList, Paperclip, Pause, Play, Plus, Rocket, RotateCcw, Undo2, X } from "lucide-react";
+import { AlertTriangle, Check, ClipboardList, Code2, Paperclip, Pause, Play, Plus, Rocket, RotateCcw, ShieldCheck, Undo2, X } from "lucide-react";
 import { useRef, useState } from "react";
 import { AgentAttachment, AgentTask } from "@/lib/agent/types";
 import { CsvTableSummary, SheetTableSummary } from "@/lib/agent/tools/file-analysis";
@@ -74,6 +74,7 @@ export function AgentTaskComposer({ activeTask, execution, onCreateTask, onRunTa
           <div className="min-w-0 flex-1"><h1 className="text-base font-semibold text-text-main">What should Susan AI do?</h1><p className="mt-1 text-sm text-text-muted">Start with a clear goal. Susan AI will create a safe first plan before execution.</p></div>
           {activeTask && <button type="button" onClick={onClearTask} aria-label="Clear active task" className="rounded-lg p-2 text-text-muted hover:bg-black/5 hover:text-text-main"><X className="h-4 w-4" /></button>}
         </div>
+        <AgentCapabilityDisclosure />
         {activeTask ? (
           <div className="rounded-xl border border-border-main/70 bg-bg-main px-4 py-3">
             <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-accent"><span className="h-2 w-2 rounded-full bg-accent" />Active task</div>
@@ -103,6 +104,24 @@ export function AgentTaskComposer({ activeTask, execution, onCreateTask, onRunTa
       {!activeTask && <div className="flex items-center gap-2 px-1 text-xs text-text-muted"><Plus className="h-3.5 w-3.5 text-accent" />Try a specific goal; the Agent will turn it into a safe first plan.</div>}
     </section>
   );
+}
+
+function AgentCapabilityDisclosure() {
+  return <details className="mb-4 rounded-xl border border-border-main/70 bg-bg-main/70 group">
+    <summary className="flex cursor-pointer list-none items-center gap-3 px-3 py-2.5 text-xs font-semibold text-text-main [&::-webkit-details-marker]:hidden">
+      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-cream-highlight text-accent"><ShieldCheck className="h-3.5 w-3.5" /></span>
+      <span className="min-w-0 flex-1"><span className="block">Susan Safe Agent</span><span className="mt-0.5 block truncate text-[10px] font-normal text-text-muted">Local tools for planning, calculation and file analysis</span></span>
+      <span className="rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-semibold text-emerald-800 group-open:hidden">View capabilities</span>
+      <span className="hidden rounded-full bg-cream-highlight px-2 py-1 text-[10px] font-semibold text-accent group-open:inline">Hide</span>
+    </summary>
+    <div className="border-t border-border-main/60 px-3 pb-3 pt-2.5">
+      <div className="flex flex-wrap gap-1.5" aria-label="Available Agent capabilities">
+        {["Safe task planning", "Calculator", "CSV / JSON", "PDF / DOCX / XLSX"].map((capability) => <span key={capability} className="inline-flex items-center gap-1 rounded-full border border-border-main/70 bg-surface px-2 py-1 text-[10px] font-medium text-text-muted"><Check className="h-3 w-3 text-emerald-600" />{capability}</span>)}
+      </div>
+      <p className="mt-2 text-[11px] leading-5 text-text-muted">Chat models such as Gemini, OpenAI, Claude and DeepSeek power Chat Mode. They are not presented as Agent engines here unless their Agent integration is explicitly enabled.</p>
+      <div className="mt-2 flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-2 text-[11px] leading-5 text-blue-900"><Code2 className="mt-0.5 h-3.5 w-3.5 shrink-0" /><span><strong>Need a coding agent?</strong> Google Jules is available separately for repository and coding tasks.</span></div>
+    </div>
+  </details>;
 }
 
 function QuickAction({ label, onClick }: { label: string; onClick: () => void }) { return <button type="button" onClick={onClick} className="rounded-lg border border-border-main/70 bg-bg-main px-3 py-1.5 text-[10px] font-semibold text-text-muted hover:bg-cream-highlight hover:text-accent">{label}</button>; }
