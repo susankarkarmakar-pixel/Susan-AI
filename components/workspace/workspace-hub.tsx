@@ -12,7 +12,7 @@ import { deleteKnowledgeNote, deleteProject, getKnowledgeNotes, getProjects, Kno
 import { deleteWorkspaceDocument, getWorkspaceDocumentBlob, isSupportedWorkspaceDocument, listWorkspaceDocuments, saveWorkspaceDocument, WorkspaceDocument } from "@/lib/document-storage";
 import { AgentAttachment } from "@/lib/agent/types";
 
-export type WorkspaceSection = "home" | "chat" | "agent" | "civic" | "projects" | "workflows" | "knowledge" | "plugins" | "documents" | "history";
+export type WorkspaceSection = "home" | "chat" | "agent" | "projects" | "workflows" | "knowledge" | "plugins" | "documents" | "history";
 
 interface WorkspaceHubProps {
   section: Extract<WorkspaceSection, "projects" | "workflows" | "knowledge" | "plugins" | "documents">;

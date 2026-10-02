@@ -66,4 +66,11 @@ test.describe("mobile Susan AI smoke flow", () => {
       expect.objectContaining({ sizes: "512x512", type: "image/png" }),
     ]));
   });
+
+  test("does not expose the stale Civic Services section in the sidebar", async ({ page }) => {
+    await page.goto("/");
+    await page.getByRole("button", { name: "Open sidebar" }).tap();
+    const sidebar = page.getByRole("complementary", { name: "Main sidebar" });
+    await expect(sidebar.getByRole("button", { name: "Civic Services" })).toHaveCount(0);
+  });
 });
