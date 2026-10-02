@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { once } from "node:events";
 import { spawn } from "node:child_process";
 import { test, before, after } from "node:test";
+import { readFile } from "node:fs/promises";
 
 const port = 3123;
 const baseUrl = `http://127.0.0.1:${port}`;
@@ -192,6 +193,13 @@ test("chat route recognizes every instant-chat provider before credential valida
     assert.equal(response.status, 400, `${provider} should reach credential validation`);
     assert.deepEqual(await response.json(), { error: "A valid API key is required." });
   }
+});
+
+test("Sarvam uses the generally available Sarvam 105B model and API endpoint", async () => {
+  const source = await readFile(new URL("../lib/ai-providers.ts", import.meta.url), "utf8");
+  assert.match(source, /sarvam:.*model: "sarvam-105b"/);
+  assert.match(source, /baseURL: "https:\/\/api\.sarvam\.ai\/v1"/);
+  assert.match(source, /provider === "sarvam"[\s\S]*api-subscription-key/);
 });
 
 test("Cloudflare connection tests require its separate account ID before any upstream call", async () => {

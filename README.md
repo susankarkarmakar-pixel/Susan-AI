@@ -111,6 +111,10 @@ npm run build
 
 Open **Settings → API Keys → Add a custom provider** and enter a provider name, exact model identifier, OpenAI-compatible `/v1` base URL, and the provider API key. Custom definitions and keys remain local to the current browser/device. Hosted deployments require HTTPS endpoints; HTTP is intentionally limited to localhost addresses.
 
+## Sarvam API key
+
+For Sarvam chat, create the credential in the [Sarvam developer dashboard](https://dashboard.sarvam.ai/), then paste that API subscription key into **Settings → API Keys → Sarvam API Key**. An Indus website/session credential is not the same as a Sarvam developer API key and may return a model-access error. Susan AI uses Sarvam's generally available `sarvam-105b` model through `https://api.sarvam.ai/v1`; the key is sent using Sarvam's `api-subscription-key` header.
+
 ## Local AI: Ollama and LM Studio
 
 Susan AI can discover and use models already installed on the same computer:
