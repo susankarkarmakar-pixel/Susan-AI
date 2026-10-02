@@ -23,3 +23,11 @@ test("new Agent tasks automatically start safe execution", async () => {
   assert.match(page, /void handleRunAgentTask\(task\)/);
   assert.match(page, /approval-gated step/);
 });
+
+test("pausing an Agent run invalidates the active loop and Resume continues it", async () => {
+  const page = await read("app/page.tsx");
+  assert.match(page, /const agentRunRef = useRef\(0\)/);
+  assert.match(page, /if \(agentRunRef\.current !== runId\) break/);
+  assert.match(page, /const handlePauseAgentTask = \(\) => \{[\s\S]*agentRunRef\.current \+= 1/);
+  assert.match(page, /const handleResumeAgentTask = \(\) => \{[\s\S]*void handleRunAgentTask\(task\)/);
+});

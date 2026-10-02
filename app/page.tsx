@@ -58,6 +58,7 @@ export default function Home() {
   const [agentExecution, setAgentExecution] = useState<Pick<AgentExecutionOutcome, "message" | "output" | "table" | "sheetTables" | "error" | "ok"> | null>(null);
   const [executionEvents, setExecutionEvents] = useState<ExecutionEvent[]>([]);
   const safeTaskSnapshot = useRef<AgentTask | null>(null);
+  const agentRunRef = useRef(0);
   const { records, ready: tasksReady, save: saveAgentTask, remove: removeAgentTask } = useAgentTasks();
   const restoredTask = useRef(false);
 
@@ -305,9 +306,11 @@ export default function Home() {
   const handleRunAgentTask = async (startingTask?: AgentTask) => {
     const taskToRun = startingTask || activeAgentTask;
     if (!taskToRun) return;
+    const runId = ++agentRunRef.current;
     let currentTask = taskToRun;
     if (!safeTaskSnapshot.current || safeTaskSnapshot.current.id !== currentTask.id) safeTaskSnapshot.current = structuredClone(currentTask);
     while (true) {
+      if (agentRunRef.current !== runId) break;
       // The planner intentionally includes explanatory, non-tool steps before
       // executable steps. Always consume the first pending step; filtering to
       // tool steps here previously caused every task to stop at step one.
@@ -335,6 +338,7 @@ export default function Home() {
       }
       setExecutionEvents((events) => [...events, createExecutionEvent(currentTask.id, "tool-started", `Started ${step.title}`, step.id, step.toolId)]);
       const outcome = await executeFirstToolStep(currentTask);
+      if (agentRunRef.current !== runId) break;
       currentTask = outcome.task;
       setActiveAgentTask(outcome.task);
       setAgentExecution({ message: outcome.message, output: outcome.output, table: outcome.table, sheetTables: outcome.sheetTables, error: outcome.error, ok: outcome.ok });
@@ -378,6 +382,7 @@ export default function Home() {
   };
   const handlePauseAgentTask = () => {
     if (!activeAgentTask || activeAgentTask.status !== "running") return;
+    agentRunRef.current += 1;
     const task = transitionTask(activeAgentTask, "paused");
     setActiveAgentTask(task);
     setAgentExecution({ message: "Task paused. Resume when you are ready to continue.", ok: true });
@@ -387,8 +392,9 @@ export default function Home() {
     if (!activeAgentTask || activeAgentTask.status !== "paused") return;
     const task = transitionTask(activeAgentTask, "running");
     setActiveAgentTask(task);
-    setAgentExecution({ message: "Task resumed. Run the next pending step to continue.", ok: true });
+    setAgentExecution({ message: "Task resumed. Continuing with the next pending step.", ok: true });
     setExecutionEvents((events) => [...events, createExecutionEvent(task.id, "task-resumed", "Task resumed")]);
+    void handleRunAgentTask(task);
   };
   const handleRetryAgentTask = () => {
     if (!activeAgentTask || activeAgentTask.status !== "failed") return;
@@ -401,12 +407,14 @@ export default function Home() {
   };
   const handleCancelAgentTask = () => {
     if (!activeAgentTask || ["completed", "cancelled"].includes(activeAgentTask.status)) return;
+    agentRunRef.current += 1;
     const task = transitionTask(activeAgentTask, "cancelled");
     setActiveAgentTask(task);
     setAgentExecution({ message: "Task cancelled.", ok: false });
     setExecutionEvents((events) => [...events, createExecutionEvent(task.id, "task-cancelled", "Task cancelled")]);
   };
   const handleClearAgentTask = () => {
+    agentRunRef.current += 1;
     if (activeAgentTask) removeAgentTask(activeAgentTask.id);
     setActiveAgentTask(null);
     setAgentExecution(null);
