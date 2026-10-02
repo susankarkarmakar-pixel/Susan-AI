@@ -41,10 +41,10 @@ const MODEL_ICONS: Record<Exclude<ModelProvider, "manus">, LucideIcon> = {
 
 const MODELS = INSTANT_CHAT_PROVIDERS.map((id) => {
   const descriptor = getProviderDescriptor(id);
-  return { id, name: descriptor?.name || id, description: descriptor?.description || "", icon: MODEL_ICONS[id] };
+  return { id, name: descriptor?.name || id, description: descriptor?.description || "", icon: MODEL_ICONS[id], modeLabel: "Chat" };
 });
 const julesDescriptor = getProviderDescriptor("jules");
-const AGENT_MODELS = [{ id: "jules", name: julesDescriptor?.name || "Google Jules", description: julesDescriptor?.description || "", icon: MODEL_ICONS.jules }];
+const AGENT_MODELS = [{ id: "jules", name: julesDescriptor?.name || "Google Jules", description: julesDescriptor?.description || "", icon: MODEL_ICONS.jules, modeLabel: "Coding Agent" }];
 
 export function ModelSelector({ selected, onSelect, collapsed = false }: ModelSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -65,7 +65,7 @@ export function ModelSelector({ selected, onSelect, collapsed = false }: ModelSe
     return () => { window.removeEventListener('keys-updated', handleKeysUpdated); window.removeEventListener('custom-providers-updated', handleCustomProvidersUpdated); };
   }, []);
 
-  const availableModels = [...MODELS, ...AGENT_MODELS, ...customProviders.map((provider) => ({ id: provider.id, name: provider.name, description: provider.model, icon: Globe }))];
+  const availableModels = [...MODELS, ...AGENT_MODELS, ...customProviders.map((provider) => ({ id: provider.id, name: provider.name, description: provider.model, icon: Globe, modeLabel: provider.local ? "Local" : "Custom Chat" }))];
   const selectedModel = availableModels.find(m => m.id === selected) || availableModels[0];
   const Icon = selectedModel.icon;
   const selectedIndex = Math.max(0, availableModels.findIndex((model) => model.id === selected));
@@ -160,14 +160,14 @@ export function ModelSelector({ selected, onSelect, collapsed = false }: ModelSe
                   <ModelIcon className={cn("w-4 h-4 mt-0.5 shrink-0", selected === model.id ? "text-accent" : "text-slate-500 group-hover:text-slate-900")} />
                   <div className="flex flex-col items-start flex-1 overflow-hidden">
                     <div className="flex items-center justify-between w-full">
-                      <span className="font-medium truncate">{model.name}</span>
-                      <div className={cn("w-1.5 h-1.5 rounded-full shrink-0 ml-2", hasKey ? "bg-green-500" : "bg-red-400")} />
+                      <span className="min-w-0 truncate font-medium">{model.name}</span>
+                      <span className={cn("ml-2 shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-semibold", model.modeLabel === "Coding Agent" ? "bg-blue-100 text-blue-800" : model.modeLabel === "Local" ? "bg-emerald-100 text-emerald-800" : "bg-black/5 text-slate-600")}>{model.modeLabel}</span>
                     </div>
                     <span className={cn(
                       "text-[11px] truncate w-full text-left mt-0.5",
                       selected === model.id ? "text-slate-600" : "text-slate-500 group-hover:text-slate-700"
                     )}>
-                      {model.description}
+                      {model.description} · {hasKey ? "Ready" : "Needs key"}
                     </span>
                   </div>
                 </button>
