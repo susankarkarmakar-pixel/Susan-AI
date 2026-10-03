@@ -240,7 +240,7 @@ function messageText(message: { parts?: unknown[] }): string {
 function ModeButton({ mode, activeMode, onSelect, icon, label }: { mode: AgentMode; activeMode: AgentMode; onSelect: (mode: AgentMode) => void; icon: React.ReactNode; label: string }) {
   const active = mode === activeMode;
   return (
-    <button type="button" aria-pressed={active} onClick={() => onSelect(mode)} className={`flex items-center gap-1 rounded-full px-2 py-1.5 text-xs font-semibold transition-colors sm:gap-1.5 sm:px-2.5 ${active ? "bg-cream-highlight text-accent" : "text-text-muted hover:bg-black/5 hover:text-text-main"}`}>
+    <button type="button" aria-label={label} aria-pressed={active} onClick={() => onSelect(mode)} className={`flex items-center gap-1 rounded-full px-2 py-1.5 text-xs font-semibold transition-colors sm:gap-1.5 sm:px-2.5 ${active ? "bg-cream-highlight text-accent" : "text-text-muted hover:bg-black/5 hover:text-text-main"}`}>
       {icon}<span className="hidden sm:inline">{label}</span>
     </button>
   );
