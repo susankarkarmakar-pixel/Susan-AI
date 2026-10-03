@@ -140,3 +140,16 @@ test("West Bengal schemes are hidden from users while source data is preserved f
   assert.doesNotMatch(page, /CivicServicesWorkspace|activeSection === "civic"|open-civic|"civic"/);
   assert.match(schemes, /WEST_BENGAL_SCHEMES/);
 });
+
+test("Agent output provides an accessible fullscreen view and dashboard Workflows opens the workspace", async () => {
+  const output = await read("components/agent/agent-output-workspace.tsx");
+  const dashboard = await read("app/dashboard/page.tsx");
+  const page = await read("app/page.tsx");
+  assert.match(output, /isFullscreen/);
+  assert.match(output, /role=\{isFullscreen \? "dialog"/);
+  assert.match(output, /Exit full screen/);
+  assert.match(output, /event\.key === "Escape"/);
+  assert.match(dashboard, /label="Workflows" href="\/\?section=workflows"/);
+  assert.match(page, /new URLSearchParams\(window\.location\.search\)\.get\("section"\)/);
+  assert.match(page, /setActiveSection\(section\)/);
+});

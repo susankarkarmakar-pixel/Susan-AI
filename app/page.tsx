@@ -165,6 +165,13 @@ export default function Home() {
     };
   }, [setMode]);
 
+  useEffect(() => {
+    const section = new URLSearchParams(window.location.search).get("section");
+    if (section !== "projects" && section !== "workflows" && section !== "knowledge" && section !== "plugins" && section !== "documents" && section !== "history") return;
+    const timer = window.setTimeout(() => setActiveSection(section), 0);
+    return () => window.clearTimeout(timer);
+  }, []);
+
   const handleLoadConversation = (id: string) => {
     const conversation = loadSavedConversation(id);
     if (conversation) {
