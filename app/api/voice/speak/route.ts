@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { enforceRateLimit, getClientIdentifier, RateLimitUnavailableError, RATE_LIMIT_RETRY_AFTER_SECONDS } from "@/lib/rate-limit";
 
 const MAX_TEXT_LENGTH = 8_000;
 const OPENAI_SPEECH_URL = "https://api.openai.com/v1/audio/speech";
@@ -6,6 +7,9 @@ const ALLOWED_VOICES = new Set(["alloy", "ash", "coral", "echo", "fable", "onyx"
 
 export async function POST(request: Request) {
   try {
+    if (!(await enforceRateLimit(getClientIdentifier(request)))) {
+      return jsonError("Too many voice requests. Please wait a moment and try again.", 429, { "Retry-After": String(RATE_LIMIT_RETRY_AFTER_SECONDS) });
+    }
     const body = await request.json().catch(() => null) as { apiKey?: unknown; text?: unknown; voice?: unknown; speed?: unknown } | null;
     const apiKey = typeof body?.apiKey === "string" ? body.apiKey.trim() : "";
     const text = typeof body?.text === "string" ? body.text.trim() : "";
@@ -22,11 +26,12 @@ export async function POST(request: Request) {
     });
     if (!response.ok) return jsonError("OpenAI could not generate voice output. Check the API key, quota, and model access.", response.status === 401 ? 401 : response.status === 429 ? 429 : 502);
     return new Response(response.body, { status: 200, headers: { "Content-Type": "audio/mpeg", "Cache-Control": "no-store" } });
-  } catch {
+  } catch (error) {
+    if (error instanceof RateLimitUnavailableError) return jsonError("Security rate limiting is temporarily unavailable. Try again shortly.", 503, { "Retry-After": "30" });
     return jsonError("The voice service could not generate this response.", 502);
   }
 }
 
-function jsonError(error: string, status: number) {
-  return NextResponse.json({ error }, { status, headers: { "Cache-Control": "no-store" } });
+function jsonError(error: string, status: number, headers: Record<string, string> = {}) {
+  return NextResponse.json({ error }, { status, headers: { "Cache-Control": "no-store", ...headers } });
 }

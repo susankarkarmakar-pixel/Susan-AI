@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { enforceRateLimit, getClientIdentifier, RateLimitUnavailableError, RATE_LIMIT_RETRY_AFTER_SECONDS } from "@/lib/rate-limit";
 
 const MAX_AUDIO_BYTES = 15 * 1024 * 1024;
 const OPENAI_TRANSCRIPTION_URL = "https://api.openai.com/v1/audio/transcriptions";
@@ -7,6 +8,9 @@ export async function POST(request: Request) {
   try {
     if (!request.headers.get("content-type")?.toLowerCase().includes("multipart/form-data")) {
       return jsonError("Audio must be uploaded as multipart/form-data.", 415);
+    }
+    if (!(await enforceRateLimit(getClientIdentifier(request)))) {
+      return jsonError("Too many dictation requests. Please wait a moment and try again.", 429, { "Retry-After": String(RATE_LIMIT_RETRY_AFTER_SECONDS) });
     }
 
     const form = await request.formData();
@@ -36,11 +40,12 @@ export async function POST(request: Request) {
     const text = payload && typeof payload === "object" && typeof (payload as { text?: unknown }).text === "string" ? (payload as { text: string }).text.trim() : "";
     if (!text) return jsonError("No speech was detected in the recording.", 422);
     return NextResponse.json({ text }, { headers: { "Cache-Control": "no-store" } });
-  } catch {
+  } catch (error) {
+    if (error instanceof RateLimitUnavailableError) return jsonError("Security rate limiting is temporarily unavailable. Try again shortly.", 503, { "Retry-After": "30" });
     return jsonError("The transcription service could not process this recording.", 502);
   }
 }
 
-function jsonError(error: string, status: number) {
-  return NextResponse.json({ error }, { status, headers: { "Cache-Control": "no-store" } });
+function jsonError(error: string, status: number, headers: Record<string, string> = {}) {
+  return NextResponse.json({ error }, { status, headers: { "Cache-Control": "no-store", ...headers } });
 }
