@@ -1,4 +1,5 @@
 import { ApiKeys, KeyStorageMode, saveKeys } from "@/lib/key-storage";
+import { isAllowedCustomProviderUrl } from "@/lib/url-safety.mjs";
 
 export interface CustomProvider {
   id: string;
@@ -50,12 +51,13 @@ export function isCustomProvider(value: unknown): value is CustomProvider {
   return typeof item.id === "string" && item.id.startsWith("custom_") && typeof item.name === "string" && typeof item.model === "string" && typeof item.baseUrl === "string" && isAllowedBaseUrl(item.baseUrl);
 }
 
+/**
+ * Rejects private/internal/loopback/link-local hosts (including obfuscated and
+ * IPv4-mapped-IPv6 forms) so a custom provider can't be used to make the server
+ * fetch an internal address (SSRF). See lib/url-safety.mjs for the shared logic
+ * used by both this client-side check and the server-side DNS-resolution guard
+ * in lib/custom-provider-dns-guard.ts.
+ */
 export function isAllowedBaseUrl(value: string): boolean {
-  try {
-    const url = new URL(value);
-    if (url.protocol === "https:") return true;
-    return url.protocol === "http:" && ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
-  } catch {
-    return false;
-  }
+  return isAllowedCustomProviderUrl(value);
 }

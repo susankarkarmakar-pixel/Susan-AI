@@ -2,6 +2,7 @@ import { generateText } from "ai";
 import { NextResponse } from "next/server";
 import { getCustomModelConfig, getModelConfig, isInstantChatProvider, ModelProvider } from "@/lib/ai-providers";
 import { CustomProvider, isAllowedBaseUrl } from "@/lib/custom-providers";
+import { assertCustomProviderHostResolvesSafely, UnsafeCustomProviderHostError } from "@/lib/custom-provider-dns-guard";
 import { enforceRateLimit, getClientIdentifier, RateLimitUnavailableError, RATE_LIMIT_RETRY_AFTER_SECONDS } from "@/lib/rate-limit";
 import { mapProviderError } from "@/lib/provider-errors.mjs";
 
@@ -34,6 +35,12 @@ export async function POST(request: Request) {
     let model;
     if (isCustom) {
       if (!isValidCustomProvider(input.customProvider, provider)) return jsonError("Custom provider configuration is invalid.", 400);
+      try {
+        await assertCustomProviderHostResolvesSafely(input.customProvider.baseUrl);
+      } catch (error) {
+        if (error instanceof UnsafeCustomProviderHostError) return jsonError(error.message, 400);
+        throw error;
+      }
       model = getCustomModelConfig(input.customProvider, apiKey);
     } else {
       if (!isInstantChatProvider(provider)) return jsonError("This provider does not support an instant connection test.", 400);

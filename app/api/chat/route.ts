@@ -2,6 +2,7 @@ import { convertToModelMessages, streamText } from "ai";
 import { getCustomModelConfig, getModelConfig, isInstantChatProvider, ModelProvider } from "@/lib/ai-providers";
 import { supportsProviderCapability } from "@/lib/provider-capabilities";
 import { CustomProvider, isAllowedBaseUrl } from "@/lib/custom-providers";
+import { assertCustomProviderHostResolvesSafely, UnsafeCustomProviderHostError } from "@/lib/custom-provider-dns-guard";
 import { enforceRateLimit, getClientIdentifier, RateLimitUnavailableError, RATE_LIMIT_RETRY_AFTER_SECONDS } from "@/lib/rate-limit";
 import { mapProviderError } from "@/lib/provider-errors.mjs";
 import { normalizeGenerationOptions, normalizeSystemPrompt } from "@/lib/generation-settings.mjs";
@@ -57,6 +58,12 @@ export async function POST(req: Request) {
     let model: ReturnType<typeof getModelConfig>;
     if (isCustom) {
       if (!isValidCustomProvider(customProvider, provider)) return jsonError("Custom provider configuration is invalid.", 400);
+      try {
+        await assertCustomProviderHostResolvesSafely(customProvider.baseUrl);
+      } catch (error) {
+        if (error instanceof UnsafeCustomProviderHostError) return jsonError(error.message, 400);
+        throw error;
+      }
       model = getCustomModelConfig(customProvider, normalizedApiKey);
     } else {
       model = getModelConfig(provider as ModelProvider, normalizedApiKey, { cloudflareAccountId: typeof cloudflareAccountId === "string" ? cloudflareAccountId : undefined });
