@@ -44,11 +44,12 @@ test("composer uses a two-row mobile layout with narrow-screen overflow guards",
     /max-w-5xl rounded-3xl border bg-surface p-2 .*sm:p-3/,
     /block min-h-\[48px\] w-full min-w-0 resize-none/,
     /flex min-w-0 flex-col gap-2 sm:flex-row sm:items-end sm:gap-2/,
-    /grid min-w-0 grid-cols-\[auto_minmax\(0,1fr\)_auto_auto_auto\]/,
+    /grid min-w-0 grid-cols-\[auto_minmax\(0,1fr\)_auto_auto\]/,
     /border-t border-border-main\/40 pt-1 sm:contents sm:border-0 sm:pt-0/,
     /p-2 transition-colors sm:p-2\.5/,
     /sm:hidden.*Attach files · AI can make mistakes/,
     /aria-label="Send message"/,
+    /aria-label="More composer options"/,
   ], "MessageInput");
 
   assertIncludes(modelPanel, [

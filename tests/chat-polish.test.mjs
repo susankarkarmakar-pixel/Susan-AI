@@ -55,6 +55,16 @@ test("model controls and scoped prompts are sent to the API with server-side bou
   assert.match(route, /maxOutputTokens/);
 });
 
+test("composer keeps the primary send flow clear and moves voice controls into More", async () => {
+  const composer = await read("components/chat/message-input.tsx");
+  assert.match(composer, /aria-label="More composer options"/);
+  assert.match(composer, /role="menu" aria-label="More composer options"/);
+  assert.match(composer, /Start dictation/);
+  assert.match(composer, /Enable voice mode/);
+  assert.match(composer, /aria-label="Send message"/);
+  assert.match(composer, /grid-cols-\[auto_minmax\(0,1fr\)_auto_auto\]/);
+});
+
 test("attachments support local extraction and pass untrusted text context", async () => {
   const extraction = await read("lib/attachment-extraction.ts");
   const composer = await read("components/chat/message-input.tsx");
