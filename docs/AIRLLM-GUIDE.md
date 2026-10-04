@@ -159,7 +159,7 @@ Terminal log-এ বিস্তারিত error দেখুন। গোপ�
 
 - AirLLM provider এখন optional local provider হিসেবে detect এবং select করা যায়
 - Current sidecar OpenAI-compatible chat contract দেয়
-- `stream: true` SSE-compatible response দেয়, কিন্তু true token-by-token streaming পরের integration phase-এর কাজ
+- `stream: true` compatible AirLLM/Transformers setup-এ token-by-token SSE দেয়; unsupported runtime হলে এক buffered SSE chunk-এ fallback করে
 - Vision, file upload এবং tool execution AirLLM local provider-এ এখনো enabled নয়
 - AirLLM model support এবং speed model, hardware, CUDA, PyTorch ও transformers compatibility-এর উপর নির্ভর করে
 

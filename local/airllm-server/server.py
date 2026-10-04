@@ -112,6 +112,57 @@ def _generate(request: ChatRequest) -> str:
     return generated.strip() or "I could not generate a response."
 
 
+def _stream_generate(request: ChatRequest):
+    """Yield decoded text as AirLLM/Transformers produces new tokens.
+
+    AirLLM delegates ``generate`` to its underlying Transformers model, so the
+    standard TextIteratorStreamer works for compatible model/runtime versions.
+    The worker always calls ``streamer.end`` so an early generation failure
+    cannot leave the HTTP iterator waiting forever.
+    """
+    from transformers import TextIteratorStreamer
+
+    model, tokenizer = _load_model()
+    prompt = _prompt(request.messages)
+    encoded = tokenizer(
+        [prompt],
+        return_tensors="pt",
+        return_attention_mask=False,
+        truncation=True,
+        max_length=MAX_INPUT_TOKENS,
+        padding=False,
+    )
+    input_ids = encoded["input_ids"]
+    if hasattr(input_ids, "cuda"):
+        input_ids = input_ids.cuda()
+    streamer = TextIteratorStreamer(tokenizer, skip_prompt=True, skip_special_tokens=True)
+    worker_error: list[BaseException] = []
+
+    def run_generation():
+        try:
+            model.generate(
+                input_ids,
+                max_new_tokens=request.max_tokens,
+                temperature=request.temperature,
+                do_sample=request.temperature > 0,
+                use_cache=True,
+                streamer=streamer,
+            )
+        except BaseException as exc:  # pragma: no cover - hardware/model dependent
+            worker_error.append(exc)
+        finally:
+            streamer.end()
+
+    worker = threading.Thread(target=run_generation, name="airllm-generation", daemon=True)
+    worker.start()
+    for text in streamer:
+        if text:
+            yield text
+    worker.join(timeout=1)
+    if worker_error:
+        raise RuntimeError("AirLLM token streaming failed") from worker_error[0]
+
+
 def _error_detail() -> str:
     if _load_error:
         return "AirLLM could not load the configured model. Check CUDA, model compatibility, and disk space."
@@ -143,23 +194,31 @@ def models() -> dict[str, Any]:
 def chat(request: ChatRequest) -> JSONResponse | StreamingResponse:
     if request.model and MODEL_ID and request.model not in {MODEL_ID, "airllm-local"}:
         raise HTTPException(status_code=400, detail="Requested model does not match AIRLLM_MODEL")
+    created = int(time.time())
+    response_id = f"chatcmpl-local-{uuid.uuid4().hex}"
+    if request.stream:
+        def events():
+            try:
+                for text_chunk in _stream_generate(request):
+                    chunk = {"id": response_id, "object": "chat.completion.chunk", "created": created, "model": MODEL_ID or "airllm-local", "choices": [{"index": 0, "delta": {"role": "assistant", "content": text_chunk}, "finish_reason": None}]}
+                    yield f"data: {json.dumps(chunk)}\n\n"
+            except Exception:
+                # If a specific AirLLM/Transformers combination does not
+                # accept streamer=, preserve the OpenAI contract with one
+                # buffered chunk rather than failing the whole local provider.
+                fallback = _generate(request)
+                chunk = {"id": response_id, "object": "chat.completion.chunk", "created": created, "model": MODEL_ID or "airllm-local", "choices": [{"index": 0, "delta": {"role": "assistant", "content": fallback}, "finish_reason": None}]}
+                yield f"data: {json.dumps(chunk)}\n\n"
+            final = {"id": response_id, "object": "chat.completion.chunk", "created": created, "model": MODEL_ID or "airllm-local", "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}]}
+            yield f"data: {json.dumps(final)}\n\n"
+            yield "data: [DONE]\n\n"
+
+        return StreamingResponse(events(), media_type="text/event-stream")
+
     try:
         text = _generate(request)
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=_error_detail()) from exc
-
-    created = int(time.time())
-    response_id = f"chatcmpl-local-{uuid.uuid4().hex}"
-    if request.stream:
-        # Contract-compatible SSE for phase 1. True token-level streaming is a
-        # separate phase because AirLLM's high-level generate API returns a
-        # completed sequence.
-        def events():
-            chunk = {"id": response_id, "object": "chat.completion.chunk", "created": created, "model": MODEL_ID or "airllm-local", "choices": [{"index": 0, "delta": {"role": "assistant", "content": text}, "finish_reason": None}]}
-            yield f"data: {json.dumps(chunk)}\n\n"
-            yield "data: [DONE]\n\n"
-
-        return StreamingResponse(events(), media_type="text/event-stream")
 
     return JSONResponse({
         "id": response_id,

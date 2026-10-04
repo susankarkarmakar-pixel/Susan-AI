@@ -47,7 +47,7 @@ curl http://127.0.0.1:8000/v1/chat/completions \
   -d '{"model":"Qwen/Qwen3-4B","messages":[{"role":"user","content":"বাংলায় এক লাইনে নিজের পরিচয় দিন।"}],"max_tokens":64}'
 ```
 
-`stream: true` currently returns an SSE-compatible response after generation completes. True token-level streaming is intentionally reserved for the next phase.
+`stream: true` uses Transformers `TextIteratorStreamer` when the installed AirLLM/Transformers combination supports the delegated `streamer` argument. If a model/runtime combination rejects it, the sidecar falls back to one buffered SSE chunk so the OpenAI-compatible contract remains usable.
 
 ## Current scope
 
