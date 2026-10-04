@@ -42,6 +42,16 @@ test("AI Providers exposes a Provider Health Center with setup guidance", async 
   assert.match(settings, /Local providers need no key/);
 });
 
+test("chat errors explain the likely cause and offer recovery actions", async () => {
+  const chat = await read("components/chat/chat-area.tsx");
+  assert.match(chat, /Connect this provider to continue/);
+  assert.match(chat, /Open API Keys/);
+  assert.match(chat, /Choose another model/);
+  assert.match(chat, /Try another model/);
+  assert.match(chat, /View provider details/);
+  assert.match(chat, /Your key stays in this browser/);
+});
+
 test("chat exposes connected-model control and optional automatic fallback", async () => {
   const chat = await read("components/chat/chat-area.tsx");
   const composer = await read("components/chat/message-input.tsx");

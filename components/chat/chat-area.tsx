@@ -251,18 +251,16 @@ function ModeButton({ mode, activeMode, onSelect, icon, label }: { mode: AgentMo
 function ErrorRecovery({ error, onRetry, onOpenSettings, onOpenModels }: { error: Error; onRetry: () => void; onOpenSettings: () => void; onOpenModels: () => void }) {
   const message = error.message || "The provider could not complete the request.";
   const actionType = getChatErrorAction(message);
-  const action = actionType === "settings"
-    ? { label: "Manage API key / access", onClick: onOpenSettings }
-    : actionType === "retry"
-      ? { label: "Retry", onClick: onRetry }
-      : actionType === "models"
-        ? { label: "Choose another model", onClick: onOpenModels }
-        : null;
+  const isSettingsIssue = actionType === "settings";
+  const isModelIssue = actionType === "models";
+  const title = isSettingsIssue ? "Connect this provider to continue" : isModelIssue ? "This model is unavailable" : actionType === "retry" ? "The provider could not complete that request" : "We could not complete that request";
+  const description = isSettingsIssue ? "Your API key may be missing, invalid, expired, or out of quota. Your key stays in this browser." : isModelIssue ? "The selected model may be unavailable to your account or temporarily offline. Try another connected model." : actionType === "retry" ? "The provider may be busy or the request may have timed out. You can safely try again." : "Check the provider message below, then retry or choose another model.";
 
   return (
-    <div role="alert" className="absolute left-1/2 top-20 z-30 flex w-[calc(100%-1.5rem)] max-w-xl -translate-x-1/2 flex-col items-start gap-3 rounded-lg bg-red-500/95 px-4 py-3 text-sm font-medium text-white shadow-lg backdrop-blur-sm">
-      <span className="min-w-0 max-w-full whitespace-pre-wrap break-words">{message}</span>
-      {action && <button type="button" onClick={action.onClick} className="rounded-md bg-white/15 px-3 py-2 text-xs font-semibold hover:bg-white/25">{action.label}</button>}
+    <div role="alert" aria-live="assertive" className="absolute left-1/2 top-20 z-30 flex w-[calc(100%-1.5rem)] max-w-xl -translate-x-1/2 flex-col gap-3 rounded-2xl border border-red-200 bg-surface px-4 py-4 text-text-main shadow-xl sm:px-5">
+      <div><p className="text-sm font-semibold">{title}</p><p className="mt-1 text-xs leading-5 text-text-muted">{description}</p></div>
+      <details className="w-full rounded-xl border border-border-main/60 bg-bg-main px-3 py-2"><summary className="cursor-pointer text-[11px] font-semibold text-text-muted">View provider details</summary><p className="mt-2 max-h-24 overflow-auto whitespace-pre-wrap break-words text-[11px] leading-5 text-text-muted">{message}</p></details>
+      <div className="flex flex-wrap items-center gap-2"><button type="button" onClick={isSettingsIssue ? onOpenSettings : isModelIssue ? onOpenModels : onRetry} className="rounded-xl bg-accent px-3 py-2 text-xs font-semibold text-white hover:opacity-90">{isSettingsIssue ? "Open API Keys" : isModelIssue ? "Choose another model" : "Retry"}</button>{actionType !== "retry" && <button type="button" onClick={onRetry} className="rounded-xl border border-border-main/70 px-3 py-2 text-xs font-semibold text-text-main hover:bg-black/5">Retry</button>}{!isSettingsIssue && <button type="button" onClick={onOpenModels} className="rounded-xl border border-border-main/70 px-3 py-2 text-xs font-semibold text-text-main hover:bg-black/5">Try another model</button>}</div>
     </div>
   );
 }
