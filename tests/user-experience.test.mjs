@@ -33,6 +33,15 @@ test("workspace header does not invite sign-in while the product is local-first"
   assert.doesNotMatch(chat, /<AccountButton \/>/);
 });
 
+test("AI Providers exposes a Provider Health Center with setup guidance", async () => {
+  const settings = await read("components/settings/settings-modal.tsx");
+  assert.match(settings, /Provider Health Center/);
+  assert.match(settings, /ready before you start a chat/);
+  assert.match(settings, /A ready provider still needs a quick connection test/);
+  assert.match(settings, /Open API Keys/);
+  assert.match(settings, /Local providers need no key/);
+});
+
 test("chat exposes connected-model control and optional automatic fallback", async () => {
   const chat = await read("components/chat/chat-area.tsx");
   const composer = await read("components/chat/message-input.tsx");
