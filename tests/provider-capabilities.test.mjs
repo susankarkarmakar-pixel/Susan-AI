@@ -8,6 +8,8 @@ const chatArea = await readFile(new URL("../components/chat/chat-area.tsx", impo
 const modelPanel = await readFile(new URL("../components/chat/model-control-panel.tsx", import.meta.url), "utf8");
 const settings = await readFile(new URL("../components/settings/settings-modal.tsx", import.meta.url), "utf8");
 const workspace = await readFile(new URL("../components/workspace/workspace-hub.tsx", import.meta.url), "utf8");
+const localProviders = await readFile(new URL("../lib/local-providers.ts", import.meta.url), "utf8");
+const customProviders = await readFile(new URL("../lib/custom-providers.ts", import.meta.url), "utf8");
 
 function assertContains(source, pattern, label) {
   assert.match(source, pattern, `${label} is missing registry contract: ${pattern}`);
@@ -40,4 +42,12 @@ test("provider metadata remains centralized in the registry boundary", () => {
   for (const [source, label] of [[route, "chat route"], [chatArea, "chat area"], [modelPanel, "model panel"], [settings, "settings"], [workspace, "workspace"]]) {
     assert.doesNotMatch(source, /MODELS_METADATA\[/, `${label} should not read MODELS_METADATA directly`);
   }
+});
+
+test("AirLLM is exposed through the local provider discovery boundary", () => {
+  assertContains(localProviders, /kind: "airllm"/, "AirLLM local provider kind");
+  assertContains(localProviders, /baseUrl: "http:\/\/localhost:8000\/v1"/, "AirLLM local base URL");
+  assertContains(localProviders, /discoveryUrl: "http:\/\/localhost:8000\/v1\/models"/, "AirLLM model discovery URL");
+  assertContains(customProviders, /"ollama" \| "lm-studio" \| "airllm"/, "AirLLM custom-provider persistence kind");
+  assertContains(settings, /AirLLM sidecar/, "AirLLM setup guidance");
 });

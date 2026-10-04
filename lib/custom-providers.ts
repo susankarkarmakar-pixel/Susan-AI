@@ -9,7 +9,7 @@ export interface CustomProvider {
   createdAt: string;
   local?: boolean;
   requiresApiKey?: boolean;
-  localKind?: "ollama" | "lm-studio";
+  localKind?: "ollama" | "lm-studio" | "airllm";
 }
 
 const STORAGE_KEY = "susan_custom_providers_v1";

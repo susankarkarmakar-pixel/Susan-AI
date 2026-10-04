@@ -277,7 +277,7 @@ export function SettingsModal({ isOpen, onClose, initialTab = "general" }: Setti
 
         <div className="mb-5 rounded-xl border border-accent/20 bg-cream-highlight/40 p-3">
           <h3 className="text-sm font-semibold text-text-main">Local AI servers</h3>
-          <p className="mt-1 text-xs leading-relaxed text-text-muted">Use models already installed on this computer. No API key or cloud upload is required. Start the local server first, then detect its models.</p>
+          <p className="mt-1 text-xs leading-relaxed text-text-muted">Use models already installed on this computer. No API key or cloud upload is required. Start Ollama, LM Studio, or the AirLLM sidecar first, then detect its models.</p>
           <div className="mt-3 grid gap-2 md:grid-cols-2">
             {LOCAL_PROVIDER_PRESETS.map((preset) => <div key={preset.kind} className="rounded-lg border border-accent/30 bg-surface p-3"><p className="text-xs font-semibold text-text-main">{preset.name}</p><p className="mt-1 text-[11px] leading-5 text-text-muted">{preset.description}</p><p className="mt-1 break-all font-mono text-[10px] text-accent">{preset.baseUrl}</p><button type="button" onClick={() => void handleAddLocalProvider(preset)} disabled={localProviderState[preset.kind] === "detecting"} className="mt-2 rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-white hover:bg-accent-hover disabled:cursor-wait disabled:opacity-50">{localProviderState[preset.kind] === "detecting" ? "Detecting…" : "Detect & add all models"}</button></div>)}
           </div>
@@ -287,7 +287,7 @@ export function SettingsModal({ isOpen, onClose, initialTab = "general" }: Setti
             <div className="mt-2 space-y-2">{QWEN_LOCAL_MODELS.map((model) => <div key={model.ollamaModel} className="rounded-md border border-border-main/50 bg-surface p-2"><div className="flex flex-wrap items-center justify-between gap-2"><span className="text-xs font-semibold text-text-main">{model.label} <span className="font-normal text-text-muted">· {model.size}</span></span><div className="flex gap-2 text-[11px]"><a href={model.ollamaUrl} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">Ollama <ExternalLink className="inline h-3 w-3" /></a><a href={model.lmStudioUrl} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">LM Studio <ExternalLink className="inline h-3 w-3" /></a></div></div><p className="mt-1 break-all font-mono text-[10px] text-text-muted">Ollama: ollama pull {model.ollamaModel}</p><p className="break-all font-mono text-[10px] text-text-muted">LM Studio: {model.lmStudioModel}</p></div>)}</div>
           </div>
           {localProviderError && <p role="alert" className="mt-2 text-xs font-medium text-accent">{localProviderError}</p>}
-          <p className="mt-2 text-[11px] text-text-muted">Hosted Susan AI cannot access your computer’s localhost. Use the desktop app or a secure LAN/HTTPS endpoint for local models.</p>
+          <p className="mt-2 text-[11px] text-text-muted">Hosted Susan AI cannot access your computer’s localhost. Use the desktop app or a secure LAN/HTTPS endpoint for local models. AirLLM setup guide: <code className="rounded bg-black/5 px-1">local/airllm-server/README.md</code>.</p>
         </div>
 
         <div className="mb-5 rounded-xl border border-border-main/60 bg-black/[0.02] p-3">

@@ -1,4 +1,4 @@
-export type LocalProviderKind = "ollama" | "lm-studio";
+export type LocalProviderKind = "ollama" | "lm-studio" | "airllm";
 
 export interface LocalProviderPreset {
   kind: LocalProviderKind;
@@ -37,6 +37,13 @@ export const LOCAL_PROVIDER_PRESETS: LocalProviderPreset[] = [
     baseUrl: "http://localhost:1234/v1",
     discoveryUrl: "http://localhost:1234/v1/models",
     description: "Use any model loaded in the LM Studio local server.",
+  },
+  {
+    kind: "airllm",
+    name: "AirLLM (Local)",
+    baseUrl: "http://localhost:8000/v1",
+    discoveryUrl: "http://localhost:8000/v1/models",
+    description: "Run Hugging Face models locally with AirLLM layer-wise memory optimization.",
   },
 ];
 
