@@ -7,24 +7,18 @@ const route = await readFile(new URL("../app/api/auth/google/route.ts", import.m
 const callback = await readFile(new URL("../app/api/auth/google/callback/route.ts", import.meta.url), "utf8");
 const sessionRoute = await readFile(new URL("../app/api/auth/session/route.ts", import.meta.url), "utf8");
 
-test("sign-in page keeps unavailable providers honest and accessible", () => {
-  assert.match(page, /GitHub sign-in unavailable/);
-  assert.match(page, /Apple sign-in unavailable/);
-  assert.match(page, /GitHub sign-in is coming soon/);
-  assert.match(page, /Apple sign-in is coming soon/);
-  assert.match(page, /disabled aria-disabled="true"/);
-  assert.match(page, /aria-live="polite"/);
-  assert.match(page, /Secure OAuth/);
-  assert.match(page, /googleConfigured !== true/);
-  assert.match(page, /Google sign-in unavailable/);
-  assert.match(page, /email sign-in \(coming soon\)/);
+test("sign-in page clearly defers accounts and preserves the local-first promise", () => {
+  assert.match(page, /Sign-in is planned for a future version/);
+  assert.match(page, /currently works without an account/);
+  assert.match(page, /Conversations and settings remain in this browser/);
+  assert.match(page, /Continue without sign-in/);
 });
 
-test("email sign-in validates input and clearly communicates its availability", () => {
-  assert.match(page, /inputMode="email"/);
-  assert.match(page, /required maxLength=\{254\}/);
-  assert.match(page, /Enter a valid email address/);
-  assert.match(page, /Email sign-in is coming soon/);
+test("deferred sign-in page explains future sync consent", () => {
+  assert.match(page, /accounts are introduced/);
+  assert.match(page, /clearly explain what data is synced/);
+  assert.doesNotMatch(page, /googleConfigured/);
+  assert.doesNotMatch(page, /inputMode="email"/);
 });
 
 test("unconfigured Google OAuth returns users to the branded sign-in page", () => {
@@ -32,8 +26,7 @@ test("unconfigured Google OAuth returns users to the branded sign-in page", () =
   assert.match(route, /GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET and AUTH_SECRET/);
 });
 
-test("sign-in handles failed session checks and OAuth upstream failures", () => {
-  assert.match(page, /if \(!response\.ok\) throw new Error\(`Session check failed/);
+test("retained OAuth routes still handle upstream failures safely", () => {
   assert.match(callback, /Could not reach Google to complete sign-in/);
   assert.match(callback, /Could not reach Google to load your profile/);
   assert.match(callback, /\.json\(\)\.catch\(\(\) => \(\{\}\)\)/);

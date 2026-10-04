@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Bot, Globe2, Menu, MessageSquare, PanelRightOpen, Settings, Sparkles } from "lucide-react";
+import { Bot, Globe2, LockKeyhole, Menu, MessageSquare, PanelRightOpen, Settings, Sparkles } from "lucide-react";
 import { ModelOption } from "@/components/sidebar/model-selector";
 import { AgentMode } from "@/lib/agent/mode";
 import { AgentAttachment, AgentTask, ExecutionEvent } from "@/lib/agent/types";
@@ -21,7 +21,6 @@ import { getChatErrorAction } from "@/lib/chat-error-actions.mjs";
 import { getAppSettings, type AiEffort } from "@/lib/app-settings";
 import type { WorkspaceProject } from "@/lib/workspace-storage";
 import { SearchWorkspace } from "@/components/search/search-workspace";
-import { AccountButton } from "@/components/auth/account-button";
 import { FALLBACK_STORAGE_KEY, getConnectedModelIds } from "./model-control-panel";
 import { canAttemptAutomaticFallback, MAX_AUTOMATIC_FALLBACK_ATTEMPTS, type RequestLifecycle } from "@/lib/request-lifecycle";
 
@@ -205,7 +204,10 @@ export function ChatArea({ mode, onModeChange, activeAgentTask, agentExecution, 
           </div>
           {mode === "agent" && <button type="button" aria-label="Open agent details" aria-expanded={isAgentPanelOpen} onClick={() => setIsAgentPanelOpen(true)} className="rounded-full border border-border-main/60 bg-surface p-2.5 text-text-muted shadow-sm hover:text-text-main xl:hidden"><PanelRightOpen className="h-4 w-4" /></button>}
           <button type="button" onClick={() => document.dispatchEvent(new CustomEvent("open-settings"))} aria-label="Open settings" className="rounded-full border border-border-main/60 bg-surface p-2.5 text-text-muted shadow-sm hover:text-text-main"><Settings className="h-4 w-4" /></button>
-          <AccountButton />
+          <div className="hidden items-center gap-1.5 rounded-full border border-border-main/60 bg-surface px-2.5 py-2 text-[11px] font-semibold text-text-muted sm:flex" title="No sign-in required. Conversations and settings stay in this browser.">
+            <LockKeyhole className="h-3.5 w-3.5 text-emerald-700" />
+            <span>Local workspace</span>
+          </div>
         </div>
       </header>
 

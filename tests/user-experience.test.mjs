@@ -15,14 +15,22 @@ test("API-key settings expose first-party test buttons and keep errors inline", 
   assert.match(input, /role=\{connectionTest\.state === "failed" \? "alert"/);
 });
 
-test("settings provides grouped workspace navigation, account state, and help links", async () => {
+test("settings provides grouped workspace navigation, privacy state, and help links", async () => {
   const settings = await read("components/settings/settings-modal.tsx");
-  assert.match(settings, /Account & Workspace/);
+  assert.match(settings, /Privacy & Workspace/);
   assert.match(settings, /Get Help/);
-  assert.match(settings, /Local workspace profile/);
+  assert.match(settings, /Local-first workspace/);
+  assert.match(settings, /Accounts and sync are planned for later/);
   assert.match(settings, /Provider setup guides/);
   assert.match(settings, /group: "Workspace"/);
   assert.match(settings, /group: "AI & Chat"/);
+});
+
+test("workspace header does not invite sign-in while the product is local-first", async () => {
+  const chat = await read("components/chat/chat-area.tsx");
+  assert.match(chat, /Local workspace/);
+  assert.match(chat, /No sign-in required/);
+  assert.doesNotMatch(chat, /<AccountButton \/>/);
 });
 
 test("chat exposes connected-model control and optional automatic fallback", async () => {
