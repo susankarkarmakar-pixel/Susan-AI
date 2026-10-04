@@ -94,12 +94,14 @@ export function ChatMessages({ messages, isStreaming, isPreparingResearch, onRet
           </div>
           <h1 className="text-center font-serif text-2xl font-semibold tracking-tight text-text-main sm:text-3xl md:text-4xl">Welcome to Susan AI</h1>
           <p className="mt-2 max-w-xl text-center text-sm leading-5 text-text-muted sm:mt-3 md:text-base">Your personal AI assistant for learning, creating, and exploring ideas.</p>
-          <div className="mt-6 grid w-full grid-cols-1 gap-2.5 sm:mt-10 sm:grid-cols-2 sm:gap-3 lg:grid-cols-4">
+          <div className="mt-6 grid w-full grid-cols-1 gap-2.5 sm:mt-10 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3">
             {[
               [PenLine, "Help me write", "Create content, emails, blogs and more", "Help me write a polished email about"],
               [Lightbulb, "Explain concepts", "Learn new topics in simple terms", "Explain this concept in simple terms:"],
               [Code2, "Help with coding", "Debug, review code and best practices", "Help me understand and improve this code:"],
               [FileText, "Summarize content", "Get key insights from articles, PDFs and more", "Summarize the following content:"],
+              [FileSearch, "Analyze a file", "Extract key findings from an attached document", "Analyze this attached file and list the key findings:"],
+              [BookOpenText, "Research a topic", "Find current information with useful sources", "Research this topic and cite reliable sources:"],
             ].map(([Icon, title, description, prompt]) => {
               const PromptIcon = Icon as typeof PenLine;
               return (

@@ -157,6 +157,14 @@ test("workspace empty states provide next steps and Plugins points users to key 
   assert.match(workspaces, /Start workflow/);
 });
 
+test("chat welcome state offers focused starter actions for writing, files, and research", async () => {
+  const messages = await read("components/chat/chat-messages.tsx");
+  for (const action of ["Help me write", "Explain concepts", "Help with coding", "Summarize content", "Analyze a file", "Research a topic"]) assert.match(messages, new RegExp(action));
+  assert.match(messages, /Analyze this attached file and list the key findings/);
+  assert.match(messages, /Research this topic and cite reliable sources/);
+  assert.match(messages, /lg:grid-cols-3/);
+});
+
 test("West Bengal schemes are hidden from users while source data is preserved for future work", async () => {
   const schemes = await read("lib/civic-schemes.ts");
   const sidebar = await read("components/sidebar/sidebar.tsx");
