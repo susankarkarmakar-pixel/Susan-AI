@@ -1,17 +1,20 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowLeft, ArrowRight, Bot, BookOpen, Workflow, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Bot, BookOpen, KeyRound, LockKeyhole, MessageSquare, Workflow, X } from "lucide-react";
 import type { WorkspaceSection } from "@/components/workspace/workspace-hub";
 
 const TOUR_SEEN_KEY = "susan_first_use_tour_seen_v1";
-const STEPS: Array<{ title: string; description: string; section: WorkspaceSection; icon: typeof Bot; action: string }> = [
+const STEPS: Array<{ title: string; description: string; section: WorkspaceSection; icon: typeof Bot; action: string; openSettings?: boolean }> = [
+  { title: "Private by design", description: "Susan AI works without an account. Conversations, preferences, and provider settings stay in this browser unless you send a request to a provider you choose.", section: "home", icon: LockKeyhole, action: "Start chatting" },
+  { title: "Connect a model", description: "Add your own API key in API Keys, choose a free-tier provider, or connect a local OpenAI-compatible model. Your credentials remain browser-local.", section: "home", icon: KeyRound, action: "Open API Keys", openSettings: true },
+  { title: "Start your first chat", description: "Use a starter card or write your own request. You can attach files, switch models, and retry safely when a provider is unavailable.", section: "chat", icon: MessageSquare, action: "Open Chat" },
   { title: "Agent Mode", description: "Describe a goal in everyday language. Susan breaks it into steps, shows what it plans to do, and asks before any step that needs your approval.", section: "agent", icon: Bot, action: "Open Agent Mode" },
   { title: "Workflows", description: "Pick a ready-made guided task. Try a calculation, or choose a document to analyze—no workflow runs an external action without your input.", section: "workflows", icon: Workflow, action: "Explore Workflows" },
   { title: "Knowledge Base", description: "Save notes and tags that help you organize project context. These notes stay in this browser, so export important material before clearing site data.", section: "knowledge", icon: BookOpen, action: "Open Knowledge Base" },
 ];
 
-export function FirstUseTour({ onNavigate }: { onNavigate: (section: WorkspaceSection) => void }) {
+export function FirstUseTour({ onNavigate, onOpenSettings }: { onNavigate: (section: WorkspaceSection) => void; onOpenSettings?: () => void }) {
   const [isOpen, setIsOpen] = useState(false);
   const [stepIndex, setStepIndex] = useState(0);
 
@@ -39,7 +42,8 @@ export function FirstUseTour({ onNavigate }: { onNavigate: (section: WorkspaceSe
     try { window.localStorage.setItem(TOUR_SEEN_KEY, "1"); } catch { /* Best-effort first-visit memory. */ }
   };
   const goToStepSection = () => {
-    onNavigate(step.section);
+    if (step.openSettings && onOpenSettings) onOpenSettings();
+    else onNavigate(step.section);
     dismiss();
   };
 

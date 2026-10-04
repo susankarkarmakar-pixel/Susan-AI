@@ -532,7 +532,7 @@ export default function Home() {
       )}
       <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} initialTab={settingsTab} />
       <AboutModal isOpen={isAboutOpen} onClose={() => setIsAboutOpen(false)} />
-      <FirstUseTour onNavigate={handleSidebarNavigate} />
+      <FirstUseTour onNavigate={handleSidebarNavigate} onOpenSettings={() => { setSettingsTab("keys"); setIsSettingsOpen(true); }} />
       <CommandPalette onNewChat={handleNewChat} onNavigate={handleSidebarNavigate} onOpenSettings={() => { setSettingsTab("chat"); setIsSettingsOpen(true); }} />
     </div>
   );

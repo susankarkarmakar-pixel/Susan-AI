@@ -71,11 +71,18 @@ test("chat exposes connected-model control and optional automatic fallback", asy
 test("first-use tour explains Agent, Workflows, and Knowledge Base and can be replayed", async () => {
   const tour = await read("components/onboarding/first-use-tour.tsx");
   const sidebar = await read("components/sidebar/sidebar.tsx");
+  const page = await read("app/page.tsx");
+  assert.match(tour, /Private by design/);
+  assert.match(tour, /Connect a model/);
+  assert.match(tour, /Start your first chat/);
+  assert.match(tour, /Your credentials remain browser-local/);
+  assert.match(tour, /openSettings/);
   assert.match(tour, /Agent Mode/);
   assert.match(tour, /Workflows/);
   assert.match(tour, /Knowledge Base/);
   assert.match(tour, /susan_first_use_tour_seen_v1/);
   assert.match(sidebar, /Quick tour/);
+  assert.match(page, /setSettingsTab\("keys"\)/);
 });
 
 test("streaming status is visible and accessible before and during token output", async () => {
