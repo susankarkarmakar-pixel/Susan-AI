@@ -58,6 +58,8 @@ curl http://127.0.0.1:8000/v1/chat/completions \
 - Local-only CORS defaults for Susan AI development ports
 - Clear 503 response when AirLLM/model/CUDA is unavailable
 
-## Not yet connected to the Susan AI UI
+## Connect to Susan AI
 
-The next phase will add this service as a first-class local provider in the Provider Capability Registry and Settings discovery flow. Do not expose this endpoint to the public internet or configure it as a cloud custom provider yet; the current Susan AI server-side SSRF policy intentionally rejects arbitrary private endpoints.
+The Susan AI UI can discover this service as **AirLLM (Local)** from **Settings → AI Providers → Local AI servers**. It reads `GET /v1/models` and adds each returned model as a keyless local provider. Select the detected model from the composer model selector.
+
+Use the Bengali user guide at [`docs/AIRLLM-GUIDE.md`](../../docs/AIRLLM-GUIDE.md) for the complete setup flow. Do not expose this endpoint to the public internet or configure it as a cloud custom provider; it is intended for the same computer or a controlled local environment.

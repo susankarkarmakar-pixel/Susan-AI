@@ -124,7 +124,9 @@ Susan AI can discover and use models already installed on the same computer:
 3. Click **Detect & add all models** for Ollama or LM Studio. Susan AI reads only the local model list and adds every new detected model as a separate no-key provider.
 4. Select any added model from the model selector and chat normally. Switch between Qwen, Llama, and other local models without changing the endpoint or entering another key.
 
-Local requests use OpenAI-compatible `/v1` endpoints and do not send an API key. Ollama models are discovered through `/api/tags`; LM Studio models are discovered through `/v1/models`. A hosted Susan AI deployment cannot reach a user's `localhost`, so local discovery and chat require the desktop/local browser environment, or a user-managed secure HTTPS/LAN endpoint. Do not expose an unauthenticated local model server to the public internet.
+Local requests use OpenAI-compatible `/v1` endpoints and do not send an API key. Ollama models are discovered through `/api/tags`; LM Studio and AirLLM models are discovered through `/v1/models`. A hosted Susan AI deployment cannot reach a user's `localhost`, so local discovery and chat require the desktop/local browser environment, or a user-managed secure HTTPS/LAN endpoint. Do not expose an unauthenticated local model server to the public internet.
+
+For AirLLM installation, model selection, privacy guidance, and troubleshooting, see the [Susan AI + AirLLM guide](docs/AIRLLM-GUIDE.md). AirLLM is available through **Settings → AI Providers → Local AI servers → AirLLM (Local)** at `http://localhost:8000/v1`.
 
 ### Qwen local downloads
 
