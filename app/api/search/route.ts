@@ -68,7 +68,7 @@ export async function POST(request: Request) {
         finalResults = reranked.results;
         if (diagnosticsEnabled) diagnostics = reranked.diagnostics;
       } catch (error) {
-        if (diagnosticsEnabled) diagnostics = { query, semanticEnabled: false, candidateCount: lexicalResults.length, lexicalOrder: lexicalResults.map((item) => item.id), semanticOrder: lexicalResults.map((item) => item.id), topKOverlap: 1, rerankedCount: 0, rankChanges: [], error: error instanceof Error ? error.message : "Semantic reranking failed." };
+        if (diagnosticsEnabled) diagnostics = { query, semanticEnabled: false, candidateCount: lexicalResults.length, lexicalOrder: lexicalResults.map((item) => item.id), semanticOrder: lexicalResults.map((item) => item.id), lexicalPreview: lexicalResults.slice(0, 5).map((item) => ({ id: item.id, title: item.title, score: 0 })), semanticPreview: [], topKOverlap: 1, rerankedCount: 0, rankChanges: [], error: error instanceof Error ? error.message : "Semantic reranking failed." };
       }
     }
     const response: SearchResponse = { query, provider, results: finalResults.slice(0, MAX_RESULTS), providersUsed, unavailable, ...(diagnostics ? { diagnostics } : {}) };

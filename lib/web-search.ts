@@ -23,6 +23,8 @@ export interface SearchResponse {
     candidateCount: number;
     lexicalOrder: string[];
     semanticOrder: string[];
+    lexicalPreview: Array<{ id: string; title: string; score: number }>;
+    semanticPreview: Array<{ id: string; title: string; score: number }>;
     topKOverlap: number;
     rerankedCount: number;
     rankChanges: Array<{ id: string; title: string; from: number; to: number; delta: number; lexicalScore: number; semanticScore?: number; combinedScore?: number }>;

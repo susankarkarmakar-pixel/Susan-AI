@@ -12,6 +12,8 @@ export interface SearchDiagnostics {
   candidateCount: number;
   lexicalOrder: string[];
   semanticOrder: string[];
+  lexicalPreview: Array<{ id: string; title: string; score: number }>;
+  semanticPreview: Array<{ id: string; title: string; score: number }>;
   topKOverlap: number;
   rerankedCount: number;
   rankChanges: Array<{ id: string; title: string; from: number; to: number; delta: number; lexicalScore: number; semanticScore: number | undefined; combinedScore: number | undefined }>;
@@ -40,6 +42,8 @@ export function buildSearchDiagnostics(query: string, lexical: RankedSearchResul
     candidateCount: lexical.length,
     lexicalOrder: lexical.map((item) => item.id),
     semanticOrder: finalResults.map((item) => item.id),
+    lexicalPreview: lexical.slice(0, topK).map((item) => ({ id: item.id, title: item.title, score: item.lexicalScore })),
+    semanticPreview: finalResults.slice(0, topK).map((item) => ({ id: item.id, title: item.title, score: item.combinedScore ?? item.lexicalScore })),
     topKOverlap: intersectionSize(lexicalTop, finalTop) / Math.max(1, Math.min(topK, lexical.length, finalResults.length)),
     rerankedCount: rankChanges.length,
     rankChanges: rankChanges.slice(0, 20),
