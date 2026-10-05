@@ -17,6 +17,17 @@ export interface SearchResponse {
   results: SearchResult[];
   providersUsed: Array<Exclude<SearchProvider, "all">>;
   unavailable: Array<{ provider: Exclude<SearchProvider, "all">; reason: string }>;
+  diagnostics?: {
+    query: string;
+    semanticEnabled: boolean;
+    candidateCount: number;
+    lexicalOrder: string[];
+    semanticOrder: string[];
+    topKOverlap: number;
+    rerankedCount: number;
+    rankChanges: Array<{ id: string; title: string; from: number; to: number; delta: number; lexicalScore: number; semanticScore?: number; combinedScore?: number }>;
+    error?: string;
+  };
 }
 
 export function dedupeSearchResults(results: SearchResult[]): SearchResult[] {

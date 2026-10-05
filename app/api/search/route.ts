@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { enforceRateLimit, getClientIdentifier, RateLimitUnavailableError, RATE_LIMIT_RETRY_AFTER_SECONDS } from "@/lib/rate-limit";
 import type { SearchSource } from "@/lib/search-types";
 import { dedupeSearchResults, SearchProvider, SearchResponse, SearchResult, sortSearchResults } from "@/lib/web-search";
+import { semanticRerank } from "@/lib/semantic-rerank";
 
 export const runtime = "nodejs";
 
@@ -25,7 +26,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json() as { query?: unknown; provider?: unknown; keys?: Record<string, string | undefined>; googleCx?: unknown };
+    const body = await request.json() as { query?: unknown; provider?: unknown; keys?: Record<string, string | undefined>; googleCx?: unknown; semanticSearch?: unknown; diagnostics?: unknown };
     const query = typeof body.query === "string" ? body.query.trim().slice(0, 300) : "";
     const provider = isProvider(body.provider) ? body.provider : "all";
     const keys = body.keys || {};
@@ -57,7 +58,20 @@ export async function POST(request: Request) {
       }
     }
 
-    const response: SearchResponse = { query, provider, results: sortSearchResults(dedupeSearchResults(results), query).slice(0, MAX_RESULTS), providersUsed, unavailable };
+    const lexicalResults = sortSearchResults(dedupeSearchResults(results), query).slice(0, MAX_RESULTS);
+    let finalResults = lexicalResults;
+    let diagnostics: SearchResponse["diagnostics"];
+    const diagnosticsEnabled = process.env.NODE_ENV !== "production" && process.env.SEARCH_DIAGNOSTICS === "true" && body.diagnostics === true;
+    if (body.semanticSearch === true && typeof keys.openai === "string" && keys.openai.trim()) {
+      try {
+        const reranked = await semanticRerank(query, lexicalResults.slice(0, 20), keys.openai.trim());
+        finalResults = reranked.results;
+        if (diagnosticsEnabled) diagnostics = reranked.diagnostics;
+      } catch (error) {
+        if (diagnosticsEnabled) diagnostics = { query, semanticEnabled: false, candidateCount: lexicalResults.length, lexicalOrder: lexicalResults.map((item) => item.id), semanticOrder: lexicalResults.map((item) => item.id), topKOverlap: 1, rerankedCount: 0, rankChanges: [], error: error instanceof Error ? error.message : "Semantic reranking failed." };
+      }
+    }
+    const response: SearchResponse = { query, provider, results: finalResults.slice(0, MAX_RESULTS), providersUsed, unavailable, ...(diagnostics ? { diagnostics } : {}) };
     return NextResponse.json(response, { headers: { "Cache-Control": "no-store" } });
   } catch {
     return NextResponse.json({ error: "Search request could not be processed." }, { status: 400 });
