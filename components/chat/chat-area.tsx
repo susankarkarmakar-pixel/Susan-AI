@@ -64,11 +64,12 @@ interface ChatAreaProps {
   estimatedTokens: string;
   conversationTitle: string | null;
   onPrompt: (prompt: string) => void;
+  onRelatedQuestion: (question: string) => void;
   effort: AiEffort;
   onEffortChange: (effort: AiEffort) => void;
 }
 
-export function ChatArea({ mode, onModeChange, activeAgentTask, agentExecution, executionEvents, onCreateAgentTask, onRunAgentTask, onApproveAgentStep, onRejectAgentStep, onRollbackAgentTask, onPauseAgentTask, onResumeAgentTask, onRetryAgentTask, onCancelAgentTask, onClearAgentTask, onOpenSidebar, selectedModel, onSelectModel, messages, input, onInputChange, onSend, isLoading, isPreparingResearch, requestLifecycle, stop, error, onRetry, onEditMessage, onDeleteMessage, projects, selectedProjectId, onSelectedProjectChange, isEditingMessage, onCancelEdit, estimatedTokens, conversationTitle, onPrompt, effort, onEffortChange }: ChatAreaProps) {
+export function ChatArea({ mode, onModeChange, activeAgentTask, agentExecution, executionEvents, onCreateAgentTask, onRunAgentTask, onApproveAgentStep, onRejectAgentStep, onRollbackAgentTask, onPauseAgentTask, onResumeAgentTask, onRetryAgentTask, onCancelAgentTask, onClearAgentTask, onOpenSidebar, selectedModel, onSelectModel, messages, input, onInputChange, onSend, isLoading, isPreparingResearch, requestLifecycle, stop, error, onRetry, onEditMessage, onDeleteMessage, projects, selectedProjectId, onSelectedProjectChange, isEditingMessage, onCancelEdit, estimatedTokens, conversationTitle, onPrompt, onRelatedQuestion, effort, onEffortChange }: ChatAreaProps) {
   const [toastError, setToastError] = useState<string | null>(null);
   const [missingKeyPrompt, setMissingKeyPrompt] = useState(false);
   const [fallbackNotice, setFallbackNotice] = useState<string | null>(null);
@@ -223,7 +224,7 @@ export function ChatArea({ mode, onModeChange, activeAgentTask, agentExecution, 
           {mode === "agent" && activeAgentTask && <AgentTaskComposer activeTask={activeAgentTask} execution={agentExecution} onCreateTask={onCreateAgentTask} onRunTask={onRunAgentTask} onRollbackTask={onRollbackAgentTask} onPauseTask={onPauseAgentTask} onResumeTask={onResumeAgentTask} onRetryTask={onRetryAgentTask} onCancelTask={onCancelAgentTask} onClearTask={onClearAgentTask} />}
           {mode === "agent" && activeAgentTask && <InlineAgentTaskCard task={activeAgentTask} execution={agentExecution} />}
           {mode === "agent" && activeAgentTask && <AgentOutputWorkspace task={activeAgentTask} execution={agentExecution} />}
-          <ChatMessages messages={messages} isStreaming={isLoading} isPreparingResearch={isPreparingResearch} onRetry={onRetry} onEditMessage={onEditMessage} onDeleteMessage={onDeleteMessage} onPrompt={onPrompt} hideWelcome={mode === "agent" && Boolean(activeAgentTask)} />
+          <ChatMessages messages={messages} isStreaming={isLoading} isPreparingResearch={isPreparingResearch} onRetry={onRetry} onEditMessage={onEditMessage} onDeleteMessage={onDeleteMessage} onPrompt={onPrompt} onRelatedQuestion={onRelatedQuestion} hideWelcome={mode === "agent" && Boolean(activeAgentTask)} />
           {mode === "agent" && <AgentBottomComposer onCreateTask={onCreateAgentTask} activeTask={Boolean(activeAgentTask)} />}
           {mode === "chat" && <div className="border-t border-border-main/50 bg-bg-main/95 pt-2 backdrop-blur-md"><MessageInput key={selectedModel} input={input} onInputChange={onInputChange} onSubmit={handleSubmit} isLoading={isLoading} stop={stop} canAttachFiles={canAttachFiles} attachmentSupportMessage={attachmentSupportMessage} selectedModel={selectedModel} onSelectModel={onSelectModel} projects={projects} selectedProjectId={selectedProjectId} onSelectedProjectChange={onSelectedProjectChange} isEditingMessage={isEditingMessage} onCancelEdit={onCancelEdit} estimatedTokens={estimatedTokens} effort={effort} onEffortChange={onEffortChange} voiceMode={voiceMode} onVoiceModeChange={(enabled) => { if (enabled) { const latest = [...messages].reverse().find((message) => message.role === "assistant"); spokenMessageRef.current = latest?.id || null; } else { window.speechSynthesis?.cancel(); audioRef.current?.pause(); } setVoiceMode(enabled); }} /></div>}
         </main>

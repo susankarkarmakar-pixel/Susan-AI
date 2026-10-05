@@ -22,10 +22,11 @@ interface ChatMessagesProps {
   onEditMessage?: (id: string, content: string) => void;
   onDeleteMessage?: (id: string) => void;
   onPrompt?: (prompt: string) => void;
+  onRelatedQuestion?: (question: string) => void;
   hideWelcome?: boolean;
 }
 
-export function ChatMessages({ messages, isStreaming, isPreparingResearch, onRetry, onEditMessage, onDeleteMessage, onPrompt, hideWelcome }: ChatMessagesProps) {
+export function ChatMessages({ messages, isStreaming, isPreparingResearch, onRetry, onEditMessage, onDeleteMessage, onPrompt, onRelatedQuestion, hideWelcome }: ChatMessagesProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const autoFollowRef = useRef(true);
   const unseenContentRef = useRef(false);
@@ -147,6 +148,7 @@ export function ChatMessages({ messages, isStreaming, isPreparingResearch, onRet
               onRetry={onRetry && msg.role === "assistant" && msg.id ? () => onRetry(msg.id) : undefined}
               onEdit={msg.role === "user" && index === lastUserMessageIndex && msg.id ? () => onEditMessage?.(msg.id!, msg.content) : undefined}
               onDelete={msg.role === "assistant" && msg.id ? () => onDeleteMessage?.(msg.id!) : undefined}
+              onRelatedQuestion={msg.role === "assistant" ? onRelatedQuestion : undefined}
             />
           );
         })}

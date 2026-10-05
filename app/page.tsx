@@ -193,9 +193,9 @@ export default function Home() {
     startNewConversation();
   };
 
-  const handleSend = async (event: React.FormEvent<HTMLFormElement>, files: File[], extractedText?: string) => {
+  const handleSend = async (event: React.FormEvent<HTMLFormElement>, files: File[], extractedText?: string, promptOverride?: string) => {
     event.preventDefault();
-    const text = input.trim();
+    const text = (promptOverride ?? input).trim();
     if (!text && files.length === 0) return;
     const requestText = [text, extractedText?.trim() ? `[Untrusted extracted attachment text]\n${extractedText.trim()}` : ""].filter(Boolean).join("\n\n");
     setRequestLifecycle(isResearchIntent(text) ? "preparing" : "sending");
@@ -227,6 +227,12 @@ export default function Home() {
     } else {
       await sendMessage({ text: requestText, files: fileParts });
     }
+  };
+
+  const handleRelatedQuestion = (question: string) => {
+    if (isLoading) return;
+    setInput(question);
+    void handleSend({ preventDefault: () => undefined } as React.FormEvent<HTMLFormElement>, [], undefined, question);
   };
 
   const handleEditMessage = (id: string, content: string) => {
@@ -526,6 +532,7 @@ export default function Home() {
           onRetry={handleRegenerate}
           conversationTitle={conversationTitle}
           onPrompt={setInput}
+          onRelatedQuestion={handleRelatedQuestion}
           effort={settings.effort}
           onEffortChange={(effort) => updateAppSettings({ effort })}
         />

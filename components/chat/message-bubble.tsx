@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowUpRight, Check, Copy, Link2, Pencil, RefreshCw, ThumbsDown, ThumbsUp, Trash2 } from "lucide-react";
+import { ArrowUpRight, Check, Copy, Link2, Pencil, RefreshCw, Sparkles, ThumbsDown, ThumbsUp, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { estimateTextTokens, formatEstimatedTokens } from "@/lib/usage-estimates.mjs";
 import { getResponseFeedback, setResponseFeedback, type ResponseVote } from "@/lib/response-feedback.mjs";
@@ -9,6 +9,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
 import { CodeBlock } from "./code-block";
+import { getRelatedQuestions } from "@/lib/related-questions";
 
 interface MessageBubbleProps {
   role: "user" | "assistant" | "system" | "data";
@@ -19,9 +20,10 @@ interface MessageBubbleProps {
   onRetry?: () => void;
   onEdit?: () => void;
   onDelete?: () => void;
+  onRelatedQuestion?: (question: string) => void;
 }
 
-export function MessageBubble({ id, role, content, isStreaming, isResearchResponse, onRetry, onEdit, onDelete }: MessageBubbleProps) {
+export function MessageBubble({ id, role, content, isStreaming, isResearchResponse, onRetry, onEdit, onDelete, onRelatedQuestion }: MessageBubbleProps) {
   const [copied, setCopied] = useState(false);
   const [vote, setVote] = useState<ResponseVote | null>(null);
   useEffect(() => {
@@ -169,6 +171,7 @@ export function MessageBubble({ id, role, content, isStreaming, isResearchRespon
                   {onDelete && <button type="button" onClick={onDelete} aria-label="Delete response" title="Delete response" className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-text-muted hover:bg-red-50 hover:text-red-700"><Trash2 className="h-3.5 w-3.5" /><span>Delete</span></button>}
                 </div>
               )}
+              {!isStreaming && content && onRelatedQuestion && <RelatedQuestions content={content} onSelect={onRelatedQuestion} />}
               {!isStreaming && content && id && <div className="mt-1 flex items-center gap-1" role="group" aria-label="Rate this response">
                 <button type="button" onClick={() => { setResponseFeedback(id, "up"); setVote(vote === "up" ? null : "up"); }} aria-label="Helpful response" aria-pressed={vote === "up"} title="Helpful" className={`rounded-md p-2 focus-visible:outline-2 focus-visible:outline-accent ${vote === "up" ? "bg-emerald-50 text-emerald-800" : "text-text-muted hover:bg-black/5 hover:text-text-main"}`}><ThumbsUp className="h-4 w-4" /></button>
                 <button type="button" onClick={() => { setResponseFeedback(id, "down"); setVote(vote === "down" ? null : "down"); }} aria-label="Unhelpful response" aria-pressed={vote === "down"} title="Not helpful" className={`rounded-md p-2 focus-visible:outline-2 focus-visible:outline-accent ${vote === "down" ? "bg-red-50 text-red-800" : "text-text-muted hover:bg-black/5 hover:text-text-main"}`}><ThumbsDown className="h-4 w-4" /></button>
@@ -180,6 +183,20 @@ export function MessageBubble({ id, role, content, isStreaming, isResearchRespon
         </div>
       </div>
     </div>
+  );
+}
+
+function RelatedQuestions({ content, onSelect }: { content: string; onSelect: (question: string) => void }) {
+  const questions = getRelatedQuestions(content);
+  if (questions.length === 0) return null;
+
+  return (
+    <section className="mt-4 border-t border-border-main/50 pt-3" aria-label="Related questions">
+      <div className="mb-2 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-accent"><Sparkles className="h-3.5 w-3.5" />Continue the conversation</div>
+      <div className="grid gap-2 sm:grid-cols-2">
+        {questions.map((question) => <button key={question} type="button" onClick={() => onSelect(question)} className="rounded-xl border border-border-main/70 bg-bg-main/70 px-3 py-2 text-left text-xs leading-5 text-text-main transition hover:border-accent/50 hover:bg-cream-highlight/50 focus-visible:outline-2 focus-visible:outline-accent" aria-label={`Ask related question: ${question}`}>{question}</button>)}
+      </div>
+    </section>
   );
 }
 
