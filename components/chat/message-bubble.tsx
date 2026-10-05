@@ -191,10 +191,10 @@ function RelatedQuestions({ content, onSelect }: { content: string; onSelect: (q
   if (questions.length === 0) return null;
 
   return (
-    <section className="mt-4 border-t border-border-main/50 pt-3" aria-label="Related questions">
-      <div className="mb-2 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-accent"><Sparkles className="h-3.5 w-3.5" />Continue the conversation</div>
+    <section className="mt-4 border-t border-border-main/50 pt-3 animate-in fade-in slide-in-from-bottom-2 duration-500 motion-reduce:animate-none" aria-label="Related questions">
+      <div className="mb-2 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-accent"><Sparkles className="h-3.5 w-3.5 animate-pulse motion-reduce:animate-none" />Continue the conversation</div>
       <div className="grid gap-2 sm:grid-cols-2">
-        {questions.map((question) => <button key={question} type="button" onClick={() => onSelect(question)} className="rounded-xl border border-border-main/70 bg-bg-main/70 px-3 py-2 text-left text-xs leading-5 text-text-main transition hover:border-accent/50 hover:bg-cream-highlight/50 focus-visible:outline-2 focus-visible:outline-accent" aria-label={`Ask related question: ${question}`}>{question}</button>)}
+        {questions.map((question, index) => <button key={question} type="button" onClick={() => onSelect(question)} style={{ animationDelay: `${index * 90}ms` }} className="animate-in fade-in slide-in-from-bottom-1 fill-mode-both rounded-xl border border-border-main/70 bg-bg-main/70 px-3 py-2 text-left text-xs leading-5 text-text-main transition duration-300 hover:-translate-y-0.5 hover:border-accent/50 hover:bg-cream-highlight/50 hover:shadow-sm focus-visible:outline-2 focus-visible:outline-accent motion-reduce:animate-none" aria-label={`Ask related question: ${question}`}>{question}</button>)}
       </div>
     </section>
   );
