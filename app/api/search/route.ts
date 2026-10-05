@@ -57,7 +57,7 @@ export async function POST(request: Request) {
       }
     }
 
-    const response: SearchResponse = { query, provider, results: sortSearchResults(dedupeSearchResults(results)).slice(0, MAX_RESULTS), providersUsed, unavailable };
+    const response: SearchResponse = { query, provider, results: sortSearchResults(dedupeSearchResults(results), query).slice(0, MAX_RESULTS), providersUsed, unavailable };
     return NextResponse.json(response, { headers: { "Cache-Control": "no-store" } });
   } catch {
     return NextResponse.json({ error: "Search request could not be processed." }, { status: 400 });
@@ -95,17 +95,17 @@ async function fetchJson(url: string, init?: RequestInit, tolerateEmpty = false)
 
 async function searchGoogle(query: string, apiKey: string, cx: string): Promise<SearchResult[]> {
   const data = await fetchJson(`https://www.googleapis.com/customsearch/v1?key=${encodeURIComponent(apiKey)}&cx=${encodeURIComponent(cx)}&q=${encodeURIComponent(query)}&num=10`) as { items?: Array<{ title?: string; link?: string; displayLink?: string; snippet?: string; pagemap?: { metatags?: Array<{ date?: string }> } }> };
-  return (data.items || []).filter((item) => item.title && item.link).map((item, index) => ({ id: `google-${index}-${item.link}`, title: item.title!, url: item.link!, displayUrl: item.displayLink, snippet: item.snippet || "", source: "google" as const, publishedAt: item.pagemap?.metatags?.[0]?.date }));
+  return (data.items || []).filter((item) => item.title && item.link).map((item, index) => ({ id: `google-${index}-${item.link}`, title: item.title!, url: item.link!, displayUrl: item.displayLink, snippet: item.snippet || "", source: "google" as const, publishedAt: item.pagemap?.metatags?.[0]?.date, providerRank: index }));
 }
 
 async function searchBing(query: string, apiKey: string): Promise<SearchResult[]> {
   const data = await fetchJson(`https://api.bing.microsoft.com/v7.0/search?q=${encodeURIComponent(query)}&count=10&responseFilter=Webpages`, { headers: { "Ocp-Apim-Subscription-Key": apiKey } }) as { webPages?: { value?: Array<{ name?: string; url?: string; displayUrl?: string; snippet?: string; dateLastCrawled?: string }> } };
-  return (data.webPages?.value || []).filter((item) => item.name && item.url).map((item, index) => ({ id: `bing-${index}-${item.url}`, title: item.name!, url: item.url!, displayUrl: item.displayUrl, snippet: item.snippet || "", source: "bing" as const, publishedAt: item.dateLastCrawled }));
+  return (data.webPages?.value || []).filter((item) => item.name && item.url).map((item, index) => ({ id: `bing-${index}-${item.url}`, title: item.name!, url: item.url!, displayUrl: item.displayUrl, snippet: item.snippet || "", source: "bing" as const, publishedAt: item.dateLastCrawled, providerRank: index }));
 }
 
 async function searchBrave(query: string, apiKey: string): Promise<SearchResult[]> {
   const data = await fetchJson(`https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(query)}&count=10`, { headers: { "X-Subscription-Token": apiKey, Accept: "application/json" } }) as { web?: { results?: Array<{ title?: string; url?: string; description?: string; age?: string }> } };
-  return (data.web?.results || []).filter((item) => item.title && item.url).map((item, index) => ({ id: `brave-${index}-${item.url}`, title: item.title!, url: item.url!, snippet: item.description || "", source: "brave" as const, publishedAt: item.age }));
+  return (data.web?.results || []).filter((item) => item.title && item.url).map((item, index) => ({ id: `brave-${index}-${item.url}`, title: item.title!, url: item.url!, snippet: item.description || "", source: "brave" as const, publishedAt: item.age, providerRank: index }));
 }
 
 async function searchDuckDuckGo(query: string): Promise<SearchResult[]> {
@@ -131,7 +131,7 @@ async function searchDuckDuckGo(query: string): Promise<SearchResult[]> {
     const section = html.slice(start, next === -1 ? html.length : next);
     const snippetMatch = section.match(/class=["']result-snippet["'][^>]*>([\s\S]*?)<\//i);
     const timestamp = section.match(/class=["']timestamp["'][^>]*>([^<]+)/i)?.[1]?.trim();
-    return [{ id: `duckduckgo-${index}-${url}`, title, url, snippet: snippetMatch ? cleanHtml(snippetMatch[1]) : "DuckDuckGo web result", source: "duckduckgo" as const, publishedAt: timestamp }];
+    return [{ id: `duckduckgo-${index}-${url}`, title, url, snippet: snippetMatch ? cleanHtml(snippetMatch[1]) : "DuckDuckGo web result", source: "duckduckgo" as const, publishedAt: timestamp, providerRank: index }];
   });
 }
 
@@ -145,7 +145,7 @@ async function searchDuckDuckGoViaReader(query: string): Promise<SearchResult[]>
     if (!url) return [];
     const lines = match[3].split("\n").map((line) => line.trim()).filter(Boolean);
     const snippet = lines.find((line) => !/^https?:\/\//i.test(line) && !/^[\w.-]+\.[a-z]{2,}(\/.*)?$/i.test(line)) || "DuckDuckGo web result";
-    return [{ id: `duckduckgo-reader-${index}-${url}`, title: cleanHtml(match[1]), url, snippet: cleanHtml(snippet), source: "duckduckgo" as const }];
+    return [{ id: `duckduckgo-reader-${index}-${url}`, title: cleanHtml(match[1]), url, snippet: cleanHtml(snippet), source: "duckduckgo" as const, providerRank: index }];
   });
 }
 

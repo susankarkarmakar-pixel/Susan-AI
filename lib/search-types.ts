@@ -9,6 +9,6 @@ export interface SearchSource {
 export interface ResearchContext {
   query: string;
   sources: SearchSource[];
-  provider: "brave" | "duckduckgo";
+  provider: string;
   searchedAt: string;
 }

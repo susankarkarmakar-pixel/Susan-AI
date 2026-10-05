@@ -204,12 +204,13 @@ export default function Home() {
     if (isResearchIntent(text)) {
       setIsPreparingResearch(true);
       try {
-        const response = await fetch(`/api/search?q=${encodeURIComponent(text)}`, { cache: "no-store" });
-        const payload = await response.json().catch(() => ({})) as { sources?: SearchSource[]; provider?: "brave" | "duckduckgo" };
-        activeResearchContext = { query: text, sources: Array.isArray(payload.sources) ? payload.sources : [], provider: payload.provider === "brave" ? "brave" : "duckduckgo", searchedAt: new Date().toISOString() };
+        const response = await fetch("/api/search", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query: text, provider: "all", keys: { googleSearch: keys.googleSearch, bingSearch: keys.bingSearch, braveSearch: keys.braveSearch }, googleCx: keys.googleSearchCx }), cache: "no-store" });
+        const payload = await response.json().catch(() => ({})) as { sources?: SearchSource[]; results?: SearchSource[]; providersUsed?: string[]; provider?: string };
+        const sources = Array.isArray(payload.results) ? payload.results.slice(0, 8) : Array.isArray(payload.sources) ? payload.sources : [];
+        activeResearchContext = { query: text, sources, provider: Array.isArray(payload.providersUsed) ? payload.providersUsed.join(", ") : payload.provider || "none", searchedAt: new Date().toISOString() };
         setResearchContext(activeResearchContext);
       } catch {
-        activeResearchContext = { query: text, sources: [], provider: "duckduckgo", searchedAt: new Date().toISOString() };
+        activeResearchContext = { query: text, sources: [], provider: "none", searchedAt: new Date().toISOString() };
         setResearchContext(activeResearchContext);
       } finally {
         setIsPreparingResearch(false);
