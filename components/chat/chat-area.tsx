@@ -17,7 +17,7 @@ import { MessageInput } from "./message-input";
 import { getApiKey } from "@/lib/key-storage";
 import { getCustomProviders } from "@/lib/custom-providers";
 import { getProviderDescriptor, getProviderDisplayName, supportsProviderCapability } from "@/lib/provider-capabilities";
-import { getChatErrorAction } from "@/lib/chat-error-actions.mjs";
+import { getChatErrorAction, shouldAutomaticallyFallback } from "@/lib/chat-error-actions.mjs";
 import { getAppSettings, type AiEffort } from "@/lib/app-settings";
 import type { WorkspaceProject } from "@/lib/workspace-storage";
 import { SearchWorkspace } from "@/components/search/search-workspace";
@@ -99,9 +99,10 @@ export function ChatArea({ mode, onModeChange, activeAgentTask, agentExecution, 
     const errorKey = `${selectedModel}:${errorMessage}`;
     if (handledErrorRef.current === errorKey || fallbackAttemptRef.current.errorKey === errorKey) return;
     handledErrorRef.current = errorKey;
-    if (window.localStorage.getItem(FALLBACK_STORAGE_KEY) === "false") return;
+    if (window.localStorage.getItem(FALLBACK_STORAGE_KEY) !== "true") return;
     const action = getChatErrorAction(errorMessage);
     if (action !== "models" && action !== "retry") return;
+    if (!shouldAutomaticallyFallback(errorMessage)) return;
     if (!canAttemptAutomaticFallback(fallbackAttemptRef.current.attempts)) {
       window.setTimeout(() => setFallbackNotice(`Automatic fallback stopped after ${MAX_AUTOMATIC_FALLBACK_ATTEMPTS} attempts. Review the error and choose a model manually.`), 0);
       return;
@@ -112,7 +113,7 @@ export function ChatArea({ mode, onModeChange, activeAgentTask, agentExecution, 
     const nextProvider = getCustomProviders().find((provider) => provider.id === nextModel);
     const nextName = getProviderDisplayName(nextModel, nextProvider);
     onSelectModel(nextModel);
-    window.setTimeout(() => setFallbackNotice(`${modelName} could not complete that request. Susan AI switched to ${nextName} and is retrying it.`), 0);
+    window.setTimeout(() => setFallbackNotice(`${modelName} could not complete that request. Retrying the same conversation with ${nextName} may send its context to that provider and may use its quota or billing.`), 0);
     const retryTimer = window.setTimeout(() => onRetry(), 0);
     const timer = window.setTimeout(() => setFallbackNotice(null), 7000);
     return () => { window.clearTimeout(retryTimer); window.clearTimeout(timer); };

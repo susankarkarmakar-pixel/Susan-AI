@@ -4,12 +4,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { BookOpenText, Check, Code2, FileSearch, FileText, Lightbulb, Link2, PenLine, Sparkles } from "lucide-react";
 import { MessageBubble } from "./message-bubble";
 import { isResearchIntent } from "@/lib/research-intent.mjs";
+import type { ChatMessageMetadata } from "@/lib/usage-types";
 
 // Use the built-in Message type or structure it explicitly to avoid ai sdk version issues
 export type Message = {
   id?: string;
   role: "user" | "assistant" | "system" | "data";
   content: string;
+  metadata?: ChatMessageMetadata;
 };
 
 const NEAR_BOTTOM_THRESHOLD = 96;
@@ -140,6 +142,7 @@ export function ChatMessages({ messages, isStreaming, isPreparingResearch, onRet
               id={msg.id}
               role={msg.role as "user" | "assistant"}
               content={msg.content}
+              usage={msg.metadata?.usage}
               isResearchResponse={isResearchResponse}
               isStreaming={isStreaming && index === messages.length - 1 && msg.role === "assistant"}
               onRetry={onRetry && msg.role === "assistant" && msg.id ? () => onRetry(msg.id) : undefined}

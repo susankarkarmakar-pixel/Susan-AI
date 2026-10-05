@@ -31,12 +31,12 @@ export function ModelControlPanel({ selectedModel, onSelectModel, effort, onEffo
   const [open, setOpen] = useState(false);
   const [keys, setKeys] = useState<ApiKeys>({});
   const [customProviders, setCustomProviders] = useState<CustomProvider[]>([]);
-  const [autoFallback, setAutoFallback] = useState(true);
+  const [autoFallback, setAutoFallback] = useState(false);
 
   const refresh = () => {
     setKeys(getKeys());
     setCustomProviders(getCustomProviders());
-    setAutoFallback(window.localStorage.getItem(FALLBACK_STORAGE_KEY) !== "false");
+    setAutoFallback(window.localStorage.getItem(FALLBACK_STORAGE_KEY) === "true");
   };
 
   useEffect(() => {
@@ -99,7 +99,7 @@ export function ModelControlPanel({ selectedModel, onSelectModel, effort, onEffo
         </div>
         <div className="mt-3 grid gap-3 border-t border-border-main/50 pt-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
           <label className="block"><span className="mb-1 block text-[10px] font-bold uppercase tracking-[0.12em] text-text-muted">Response effort</span><select value={effort} onChange={(event) => onEffortChange(event.target.value as AiEffort)} className="min-h-9 w-full rounded-lg border border-border-main/70 bg-bg-main px-2 text-xs font-semibold text-text-main outline-none focus-visible:ring-2 focus-visible:ring-accent/30"><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option><option value="max">Max</option></select></label>
-          <div className="flex items-start gap-2"><button type="button" role="switch" aria-checked={autoFallback} onClick={toggleFallback} className={`relative mt-5 h-5 w-9 shrink-0 rounded-full transition-colors ${autoFallback ? "bg-accent" : "bg-black/20"}`}><span className={`absolute top-1 h-3 w-3 rounded-full bg-white transition-transform ${autoFallback ? "translate-x-5" : "translate-x-1"}`} /></button><span><span className="block text-xs font-semibold text-text-main">Automatic fallback</span><span className="block text-[10px] leading-4 text-text-muted">Try the next connected model if this one fails.</span></span></div>
+          <div className="flex items-start gap-2"><button type="button" role="switch" aria-label="Automatic fallback" aria-checked={autoFallback} onClick={toggleFallback} className={`relative mt-5 h-5 w-9 shrink-0 rounded-full transition-colors ${autoFallback ? "bg-accent" : "bg-black/20"}`}><span className={`absolute top-1 h-3 w-3 rounded-full bg-white transition-transform ${autoFallback ? "translate-x-5" : "translate-x-1"}`} /></button><span><span className="block text-xs font-semibold text-text-main">Automatic fallback</span><span className="block text-[10px] leading-4 text-text-muted">Off by default. If enabled, transient/model errors may resend the same conversation to another connected provider and use its quota or billing. Rate-limit, quota, billing, and key errors never switch automatically.</span></span></div>
         </div>
       </div>
     </>}

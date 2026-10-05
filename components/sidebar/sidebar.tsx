@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, Settings, X, Info, Home, MessageSquare, Bot, Globe2, FolderKanban, Workflow, Network, Puzzle, FileText, History, PanelLeftClose, PanelLeftOpen, CircleHelp, Search, ChevronDown } from "lucide-react";
+import { Plus, Settings, X, Info, Home, MessageSquare, Bot, Globe2, FolderKanban, Workflow, Network, Puzzle, FileText, History, PanelLeftClose, PanelLeftOpen, CircleHelp, Search, ChevronDown, ChartNoAxesCombined } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PwaInstallButton } from "@/components/pwa/pwa-install-button";
 import { getConversations, ConversationSummary } from "@/lib/chat-storage";
@@ -9,7 +9,7 @@ import { getConversations, ConversationSummary } from "@/lib/chat-storage";
 interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
-  activeSection: "home" | "chat" | "agent" | "projects" | "workflows" | "knowledge" | "plugins" | "documents" | "history";
+  activeSection: "home" | "chat" | "agent" | "projects" | "workflows" | "knowledge" | "plugins" | "documents" | "history" | "usage";
   onNavigate: (section: SidebarProps["activeSection"]) => void;
   onSelectPinnedAgent: (agent: "General Assistant" | "Data & Report Agent" | "Study & Research Agent") => void;
   onOpenSettings: () => void;
@@ -75,13 +75,14 @@ export function Sidebar({ isOpen, onClose, activeSection, onNavigate, onSelectPi
 
           <div className="border-t border-white/10 pt-4">
             <div className="mb-2 flex items-center justify-between"><SidebarSectionLabel collapsed={collapsed}>Library</SidebarSectionLabel>{!collapsed && <button type="button" onClick={() => setMoreOpen((open) => !open)} aria-expanded={moreOpen} aria-label={moreOpen ? "Collapse library" : "Expand library"} className="rounded-md p-1 text-white/40 transition-colors hover:bg-white/10 hover:text-white"><ChevronDown className={cn("h-3.5 w-3.5 transition-transform", !moreOpen && "-rotate-90")} /></button>}</div>
-            {(moreOpen || collapsed || ["workflows", "knowledge", "plugins"].includes(activeSection)) && <nav className="space-y-0.5" aria-label="Library navigation">
+            {(moreOpen || collapsed || ["workflows", "knowledge", "plugins", "usage"].includes(activeSection)) && <nav className="space-y-0.5" aria-label="Library navigation">
               <SidebarNavItem icon={<History className="h-4 w-4" />} label="History" active={activeSection === "history"} collapsed={collapsed} onClick={() => navigate("history")} />
               <SidebarNavItem icon={<FolderKanban className="h-4 w-4" />} label="Projects" active={activeSection === "projects"} collapsed={collapsed} onClick={() => navigate("projects")} />
               <SidebarNavItem icon={<FileText className="h-4 w-4" />} label="Documents" active={activeSection === "documents"} collapsed={collapsed} onClick={() => navigate("documents")} />
               <SidebarNavItem icon={<Network className="h-4 w-4" />} label="Knowledge Base" active={activeSection === "knowledge"} collapsed={collapsed} onClick={() => navigate("knowledge")} />
               <SidebarNavItem icon={<Workflow className="h-4 w-4" />} label="Workflows" active={activeSection === "workflows"} collapsed={collapsed} onClick={() => navigate("workflows")} />
               <SidebarNavItem icon={<Puzzle className="h-4 w-4" />} label="Plugins" active={activeSection === "plugins"} collapsed={collapsed} onClick={() => navigate("plugins")} />
+              <SidebarNavItem icon={<ChartNoAxesCombined className="h-4 w-4" />} label="Usage & activity" active={activeSection === "usage"} collapsed={collapsed} onClick={() => navigate("usage")} />
             </nav>}
           </div>
         </div>

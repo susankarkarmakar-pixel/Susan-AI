@@ -9,6 +9,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
 import { CodeBlock } from "./code-block";
+import type { ProviderUsageMetadata } from "@/lib/usage-types";
 
 interface MessageBubbleProps {
   role: "user" | "assistant" | "system" | "data";
@@ -19,9 +20,10 @@ interface MessageBubbleProps {
   onRetry?: () => void;
   onEdit?: () => void;
   onDelete?: () => void;
+  usage?: ProviderUsageMetadata;
 }
 
-export function MessageBubble({ id, role, content, isStreaming, isResearchResponse, onRetry, onEdit, onDelete }: MessageBubbleProps) {
+export function MessageBubble({ id, role, content, isStreaming, isResearchResponse, onRetry, onEdit, onDelete, usage }: MessageBubbleProps) {
   const [copied, setCopied] = useState(false);
   const [vote, setVote] = useState<ResponseVote | null>(null);
   useEffect(() => {
@@ -174,7 +176,9 @@ export function MessageBubble({ id, role, content, isStreaming, isResearchRespon
                 <button type="button" onClick={() => { setResponseFeedback(id, "down"); setVote(vote === "down" ? null : "down"); }} aria-label="Unhelpful response" aria-pressed={vote === "down"} title="Not helpful" className={`rounded-md p-2 focus-visible:outline-2 focus-visible:outline-accent ${vote === "down" ? "bg-red-50 text-red-800" : "text-text-muted hover:bg-black/5 hover:text-text-main"}`}><ThumbsDown className="h-4 w-4" /></button>
                 <span className="ml-1 text-[10px] text-text-muted">Saved on this device</span>
               </div>}
-              {!isStreaming && content && <p className="mt-2 text-[10px] text-text-muted">Estimated response usage: {formatEstimatedTokens(estimateTextTokens(content))} text tokens · rough estimate, not provider billing data</p>}
+              {!isStreaming && content && (usage && (usage.inputTokens !== null || usage.outputTokens !== null || usage.totalTokens !== null)
+                ? <p className="mt-2 text-[10px] text-text-muted">Provider-reported usage: {usage.inputTokens === null ? "—" : new Intl.NumberFormat().format(usage.inputTokens)} input · {usage.outputTokens === null ? "—" : new Intl.NumberFormat().format(usage.outputTokens)} output tokens · billing may vary</p>
+                : <p className="mt-2 text-[10px] text-text-muted">Estimated response usage: {formatEstimatedTokens(estimateTextTokens(content))} text tokens · rough estimate, not provider billing data</p>)}
             </div>
           )}
         </div>

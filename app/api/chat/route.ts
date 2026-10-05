@@ -69,8 +69,27 @@ export async function POST(req: Request) {
       model = getModelConfig(provider as ModelProvider, normalizedApiKey, { cloudflareAccountId: typeof cloudflareAccountId === "string" ? cloudflareAccountId : undefined });
     }
     const result = streamText({ model, messages: systemInstructions.length ? [...systemInstructions.map((content) => ({ role: "system" as const, content })), ...modelMessages] : modelMessages, ...generation });
-    const anyResult = result as unknown as { toUIMessageStreamResponse?: (options?: { onError?: (error: unknown) => string }) => Response; toDataStreamResponse?: () => Response; toTextStreamResponse?: () => Response };
-    const response = anyResult.toUIMessageStreamResponse?.({ onError: (error) => providerStreamError(error, requestedProvider) }) ?? anyResult.toDataStreamResponse?.() ?? anyResult.toTextStreamResponse?.() ?? jsonError("Streaming is unavailable.", 500);
+    const modelId = typeof model === "string" ? model : "modelId" in model && typeof model.modelId === "string" ? model.modelId : requestedProvider;
+    const anyResult = result as unknown as { toUIMessageStreamResponse?: (options?: { onError?: (error: unknown) => string; messageMetadata?: (options: { part: { type: string; totalUsage?: { inputTokens?: number; outputTokens?: number; totalTokens?: number } } }) => unknown }) => Response; toDataStreamResponse?: () => Response; toTextStreamResponse?: () => Response };
+    const response = anyResult.toUIMessageStreamResponse?.({
+      onError: (error) => providerStreamError(error, requestedProvider),
+      messageMetadata: ({ part }) => {
+        if (part.type !== "finish" || !part.totalUsage) return undefined;
+        const usage = part.totalUsage;
+        const inputTokens = safeTokenCount(usage.inputTokens);
+        const outputTokens = safeTokenCount(usage.outputTokens);
+        const totalTokens = safeTokenCount(usage.totalTokens);
+        if (inputTokens === null && outputTokens === null && totalTokens === null) return undefined;
+        return { usage: {
+          source: "provider",
+          provider: requestedProvider,
+          model: modelId,
+          inputTokens,
+          outputTokens,
+          totalTokens,
+        } };
+      },
+    }) ?? anyResult.toDataStreamResponse?.() ?? anyResult.toTextStreamResponse?.() ?? jsonError("Streaming is unavailable.", 500);
     response.headers.set("Cache-Control", "no-store");
     return response;
   } catch (error: unknown) {
@@ -124,6 +143,10 @@ function jsonError(error: string, status: number, headers: Record<string, string
 
 function providerStreamError(error: unknown, provider: string): string {
   return mapProviderError(error, provider).message;
+}
+
+function safeTokenCount(value: unknown): number | null {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 && value <= 1_000_000_000 ? value : null;
 }
 
 function buildResearchInstructions(value: unknown): string {

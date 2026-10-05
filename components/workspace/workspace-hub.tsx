@@ -11,11 +11,12 @@ import { clearPluginActivities, isPluginToolEnabled, listPluginActivities, Plugi
 import { deleteKnowledgeNote, deleteProject, getKnowledgeNotes, getProjects, KnowledgeNote, saveKnowledgeNote, saveProject, setProjectStatus, WorkspaceProject } from "@/lib/workspace-storage";
 import { deleteWorkspaceDocument, getWorkspaceDocumentBlob, isSupportedWorkspaceDocument, listWorkspaceDocuments, saveWorkspaceDocument, WorkspaceDocument } from "@/lib/document-storage";
 import { AgentAttachment } from "@/lib/agent/types";
+import { UsageWorkspace } from "@/components/workspace/usage-workspace";
 
-export type WorkspaceSection = "home" | "chat" | "agent" | "projects" | "workflows" | "knowledge" | "plugins" | "documents" | "history";
+export type WorkspaceSection = "home" | "chat" | "agent" | "projects" | "workflows" | "knowledge" | "plugins" | "documents" | "history" | "usage";
 
 interface WorkspaceHubProps {
-  section: Extract<WorkspaceSection, "projects" | "workflows" | "knowledge" | "plugins" | "documents">;
+  section: Extract<WorkspaceSection, "projects" | "workflows" | "knowledge" | "plugins" | "documents" | "usage">;
   onStartAgent: (goal: string, attachments?: AgentAttachment[]) => void;
   onOpenChat: (prompt: string) => void;
   onOpenSettings: () => void;
@@ -42,6 +43,7 @@ export function WorkspaceHub({ section, onStartAgent, onOpenChat, onOpenSettings
     case "knowledge": return <KnowledgeWorkspace refreshVersion={refreshVersion} onOpenSidebar={onOpenSidebar} />;
     case "plugins": return <PluginsWorkspace onOpenSettings={onOpenSettings} onStartAgent={onStartAgent} onOpenSection={onOpenSection} onOpenSidebar={onOpenSidebar} />;
     case "documents": return <DocumentsWorkspace onStartAgent={onStartAgent} onOpenSidebar={onOpenSidebar} />;
+    case "usage": return <UsageWorkspace onOpenSidebar={onOpenSidebar} />;
   }
 }
 

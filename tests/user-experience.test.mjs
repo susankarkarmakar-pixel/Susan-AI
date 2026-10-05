@@ -31,11 +31,14 @@ test("chat exposes connected-model control and optional automatic fallback", asy
   const panel = await read("components/chat/model-control-panel.tsx");
   assert.match(composer, /ModelControlPanel/);
   assert.match(chat, /fallbackNotice/);
-  assert.match(chat, /is retrying it/);
+  assert.match(chat, /may send its context to that provider/);
   assert.match(chat, /setTimeout\(\(\) => onRetry\(\), 0\)/);
+  assert.match(chat, /shouldAutomaticallyFallback/);
   assert.match(chat, /fallbackAttemptRef/);
   assert.match(chat, /MAX_AUTOMATIC_FALLBACK_ATTEMPTS/);
   assert.match(panel, /Automatic fallback/);
+  assert.match(panel, /Off by default/);
+  assert.match(panel, /Rate-limit, quota, billing, and key errors never switch automatically/);
   assert.match(panel, /Cloud & BYOK models/);
   assert.match(panel, /Local models/);
   assert.match(panel, /model-fallback-updated/);
@@ -128,6 +131,31 @@ test("workspace empty states provide next steps and Plugins points users to key 
   assert.match(workspaces, /Upload a small document/);
   assert.match(workspaces, /Add or manage API keys/);
   assert.match(workspaces, /Start workflow/);
+});
+
+test("usage workspace is reachable and distinguishes provider usage from local cost estimates", async () => {
+  const page = await read("app/page.tsx");
+  const sidebar = await read("components/sidebar/sidebar.tsx");
+  const workspace = await read("components/workspace/usage-workspace.tsx");
+  const backup = await read("lib/usage-backup.mjs");
+  const route = await read("app/api/chat/route.ts");
+  assert.match(page, /activeSection === "usage"/);
+  assert.match(sidebar, /label="Usage & activity"/);
+  assert.match(workspace, /Provider-reported tokens/);
+  assert.match(workspace, /Optional model pricing/);
+  assert.match(workspace, /prompts, responses, files, API keys, and raw error messages are never recorded/);
+  assert.match(workspace, /Cost figures are estimates/);
+  assert.match(workspace, /Monthly budget warning/);
+  assert.match(workspace, /does not block, throttle, or route provider requests/);
+  assert.match(workspace, /Provider did not report token counts/);
+  assert.match(workspace, /Encrypted local backup/);
+  assert.match(workspace, /Prompts, responses, API keys, and provider credentials are not included/);
+  assert.match(backup, /AES-GCM/);
+  assert.match(backup, /PBKDF2-SHA-256/);
+  assert.match(page, /Estimated monthly budget exceeded/);
+  assert.match(page, /No provider requests were blocked or changed/);
+  assert.match(route, /messageMetadata/);
+  assert.match(route, /totalUsage/);
 });
 
 test("West Bengal schemes are hidden from users while source data is preserved for future work", async () => {

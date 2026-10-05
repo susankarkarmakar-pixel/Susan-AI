@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useChat } from "@ai-sdk/react";
-import { DefaultChatTransport } from "ai";
+import { DefaultChatTransport, type UIMessage } from "ai";
 import { Sidebar } from "@/components/sidebar/sidebar";
 import { ChatArea } from "@/components/chat/chat-area";
 import { ModelOption } from "@/components/sidebar/model-selector";
@@ -33,8 +33,14 @@ import { getProjects, WorkspaceProject } from "@/lib/workspace-storage";
 import { isResearchIntent } from "@/lib/research-intent.mjs";
 import type { ResearchContext, SearchSource } from "@/lib/search-types";
 import { getRequestLifecycle, type RequestLifecycle } from "@/lib/request-lifecycle";
+import { createUsageEventId, recordUsageEvent, USAGE_BUDGET_ALERT_EVENT } from "@/lib/usage-tracking.mjs";
+import type { ChatMessageMetadata } from "@/lib/usage-types";
+import { MODELS_METADATA, type ModelProvider } from "@/lib/ai-providers";
 
 const SIDEBAR_COLLAPSED_STORAGE_KEY = "susan_sidebar_collapsed_v1";
+type SusanUIMessage = UIMessage<ChatMessageMetadata>;
+type PendingUsageAttempt = { id: string; provider: string; model: string; startedAt: number; conversationId: string | null };
+type UsageBudgetAlert = { level: "near" | "over"; spentUsd: number; monthlyLimitUsd: number; percent: number };
 
 export default function Home() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -51,6 +57,7 @@ export default function Home() {
   const [isPreparingResearch, setIsPreparingResearch] = useState(false);
   const [requestLifecycle, setRequestLifecycle] = useState<RequestLifecycle>("idle");
   const [researchContext, setResearchContext] = useState<ResearchContext | null>(null);
+  const [usageBudgetAlert, setUsageBudgetAlert] = useState<UsageBudgetAlert | null>(null);
   const { keys, keyVersion } = useApiKeys();
   const { settings } = useAppSettings();
   const { mode, setMode } = useAgentMode();
@@ -61,6 +68,8 @@ export default function Home() {
   const agentRunRef = useRef(0);
   const { records, ready: tasksReady, save: saveAgentTask, remove: removeAgentTask } = useAgentTasks();
   const restoredTask = useRef(false);
+  const pendingUsageAttempt = useRef<PendingUsageAttempt | null>(null);
+  const currentConversationIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -75,6 +84,17 @@ export default function Home() {
     const timer = window.setTimeout(refreshProjects, 0);
     window.addEventListener("workspace-data-updated", refreshProjects);
     return () => { window.clearTimeout(timer); window.removeEventListener("workspace-data-updated", refreshProjects); };
+  }, []);
+
+  useEffect(() => {
+    const handleBudgetAlert = (event: Event) => {
+      const detail = (event as CustomEvent<UsageBudgetAlert>).detail;
+      if ((detail?.level === "near" || detail?.level === "over") && Number.isFinite(detail.spentUsd) && Number.isFinite(detail.monthlyLimitUsd) && Number.isFinite(detail.percent)) {
+        setUsageBudgetAlert({ level: detail.level, spentUsd: detail.spentUsd, monthlyLimitUsd: detail.monthlyLimitUsd, percent: detail.percent });
+      }
+    };
+    window.addEventListener(USAGE_BUDGET_ALERT_EVENT, handleBudgetAlert);
+    return () => window.removeEventListener(USAGE_BUDGET_ALERT_EVENT, handleBudgetAlert);
   }, []);
 
   useEffect(() => {
@@ -115,11 +135,43 @@ export default function Home() {
     },
   }), [selectedModel, keyVersion, keys, researchContext, settings.language, settings.streaming, settings.temperature, settings.maxOutputTokens, settings.effort, settings.assistantProfile, settings.systemPrompts, settings.projectInstructions, selectedProjectId]);
 
-  const useChatProps = useChat({ transport });
+  const startUsageAttempt = () => {
+    const custom = getCustomProviders().find((item) => item.id === selectedModel);
+    const model = custom?.model || (selectedModel in MODELS_METADATA ? MODELS_METADATA[selectedModel as ModelProvider].model : selectedModel);
+    pendingUsageAttempt.current = { id: createUsageEventId(), provider: selectedModel, model, startedAt: Date.now(), conversationId: currentConversationIdRef.current };
+  };
+  const finishUsageAttempt = (status: "completed" | "failed" | "cancelled", message?: SusanUIMessage) => {
+    const attempt = pendingUsageAttempt.current;
+    if (!attempt) return;
+    const usage = message?.metadata?.usage;
+    recordUsageEvent({
+      id: attempt.id,
+      timestamp: Date.now(),
+      provider: usage?.provider || attempt.provider,
+      model: usage?.model || attempt.model,
+      status,
+      source: usage?.source === "provider" ? "provider" : "unavailable",
+      inputTokens: usage?.inputTokens ?? null,
+      outputTokens: usage?.outputTokens ?? null,
+      totalTokens: usage?.totalTokens ?? null,
+      durationMs: Math.max(0, Date.now() - attempt.startedAt),
+      conversationId: attempt.conversationId,
+    });
+    pendingUsageAttempt.current = null;
+  };
+
+  const useChatProps = useChat<SusanUIMessage>({
+    transport,
+    onFinish: ({ message, isAbort, isDisconnect, isError }) => finishUsageAttempt(isError || isDisconnect ? "failed" : isAbort ? "cancelled" : "completed", message),
+    onError: () => finishUsageAttempt("failed"),
+  });
   const messages = useMemo(() => useChatProps.messages || [], [useChatProps.messages]);
   const setMessages = useChatProps.setMessages;
   const sendMessage = useChatProps.sendMessage;
-  const handleRegenerate = (messageId?: string) => messageId ? useChatProps.regenerate({ messageId }) : useChatProps.regenerate();
+  const handleRegenerate = (messageId?: string) => {
+    startUsageAttempt();
+    return messageId ? useChatProps.regenerate({ messageId }) : useChatProps.regenerate();
+  };
   const isLoading = useChatProps.status === "submitted" || useChatProps.status === "streaming";
   const stop = useChatProps.stop;
   const error = useChatProps.error;
@@ -137,6 +189,7 @@ export default function Home() {
     id: message.id,
     role: message.role === "system" ? "system" : message.role === "assistant" ? "assistant" : "user",
     content: getMessageText(message),
+    metadata: message.metadata,
   }));
 
   const { currentConversationId, conversationTitle, startNewConversation, loadSavedConversation } = useConversation({
@@ -147,6 +200,9 @@ export default function Home() {
     setMessages,
     setInput,
   });
+  useEffect(() => {
+    currentConversationIdRef.current = currentConversationId;
+  }, [currentConversationId]);
 
   useEffect(() => {
     const handleOpenSettings = () => { setSettingsTab("keys"); setIsSettingsOpen(true); };
@@ -214,6 +270,7 @@ export default function Home() {
     setInput("");
     const messageId = editingMessageId;
     setEditingMessageId(null);
+    startUsageAttempt();
     if (messageId) {
       const originalFiles = (messages.find((message) => message.id === messageId)?.parts?.filter((part) => part.type === "file") || []) as typeof fileParts;
       await sendMessage({ text: requestText, files: [...originalFiles, ...fileParts], messageId });
@@ -458,9 +515,13 @@ export default function Home() {
         onOpenAbout={() => { setIsSettingsOpen(false); setIsAboutOpen(true); }}
         onOpenTour={() => document.dispatchEvent(new Event("open-first-use-tour"))}
       />
+      {usageBudgetAlert && <div role="status" aria-live="polite" className="fixed bottom-24 right-4 z-[70] flex max-w-[calc(100vw-2rem)] items-start gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-950 shadow-xl sm:max-w-md">
+        <div className="min-w-0 flex-1"><p className="text-sm font-semibold">{usageBudgetAlert.level === "over" ? "Estimated monthly budget exceeded" : "Monthly budget warning"}</p><p className="mt-1 text-xs leading-5">Estimated usage is {Math.round(usageBudgetAlert.percent)}% ({formatUsageUsd(usageBudgetAlert.spentUsd)} of {formatUsageUsd(usageBudgetAlert.monthlyLimitUsd)}). No provider requests were blocked or changed.</p></div>
+        <button type="button" onClick={() => setUsageBudgetAlert(null)} aria-label="Dismiss budget warning" className="rounded-md p-1 text-amber-900 hover:bg-amber-100">×</button>
+      </div>}
       {activeSection === "history" ? (
         <HistoryWorkspace onLoadConversation={handleLoadConversation} onDeleteConversation={handleDeleteConversation} onClearConversations={handleClearConversationHistory} onOpenSidebar={() => setIsSidebarOpen(true)} />
-      ) : activeSection === "projects" || activeSection === "workflows" || activeSection === "knowledge" || activeSection === "plugins" || activeSection === "documents" ? (
+      ) : activeSection === "projects" || activeSection === "workflows" || activeSection === "knowledge" || activeSection === "plugins" || activeSection === "documents" || activeSection === "usage" ? (
         <WorkspaceHub
           section={activeSection}
           onStartAgent={handleStartWorkspaceAgent}
@@ -529,6 +590,10 @@ export default function Home() {
       <CommandPalette onNewChat={handleNewChat} onNavigate={handleSidebarNavigate} onOpenSettings={() => { setSettingsTab("chat"); setIsSettingsOpen(true); }} />
     </div>
   );
+}
+
+function formatUsageUsd(amount: number): string {
+  return new Intl.NumberFormat(undefined, { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 6 }).format(amount);
 }
 
 function getMessageText(message: { parts?: Array<{ type?: string; text?: string; filename?: string }>; content?: unknown }): string {

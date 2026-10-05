@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { ModelOption } from "@/components/sidebar/model-selector";
 import { Message } from "@/components/chat/chat-messages";
+import type { ChatMessageMetadata } from "@/lib/usage-types";
 import {
   Conversation,
   generateConversationId,
@@ -14,6 +15,7 @@ import {
 type RestorableMessage = {
   id: string;
   role: "user" | "assistant";
+  metadata?: ChatMessageMetadata;
   parts: [{ type: "text"; text: string }];
 };
 
@@ -74,5 +76,6 @@ function toRestorableMessages(conversation: Conversation): RestorableMessage[] {
       id: message.id || generateConversationId(),
       role: message.role,
       parts: [{ type: "text", text: message.content }],
+      metadata: message.metadata,
     }));
 }
