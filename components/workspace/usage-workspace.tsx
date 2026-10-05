@@ -4,9 +4,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Activity, DollarSign, Menu, Plus, Trash2 } from "lucide-react";
 import { MODELS_METADATA, PROVIDERS, type ModelProvider } from "@/lib/ai-providers";
 import { getCustomProviders } from "@/lib/custom-providers";
-import { clearUsageEvents, deleteUsagePricingRate, getCurrentMonthUsageSummary, getUsageBudgetSettings, listUsageEvents, listUsagePricingRates, saveUsageBudgetSettings, saveUsagePricingRate, summarizeUsage, USAGE_ACTIVITY_UPDATED_EVENT } from "@/lib/usage-tracking.mjs";
+import { clearUsageEvents, deleteUsagePricingRate, getCurrentMonthUsageSummary, getUsageBudgetSettings, listUsageEvents, listUsagePricingRates, saveUsageBudgetSettings, saveUsagePricingRate, summarizeUsage, summarizeUsageByProject, USAGE_ACTIVITY_UPDATED_EVENT } from "@/lib/usage-tracking.mjs";
 import { createEncryptedUsageBackup, restoreEncryptedUsageBackup } from "@/lib/usage-backup.mjs";
 import type { UsageActivityItem, UsagePricingRate } from "@/lib/usage-types";
+import { getProjects, type WorkspaceProject } from "@/lib/workspace-storage";
 
 interface UsageWorkspaceProps {
   onOpenSidebar: () => void;
@@ -18,6 +19,8 @@ export function UsageWorkspace({ onOpenSidebar }: UsageWorkspaceProps) {
   const [events, setEvents] = useState<UsageActivityItem[]>([]);
   const [rates, setRates] = useState<UsagePricingRate[]>([]);
   const [customProviders, setCustomProviders] = useState<ReturnType<typeof getCustomProviders>>([]);
+  const [projects, setProjects] = useState<WorkspaceProject[]>([]);
+  const [projectFilter, setProjectFilter] = useState("all");
   const [provider, setProvider] = useState<ModelProvider | string>("openai");
   const [model, setModel] = useState(MODELS_METADATA.openai.model);
   const [inputPrice, setInputPrice] = useState("");
@@ -46,12 +49,15 @@ export function UsageWorkspace({ onOpenSidebar }: UsageWorkspaceProps) {
       setBudgetThreshold(budget.alertPercent);
       setBudgetSaved(budget.monthlyLimitUsd !== null);
       setCustomProviders(getCustomProviders());
+      setProjects(getProjects());
     };
     const timer = window.setTimeout(refresh, 0);
     window.addEventListener(USAGE_ACTIVITY_UPDATED_EVENT, refresh);
+    window.addEventListener("workspace-data-updated", refresh);
     return () => {
       window.clearTimeout(timer);
       window.removeEventListener(USAGE_ACTIVITY_UPDATED_EVENT, refresh);
+      window.removeEventListener("workspace-data-updated", refresh);
     };
   }, []);
 
@@ -60,6 +66,15 @@ export function UsageWorkspace({ onOpenSidebar }: UsageWorkspaceProps) {
     ...customProviders.map((item) => ({ id: item.id, label: item.name, model: item.model })),
   ], [customProviders]);
   const summary = useMemo(() => summarizeUsage(events, rates), [events, rates]);
+  const projectSummaries = useMemo(() => summarizeUsageByProject(events, rates), [events, rates]);
+  const projectNames = useMemo(() => new Map(projects.map((project) => [project.id, project.name])), [projects]);
+  const historicalProjectIds = useMemo(() => [...new Set(projectSummaries.flatMap((item) => item.projectId && !projectNames.has(item.projectId) ? [item.projectId] : []))], [projectSummaries, projectNames]);
+  const filteredEvents = useMemo(() => {
+    if (projectFilter === "all") return events;
+    if (projectFilter === "none") return events.filter((event) => !event.projectId);
+    const projectId = projectFilter.startsWith("id:") ? projectFilter.slice(3) : "";
+    return events.filter((event) => event.projectId === projectId);
+  }, [events, projectFilter]);
   const budgetSettings = useMemo(() => ({ monthlyLimitUsd: budgetLimit.trim() ? Number(budgetLimit) : null, alertPercent: budgetThreshold }), [budgetLimit, budgetThreshold]);
   const monthSummary = useMemo(() => getCurrentMonthUsageSummary(events, rates, budgetSettings), [events, rates, budgetSettings]);
 
@@ -218,6 +233,12 @@ export function UsageWorkspace({ onOpenSidebar }: UsageWorkspaceProps) {
           <SummaryCard label="Estimated cost" value={summary.pricedEvents ? formatUsd(summary.costEstimateUsd) : "—"} detail={`${summary.pricedEvents} requests with your saved rates`} />
         </section>
 
+        <section aria-labelledby="usage-project-title" className="mb-7 rounded-2xl border border-border-main/70 bg-surface p-4 shadow-sm sm:p-5">
+          <div className="mb-3"><h2 id="usage-project-title" className="font-semibold text-text-main">Usage by project</h2><p className="mt-1 text-xs leading-5 text-text-muted">Project titles are looked up from this browser’s workspace list; usage records store only the project ID, not the title or project content.</p></div>
+          {projectSummaries.length === 0 ? <p className="rounded-xl border border-dashed border-border-main/80 bg-bg-main px-4 py-6 text-center text-xs text-text-muted">Project totals will appear after requests are made with a workspace project selected.</p> : <ol className="grid gap-2 md:grid-cols-2">{projectSummaries.slice(0, 8).map((item) => <li key={item.projectId || "unassigned"} className="flex min-w-0 items-center justify-between gap-3 rounded-xl border border-border-main/60 bg-bg-main p-3"><div className="min-w-0"><p className="truncate text-xs font-semibold text-text-main">{getProjectLabel(item.projectId, projectNames)}</p><p className="mt-1 text-[10px] text-text-muted">{formatCount(item.completed)} completed · {formatCount(item.totalTokens)} tokens</p></div><p className="shrink-0 text-xs font-semibold text-text-main">{item.pricedEvents ? `${formatUsd(item.costEstimateUsd)} est.` : "—"}</p></li>)}</ol>}
+          {projectSummaries.length > 8 && <p className="mt-2 text-[10px] text-text-muted">Showing the 8 highest estimated-cost groups; unpriced groups follow token volume.</p>}
+        </section>
+
         <section aria-labelledby="usage-budget-title" className="mb-7 rounded-2xl border border-border-main/70 bg-surface p-4 shadow-sm sm:p-5">
           <div className="mb-2 flex items-center gap-2"><DollarSign className="h-4 w-4 text-accent" /><h2 id="usage-budget-title" className="font-semibold text-text-main">Monthly budget warning</h2></div>
           <p className="mb-4 text-xs leading-5 text-text-muted">Set a local USD estimate limit and warning threshold. This does not block, throttle, or route provider requests, and it only counts completed requests with provider-reported tokens and a saved rate.</p>
@@ -270,8 +291,8 @@ export function UsageWorkspace({ onOpenSidebar }: UsageWorkspaceProps) {
         </section>
 
         <section aria-labelledby="usage-activity-title" className="rounded-2xl border border-border-main/70 bg-surface p-4 shadow-sm sm:p-5">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><div><h2 id="usage-activity-title" className="font-semibold text-text-main">Recent activity</h2><p className="mt-1 text-xs text-text-muted">Up to 500 recent request records on this device.</p></div><button type="button" onClick={clearActivity} disabled={!events.length} className="rounded-lg border border-border-main/70 px-3 py-2 text-xs font-semibold text-text-main hover:bg-bg-main disabled:opacity-40">Clear activity</button></div>
-          {events.length === 0 ? <div className="rounded-xl border border-dashed border-border-main/80 bg-bg-main px-4 py-9 text-center"><Activity className="mx-auto h-6 w-6 text-accent" /><p className="mt-2 text-sm font-medium text-text-main">No usage activity yet</p><p className="mt-1 text-xs text-text-muted">Completed and failed chat requests will appear here.</p></div> : <ol className="space-y-2">{events.map((event) => <ActivityRow key={event.id} event={event} rates={rates} />)}</ol>}
+          <div className="mb-4 flex flex-wrap items-end justify-between gap-3"><div><h2 id="usage-activity-title" className="font-semibold text-text-main">Recent activity</h2><p className="mt-1 text-xs text-text-muted">Up to 500 recent request records on this device.</p></div><div className="flex flex-wrap items-end gap-2"><label className="text-[10px] font-medium text-text-main">Filter by project<select aria-label="Filter activity by project" value={projectFilter} onChange={(event) => setProjectFilter(event.target.value)} className={`${inputClass} mt-1 min-w-40 py-1.5 text-xs`}><option value="all">All projects</option><option value="none">No project</option>{projects.map((project) => <option key={project.id} value={`id:${project.id}`}>{project.name}</option>)}{historicalProjectIds.map((id) => <option key={id} value={`id:${id}`}>{getProjectLabel(id, projectNames)}</option>)}</select></label><button type="button" onClick={clearActivity} disabled={!events.length} className="rounded-lg border border-border-main/70 px-3 py-2 text-xs font-semibold text-text-main hover:bg-bg-main disabled:opacity-40">Clear activity</button></div></div>
+          {events.length === 0 ? <div className="rounded-xl border border-dashed border-border-main/80 bg-bg-main px-4 py-9 text-center"><Activity className="mx-auto h-6 w-6 text-accent" /><p className="mt-2 text-sm font-medium text-text-main">No usage activity yet</p><p className="mt-1 text-xs text-text-muted">Completed and failed chat requests will appear here.</p></div> : filteredEvents.length === 0 ? <p className="rounded-xl border border-dashed border-border-main/80 bg-bg-main px-4 py-7 text-center text-xs text-text-muted">No requests match this project filter.</p> : <ol className="space-y-2">{filteredEvents.map((event) => <ActivityRow key={event.id} event={event} rates={rates} projectLabel={getProjectLabel(event.projectId || null, projectNames)} />)}</ol>}
         </section>
       </main>
       <footer className="border-t border-border-main/50 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] text-center text-[10px] text-text-muted">Saved on this device · Clear browser/site data may remove this activity</footer>
@@ -283,14 +304,19 @@ function SummaryCard({ label, value, detail }: { label: string; value: string; d
   return <article className="min-w-0 rounded-xl border border-border-main/70 bg-surface p-3 shadow-sm sm:p-4"><p className="text-[10px] font-semibold uppercase tracking-wide text-text-muted">{label}</p><p className="mt-2 truncate text-xl font-semibold text-text-main sm:text-2xl">{value}</p><p className="mt-1 truncate text-[10px] text-text-muted">{detail}</p></article>;
 }
 
-function ActivityRow({ event, rates }: { event: UsageActivityItem; rates: UsagePricingRate[] }) {
+function ActivityRow({ event, rates, projectLabel }: { event: UsageActivityItem; rates: UsagePricingRate[]; projectLabel: string }) {
   const cost = estimateCostForDisplay(event, rates);
   const statusColor = event.status === "completed" ? "text-emerald-700 bg-emerald-50" : event.status === "failed" ? "text-red-700 bg-red-50" : "text-text-muted bg-bg-main";
   return <li className="flex flex-col gap-2 rounded-xl border border-border-main/60 bg-bg-main p-3 sm:flex-row sm:items-center sm:gap-3">
     <span className={`w-fit rounded-full px-2 py-1 text-[10px] font-semibold capitalize ${statusColor}`}>{event.status}</span>
-    <div className="min-w-0 flex-1"><p className="truncate text-xs font-semibold text-text-main">{event.provider} · {event.model}</p><p className="mt-0.5 text-[10px] text-text-muted">{new Date(event.timestamp).toLocaleString()} · {event.durationMs === null ? "Duration unavailable" : `${(event.durationMs / 1000).toFixed(1)}s`}</p></div>
+    <div className="min-w-0 flex-1"><p className="truncate text-xs font-semibold text-text-main">{event.provider} · {event.model}</p><p className="mt-0.5 text-[10px] text-text-muted">{projectLabel} · {new Date(event.timestamp).toLocaleString()} · {event.durationMs === null ? "Duration unavailable" : `${(event.durationMs / 1000).toFixed(1)}s`}</p></div>
     <div className="text-left text-[10px] text-text-muted sm:text-right">{event.source === "provider" ? <><p>{formatCount(event.inputTokens || 0)} input · {formatCount(event.outputTokens || 0)} output tokens</p><p className="mt-0.5">Provider-reported{cost === null ? " · no pricing set" : ` · ${formatUsd(cost)} estimated`}</p></> : <p>Provider did not report token counts</p>}</div>
   </li>;
+}
+
+function getProjectLabel(projectId: string | null, names: Map<string, string>) {
+  if (!projectId) return "No project";
+  return names.get(projectId) || `Deleted project · ${projectId.slice(0, 8)}`;
 }
 
 function estimateCostForDisplay(event: UsageActivityItem, rates: UsagePricingRate[]) {

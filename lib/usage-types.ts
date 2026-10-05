@@ -27,6 +27,8 @@ export interface UsageActivityItem {
   totalTokens: number | null;
   durationMs: number | null;
   conversationId: string | null;
+  /** Local workspace project identifier only; project titles are resolved from the browser's project list. */
+  projectId?: string | null;
 }
 
 export interface UsagePricingRate {

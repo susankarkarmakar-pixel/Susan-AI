@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { clearUsageEvents, createUsageEventId, deleteUsagePricingRate, estimateUsageCost, listUsageEvents, listUsagePricingRates, recordUsageEvent, saveUsagePricingRate, summarizeUsage } from "../lib/usage-tracking.mjs";
+import { clearUsageEvents, createUsageEventId, deleteUsagePricingRate, estimateUsageCost, listUsageEvents, listUsagePricingRates, recordUsageEvent, saveUsagePricingRate, summarizeUsage, summarizeUsageByProject } from "../lib/usage-tracking.mjs";
 
 function memoryStorage() {
   const values = new Map();
@@ -14,7 +14,7 @@ function memoryStorage() {
 const event = (overrides = {}) => ({
   id: "request-1", timestamp: 1_800_000_000_000, provider: "openai", model: "gpt-4o-mini",
   status: "completed", source: "provider", inputTokens: 1_000, outputTokens: 500, totalTokens: 1_500,
-  durationMs: 250, conversationId: "conversation_1", ...overrides,
+  durationMs: 250, conversationId: "conversation_1", projectId: null, ...overrides,
 });
 
 test("usage activity stores only bounded metadata and strips prompt, response, and API-key fields", () => {
@@ -54,6 +54,23 @@ test("usage summary separates reported tokens, priced requests, failures, and ca
     event({ id: "cancelled", status: "cancelled", source: "unavailable", inputTokens: null, outputTokens: null, totalTokens: null }),
   ], rates);
   assert.deepEqual(summary, { completed: 1, failed: 1, cancelled: 1, inputTokens: 1_000, outputTokens: 500, totalTokens: 1_500, reportedEvents: 1, costEstimateUsd: 0.00045, pricedEvents: 1 });
+});
+
+test("project attribution stores only a validated ID and groups activity and estimates by project", () => {
+  const storage = memoryStorage();
+  const rates = [{ provider: "openai", model: "gpt-4o-mini", inputUsdPerMillion: 0.15, outputUsdPerMillion: 0.6, updatedAt: 1 }];
+  recordUsageEvent(event({ projectId: "project_alpha", prompt: "do not store project content" }), storage);
+  recordUsageEvent(event({ id: "project-b", projectId: "project_beta", inputTokens: 2000, outputTokens: 1000, totalTokens: 3000 }), storage);
+  recordUsageEvent(event({ id: "no-project", projectId: "INVALID ID" }), storage);
+  const events = listUsageEvents(storage);
+  assert.equal(events.find((item) => item.id === "request-1").projectId, "project_alpha");
+  assert.equal(events.find((item) => item.id === "no-project").projectId, null);
+  assert.doesNotMatch(storage.getItem("susan_usage_activity_v1"), /do not store project content|project title/i);
+  const groups = summarizeUsageByProject(events, rates);
+  assert.deepEqual(groups.map((item) => item.projectId), ["project_beta", null, "project_alpha"]);
+  assert.equal(groups.find((item) => item.projectId === "project_beta").totalTokens, 3000);
+  assert.equal(groups.find((item) => item.projectId === "project_beta").pricedEvents, 1);
+  assert.equal(groups.find((item) => item.projectId === null).completed, 1);
 });
 
 test("invalid usage events and unsafe rates are rejected; clear only removes activity", () => {

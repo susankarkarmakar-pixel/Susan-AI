@@ -16,7 +16,7 @@ function memoryStorage(initial = {}) {
 const baseEvent = (overrides = {}) => ({
   id: "backup-request-1", timestamp: 1_800_000_000_000, provider: "openai", model: "gpt-4o-mini",
   status: "completed", source: "provider", inputTokens: 1000, outputTokens: 500, totalTokens: 1500,
-  durationMs: 450, conversationId: "conversation_1", ...overrides,
+  durationMs: 450, conversationId: "conversation_1", projectId: "project_alpha", ...overrides,
 });
 
 const rates = { provider: "openai", model: "gpt-4o-mini", inputUsdPerMillion: 0, outputUsdPerMillion: 0.6, updatedAt: 1_800_000_000_001 };
@@ -27,10 +27,22 @@ test("export is AES-GCM encrypted and restore imports only sanitized usage, rate
   recordUsageEvent({ ...baseEvent(), prompt: "private prompt", apiKey: "top-secret-api-key" }, source);
   saveUsagePricingRate(rates, source);
   saveUsageBudgetSettings({ monthlyLimitUsd: 20, alertPercent: 75 }, source);
+  const storedEvents = JSON.parse(source.getItem("susan_usage_activity_v1"));
+  storedEvents[0].prompt = "legacy prompt field";
+  storedEvents[0].response = "legacy response field";
+  storedEvents[0].apiKey = "legacy-storage-secret";
+  source.setItem("susan_usage_activity_v1", JSON.stringify(storedEvents));
+  const storedRates = JSON.parse(source.getItem("susan_usage_pricing_v1"));
+  storedRates[0].credential = "legacy-rate-secret";
+  source.setItem("susan_usage_pricing_v1", JSON.stringify(storedRates));
 
   const backup = await createEncryptedUsageBackup(passphrase, source, webcrypto);
   assert.equal(backup.includes("top-secret-api-key"), false);
+  assert.equal(backup.includes("legacy-storage-secret"), false);
+  assert.equal(backup.includes("legacy-rate-secret"), false);
   assert.equal(backup.includes("private prompt"), false);
+  assert.equal(backup.includes("legacy response field"), false);
+  assert.equal(backup.includes("apiKey"), false);
   assert.equal(backup.includes("gpt-4o-mini"), false);
   const envelope = JSON.parse(backup);
   assert.deepEqual(Object.keys(envelope).sort(), ["cipher", "ciphertext", "format", "iterations", "iv", "kdf", "salt", "version"]);

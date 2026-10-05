@@ -149,6 +149,10 @@ test("usage workspace is reachable and distinguishes provider usage from local c
   assert.match(workspace, /does not block, throttle, or route provider requests/);
   assert.match(workspace, /Provider did not report token counts/);
   assert.match(workspace, /Encrypted local backup/);
+  assert.match(workspace, /Usage by project/);
+  assert.match(workspace, /store only the project ID, not the title or project content/);
+  assert.match(workspace, /Filter by project/);
+  assert.match(page, /projectId: attempt\.projectId/);
   assert.match(workspace, /Prompts, responses, API keys, and provider credentials are not included/);
   assert.match(backup, /AES-GCM/);
   assert.match(backup, /PBKDF2-SHA-256/);

@@ -21,6 +21,18 @@ export function summarizeUsage(events?: UsageActivityItem[], rates?: UsagePricin
   costEstimateUsd: number;
   pricedEvents: number;
 };
+export function summarizeUsageByProject(events?: UsageActivityItem[], rates?: UsagePricingRate[]): Array<{
+  projectId: string | null;
+  completed: number;
+  failed: number;
+  cancelled: number;
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  reportedEvents: number;
+  costEstimateUsd: number;
+  pricedEvents: number;
+}>;
 
 export const USAGE_BUDGET_ALERT_EVENT: string;
 export function getUsageBudgetSettings(storage?: Storage | null): { monthlyLimitUsd: number | null; alertPercent: number };

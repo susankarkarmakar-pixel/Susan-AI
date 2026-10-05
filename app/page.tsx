@@ -39,7 +39,7 @@ import { MODELS_METADATA, type ModelProvider } from "@/lib/ai-providers";
 
 const SIDEBAR_COLLAPSED_STORAGE_KEY = "susan_sidebar_collapsed_v1";
 type SusanUIMessage = UIMessage<ChatMessageMetadata>;
-type PendingUsageAttempt = { id: string; provider: string; model: string; startedAt: number; conversationId: string | null };
+type PendingUsageAttempt = { id: string; provider: string; model: string; startedAt: number; conversationId: string | null; projectId: string | null };
 type UsageBudgetAlert = { level: "near" | "over"; spentUsd: number; monthlyLimitUsd: number; percent: number };
 
 export default function Home() {
@@ -138,7 +138,7 @@ export default function Home() {
   const startUsageAttempt = () => {
     const custom = getCustomProviders().find((item) => item.id === selectedModel);
     const model = custom?.model || (selectedModel in MODELS_METADATA ? MODELS_METADATA[selectedModel as ModelProvider].model : selectedModel);
-    pendingUsageAttempt.current = { id: createUsageEventId(), provider: selectedModel, model, startedAt: Date.now(), conversationId: currentConversationIdRef.current };
+    pendingUsageAttempt.current = { id: createUsageEventId(), provider: selectedModel, model, startedAt: Date.now(), conversationId: currentConversationIdRef.current, projectId: selectedProjectId || null };
   };
   const finishUsageAttempt = (status: "completed" | "failed" | "cancelled", message?: SusanUIMessage) => {
     const attempt = pendingUsageAttempt.current;
@@ -156,6 +156,7 @@ export default function Home() {
       totalTokens: usage?.totalTokens ?? null,
       durationMs: Math.max(0, Date.now() - attempt.startedAt),
       conversationId: attempt.conversationId,
+      projectId: attempt.projectId,
     });
     pendingUsageAttempt.current = null;
   };

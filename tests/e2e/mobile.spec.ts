@@ -116,4 +116,35 @@ test.describe("mobile Susan AI smoke flow", () => {
     await expect(page.getByText(/Restored \d+ usage records and \d+ pricing rates/)).toBeVisible();
     await expectNoHorizontalOverflow(page);
   });
+
+  test("shows local project usage totals and filters recent activity by project", async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem("susan_workspace_projects_v1", JSON.stringify([
+        { id: "project_alpha", name: "Alpha research", description: "private project detail", status: "active", createdAt: 100, updatedAt: 200 },
+        { id: "project_beta", name: "Beta planning", description: "private project detail", status: "active", createdAt: 110, updatedAt: 190 },
+      ]));
+      localStorage.setItem("susan_usage_activity_v1", JSON.stringify([
+        { id: "usage_alpha", timestamp: 1_800_000_000_000, provider: "openai", model: "gpt-4o-mini", status: "completed", source: "provider", inputTokens: 1000, outputTokens: 500, totalTokens: 1500, durationMs: 250, conversationId: "conversation_alpha", projectId: "project_alpha" },
+        { id: "usage_beta", timestamp: 1_800_000_000_100, provider: "openai", model: "gpt-4o-mini", status: "completed", source: "provider", inputTokens: 2000, outputTokens: 1000, totalTokens: 3000, durationMs: 300, conversationId: "conversation_beta", projectId: "project_beta" },
+        { id: "usage_none", timestamp: 1_800_000_000_200, provider: "openai", model: "gpt-4o-mini", status: "completed", source: "provider", inputTokens: 500, outputTokens: 250, totalTokens: 750, durationMs: 200, conversationId: "conversation_none", projectId: null },
+      ]));
+      localStorage.setItem("susan_usage_pricing_v1", JSON.stringify([{ provider: "openai", model: "gpt-4o-mini", inputUsdPerMillion: 0.15, outputUsdPerMillion: 0.6, updatedAt: 1_800_000_000_000 }]));
+    });
+    await page.goto("/");
+    await page.getByRole("button", { name: "Open sidebar" }).tap();
+    const sidebar = page.getByRole("complementary", { name: "Main sidebar" });
+    await sidebar.getByRole("button", { name: "Expand library" }).tap();
+    await sidebar.getByRole("button", { name: "Usage & activity" }).tap();
+    await expect(page.getByRole("heading", { name: "Usage by project" })).toBeVisible();
+    await expect(page.getByText("Alpha research", { exact: true }).first()).toBeVisible();
+    await expect(page.getByText("Beta planning", { exact: true }).first()).toBeVisible();
+    const projectFilter = page.getByLabel("Filter activity by project");
+    await projectFilter.selectOption("id:project_alpha");
+    await expect(page.getByText(/Alpha research ·/)).toBeVisible();
+    await expect(page.getByText(/Beta planning ·/)).toHaveCount(0);
+    await projectFilter.selectOption("none");
+    await expect(page.getByText(/No project ·/)).toBeVisible();
+    await expect(page.getByText(/Alpha research ·/)).toHaveCount(0);
+    await expectNoHorizontalOverflow(page);
+  });
 });
