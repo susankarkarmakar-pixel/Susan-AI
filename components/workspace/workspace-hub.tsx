@@ -9,7 +9,8 @@ import { getProviderDescriptor } from "@/lib/provider-capabilities";
 import { getCustomProviders } from "@/lib/custom-providers";
 import { clearPluginActivities, isPluginToolEnabled, listPluginActivities, PluginActivity, recordPluginActivity, setPluginToolEnabled } from "@/lib/plugin-settings";
 import { deleteKnowledgeNote, deleteProject, getKnowledgeNotes, getProjects, KnowledgeNote, saveKnowledgeNote, saveProject, setProjectStatus, WorkspaceProject } from "@/lib/workspace-storage";
-import { deleteWorkspaceDocument, getWorkspaceDocumentBlob, isSupportedWorkspaceDocument, listWorkspaceDocuments, saveWorkspaceDocument, WorkspaceDocument } from "@/lib/document-storage";
+import { deleteWorkspaceDocument, getWorkspaceDocumentBlob, getWorkspaceDocumentText, isSupportedWorkspaceDocument, listWorkspaceDocuments, saveWorkspaceDocument, WorkspaceDocument } from "@/lib/document-storage";
+import { buildDocumentContext, DOCUMENT_CONTEXT_BUDGETS, isIndexableDocumentName, normalizeDocumentIndexText } from "@/lib/document-index.mjs";
 import { AgentAttachment } from "@/lib/agent/types";
 import { UsageWorkspace } from "@/components/workspace/usage-workspace";
 
@@ -42,7 +43,7 @@ export function WorkspaceHub({ section, onStartAgent, onOpenChat, onOpenSettings
     case "workflows": return <WorkflowsWorkspace onStartAgent={onStartAgent} onOpenSection={onOpenSection} onOpenSidebar={onOpenSidebar} />;
     case "knowledge": return <KnowledgeWorkspace refreshVersion={refreshVersion} onOpenSidebar={onOpenSidebar} />;
     case "plugins": return <PluginsWorkspace onOpenSettings={onOpenSettings} onStartAgent={onStartAgent} onOpenSection={onOpenSection} onOpenSidebar={onOpenSidebar} />;
-    case "documents": return <DocumentsWorkspace onStartAgent={onStartAgent} onOpenSidebar={onOpenSidebar} />;
+    case "documents": return <DocumentsWorkspace onStartAgent={onStartAgent} onOpenChat={onOpenChat} onOpenSidebar={onOpenSidebar} />;
     case "usage": return <UsageWorkspace onOpenSidebar={onOpenSidebar} />;
   }
 }
@@ -196,16 +197,17 @@ function ActivityPanel({ activities, onClear, onManageKeys }: { activities: Plug
 }
 
 
-function DocumentsWorkspace({ onStartAgent, onOpenSidebar }: { onStartAgent: (goal: string, attachments?: AgentAttachment[]) => void; onOpenSidebar: () => void }) {
+function DocumentsWorkspace({ onStartAgent, onOpenChat, onOpenSidebar }: { onStartAgent: (goal: string, attachments?: AgentAttachment[]) => void; onOpenChat: (prompt: string) => void; onOpenSidebar: () => void }) {
   const [documents, setDocuments] = useState<WorkspaceDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchText, setSearchText] = useState("");
+  const [contextBudget, setContextBudget] = useState<number>(8_000);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const load = useCallback(async () => { try { setDocuments(await listWorkspaceDocuments()); setError(null); } catch (reason) { setError(reason instanceof Error ? reason.message : "Could not read local documents."); } finally { setLoading(false); } }, []);
-  useEffect(() => { const timer = window.setTimeout(() => void load(), 0); return () => window.clearTimeout(timer); }, [load]);
-  const visible = documents.filter((document) => document.name.toLowerCase().includes(searchText.toLowerCase()));
+  const load = useCallback(async () => { try { setDocuments(await listWorkspaceDocuments(searchText)); setError(null); } catch (reason) { setError(reason instanceof Error ? reason.message : "Could not read local documents."); } finally { setLoading(false); } }, [searchText]);
+  useEffect(() => { const timer = window.setTimeout(() => void load(), searchText ? 160 : 0); return () => window.clearTimeout(timer); }, [load, searchText]);
+  const visible = documents;
 
   const upload = async (files: FileList | null) => {
     if (!files?.length) return;
@@ -213,7 +215,8 @@ function DocumentsWorkspace({ onStartAgent, onOpenSidebar }: { onStartAgent: (go
     try {
       for (const file of Array.from(files)) {
         if (!isSupportedWorkspaceDocument(file)) throw new Error(`${file.name}: use TXT, Markdown, CSV, JSON, PDF, DOCX, or XLSX.`);
-        await saveWorkspaceDocument(file);
+        const searchText = isIndexableDocumentName(file.name) ? normalizeDocumentIndexText(await file.text()) : "";
+        await saveWorkspaceDocument(file, searchText);
       }
       await load();
     } catch (reason) { setError(reason instanceof Error ? reason.message : "Could not save the document."); }
@@ -236,13 +239,22 @@ function DocumentsWorkspace({ onStartAgent, onOpenSidebar }: { onStartAgent: (go
       onStartAgent(`Analyze the attached file “${file.name}” and summarize its structure, key findings, and any data-quality issues.`, [attachment]);
     } catch (reason) { setError(reason instanceof Error ? reason.message : "Could not prepare the document for analysis."); }
   };
+  const prepareChatContext = async (document: WorkspaceDocument) => {
+    try {
+      const stored = await getWorkspaceDocumentText(document.id);
+      if (!stored) throw new Error("This document is no longer available in local storage.");
+      const context = buildDocumentContext(stored, contextBudget);
+      onOpenChat(context.prompt);
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "Could not prepare document context."); }
+  };
   const remove = async (document: WorkspaceDocument) => { try { await deleteWorkspaceDocument(document.id); await load(); } catch (reason) { setError(reason instanceof Error ? reason.message : "Could not delete this document."); } };
-  return <WorkspaceFrame onOpenSidebar={onOpenSidebar} icon={Archive} eyebrow="Local files" title="Documents" description="Upload a supported file to keep it in this browser, download it later, or send it to the Agent for analysis." action={<button type="button" onClick={() => fileInputRef.current?.click()} disabled={busy} className={primaryButton}>{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}Upload files</button>}>
+  return <WorkspaceFrame onOpenSidebar={onOpenSidebar} icon={Archive} eyebrow="Local files" title="Documents" description="Upload files to keep them in this browser. TXT, Markdown, CSV, and JSON are indexed locally for full-text search and optional chat context; document text is only sent to an AI provider if you choose to send the prepared chat message." action={<button type="button" onClick={() => fileInputRef.current?.click()} disabled={busy} className={primaryButton}>{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}Upload files</button>}>
     <input ref={fileInputRef} type="file" multiple accept=".txt,.md,.csv,.json,.pdf,.docx,.xlsx" className="sr-only" onChange={(event) => void upload(event.target.files)} />
-    <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-border-main/60 bg-bg-main px-4 py-3 text-xs text-text-muted"><span>TXT · MD · CSV · JSON · PDF · DOCX · XLSX · up to 4 MB per file</span><span className="shrink-0">{documents.length} saved</span></div>
+    <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border-main/60 bg-bg-main px-4 py-3 text-xs text-text-muted"><span>TXT · MD · CSV · JSON · PDF · DOCX · XLSX · up to 4 MB per file</span><span className="shrink-0">{documents.length} matching</span></div>
     <div className="mb-4 flex items-center gap-2"><Search className="h-4 w-4 text-text-muted" /><input value={searchText} onChange={(event) => setSearchText(event.target.value)} placeholder="Search documents" aria-label="Search documents" className="w-full max-w-md rounded-lg border border-border-main/70 bg-surface px-3 py-2 text-sm outline-none focus:border-accent/50" /></div>
+    <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-border-main/60 bg-surface px-3 py-2.5 text-xs text-text-muted"><span>Selected chat context limit</span><select value={contextBudget} onChange={(event) => setContextBudget(Number(event.target.value))} aria-label="Document context budget" className="rounded-lg border border-border-main/70 bg-bg-main px-2 py-1.5 text-xs text-text-main">{DOCUMENT_CONTEXT_BUDGETS.map((budget) => <option key={budget} value={budget}>{budget.toLocaleString()} characters</option>)}</select><span>Text stays local until you send the chat message.</span></div>
     {error && <p role="alert" className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
-    {loading ? <div className="flex items-center justify-center gap-2 py-12 text-sm text-text-muted"><Loader2 className="h-4 w-4 animate-spin" />Loading local documents…</div> : visible.length ? <div className="space-y-2">{visible.map((document) => <article key={document.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-border-main/70 bg-surface p-3 shadow-sm"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-cream-highlight text-accent"><FileText className="h-5 w-5" /></span><div className="min-w-0 flex-1"><h2 className="truncate text-sm font-semibold text-text-main">{document.name}</h2><p className="mt-0.5 text-[10px] text-text-muted">{formatBytes(document.sizeBytes)} · Added {new Date(document.addedAt).toLocaleDateString()}</p></div><button type="button" onClick={() => void analyze(document)} className="rounded-lg border border-border-main/70 px-3 py-2 text-xs font-semibold text-text-main hover:bg-cream-highlight hover:text-accent">Analyze</button><button type="button" onClick={() => void download(document)} className="rounded-lg border border-border-main/70 px-3 py-2 text-xs font-semibold text-text-main hover:bg-bg-main">Download</button><button type="button" onClick={() => void remove(document)} aria-label={`Delete ${document.name}`} title="Delete document" className="rounded-lg p-2 text-text-muted hover:bg-red-50 hover:text-red-700"><Trash2 className="h-4 w-4" /></button></article>)}</div> : <EmptyState icon={Archive} title={searchText ? "No matching documents" : "No documents saved"} body={searchText ? "Try another search term." : "Upload a small document to keep it available in this browser and optionally analyze it with the Agent."} />}
+    {loading ? <div className="flex items-center justify-center gap-2 py-12 text-sm text-text-muted"><Loader2 className="h-4 w-4 animate-spin" />Loading local documents…</div> : visible.length ? <div className="space-y-2">{visible.map((document) => <article key={document.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-border-main/70 bg-surface p-3 shadow-sm"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-cream-highlight text-accent"><FileText className="h-5 w-5" /></span><div className="min-w-0 flex-1"><h2 className="truncate text-sm font-semibold text-text-main">{document.name}</h2><p className="mt-0.5 text-[10px] text-text-muted">{formatBytes(document.sizeBytes)} · Added {new Date(document.addedAt).toLocaleDateString()} · {document.hasTextIndex ? "Text indexed locally" : "Filename search only"}</p></div><button type="button" onClick={() => void prepareChatContext(document)} disabled={!document.hasTextIndex} title={document.hasTextIndex ? "Prepare editable, budget-limited chat context" : "Automatic text indexing is currently available for TXT, Markdown, CSV, and JSON"} className="rounded-lg border border-border-main/70 px-3 py-2 text-xs font-semibold text-text-main hover:bg-cream-highlight hover:text-accent disabled:cursor-not-allowed disabled:opacity-45">Use in chat</button><button type="button" onClick={() => void analyze(document)} className="rounded-lg border border-border-main/70 px-3 py-2 text-xs font-semibold text-text-main hover:bg-cream-highlight hover:text-accent">Analyze</button><button type="button" onClick={() => void download(document)} className="rounded-lg border border-border-main/70 px-3 py-2 text-xs font-semibold text-text-main hover:bg-bg-main">Download</button><button type="button" onClick={() => void remove(document)} aria-label={`Delete ${document.name}`} title="Delete document" className="rounded-lg p-2 text-text-muted hover:bg-red-50 hover:text-red-700"><Trash2 className="h-4 w-4" /></button></article>)}</div> : <EmptyState icon={Archive} title={searchText ? "No matching documents" : "No documents saved"} body={searchText ? "Try another filename or full-text search term." : "Upload a small document to keep it available in this browser and optionally analyze it with the Agent."} />}
   </WorkspaceFrame>;
 }
 

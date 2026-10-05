@@ -147,4 +147,29 @@ test.describe("mobile Susan AI smoke flow", () => {
     await expect(page.getByText(/Alpha research ·/)).toHaveCount(0);
     await expectNoHorizontalOverflow(page);
   });
+
+  test("indexes local text documents for search and adds bounded context to an editable chat", async ({ page }) => {
+    await page.goto("/");
+    await page.getByRole("button", { name: "Open sidebar" }).tap();
+    const sidebar = page.getByRole("complementary", { name: "Main sidebar" });
+    await sidebar.getByRole("button", { name: "Expand library" }).tap();
+    await sidebar.getByRole("button", { name: "Documents" }).tap();
+    await page.locator('input[type="file"]').setInputFiles({
+      name: "phase-two-notes.txt",
+      mimeType: "text/plain",
+      buffer: Buffer.from("Private canary phrase: sunlit-indexable-cedar. This text should remain local until the user sends the message."),
+    });
+
+    const documentCard = page.getByRole("article").filter({ hasText: "phase-two-notes.txt" });
+    await expect(documentCard.getByText("Text indexed locally")).toBeVisible();
+    await page.getByRole("textbox", { name: "Search documents" }).fill("sunlit-indexable-cedar");
+    await expect(documentCard).toBeVisible();
+    await page.getByLabel("Document context budget").selectOption("4000");
+    await documentCard.getByRole("button", { name: "Use in chat" }).tap();
+
+    const composer = page.getByRole("textbox", { name: "Message Susan AI" });
+    await expect(composer).toHaveValue(/sunlit-indexable-cedar/);
+    await expect(composer).toHaveValue(/untrusted reference material/);
+    await expectNoHorizontalOverflow(page);
+  });
 });

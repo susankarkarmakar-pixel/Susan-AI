@@ -10,6 +10,7 @@ export interface AttachmentExtractionResult {
   pageCount?: number;
   language?: OcrLanguage;
   message?: string;
+  errorCode?: "ATTACHMENT_UNSUPPORTED" | "EXTRACTION_FAILED" | "OCR_FAILED";
 }
 
 export async function extractAttachmentText(file: File, onProgress?: (progress: number) => void, language: OcrLanguage = "eng"): Promise<AttachmentExtractionResult> {
@@ -20,9 +21,11 @@ export async function extractAttachmentText(file: File, onProgress?: (progress: 
     }
     if (isPdfFile(file)) return await extractPdfText(file, onProgress, language);
     if (file.type.startsWith("image/")) return await extractImageText(file, onProgress, language);
-    return { status: "empty", source: "none", text: "", characterCount: 0, message: "Text extraction is not available for this file type." };
-  } catch {
-    return { status: "failed", source: "none", text: "", characterCount: 0, message: "Could not extract readable text from this file." };
+    return { status: "failed", source: "none", text: "", characterCount: 0, message: "Text extraction is not available for this file type.", errorCode: "ATTACHMENT_UNSUPPORTED" };
+  } catch (error) {
+    const errorCode = error instanceof AttachmentExtractionError ? error.code : "EXTRACTION_FAILED";
+    const message = errorCode === "OCR_FAILED" ? "OCR could not read this file. Try a clearer image or another language setting." : "Could not extract readable text from this file.";
+    return { status: "failed", source: "none", text: "", characterCount: 0, message, errorCode };
   }
 }
 
@@ -52,12 +55,22 @@ async function extractPdfText(file: File, onProgress?: (progress: number) => voi
   }
   const textResult = makeTextResult(pages.join("\n\n"), "pdf-text", document.numPages);
   if (textResult.status === "ready") return textResult;
-  const ocrText = await ocrPdfPages(document, onProgress, language);
+  let ocrText: string;
+  try {
+    ocrText = await ocrPdfPages(document, onProgress, language);
+  } catch {
+    throw new AttachmentExtractionError("OCR_FAILED");
+  }
   return makeTextResult(ocrText, "ocr", document.numPages, language);
 }
 
 async function extractImageText(file: File, onProgress?: (progress: number) => void, language: OcrLanguage = "eng"): Promise<AttachmentExtractionResult> {
-  const text = await runOcr([file], onProgress, language);
+  let text: string;
+  try {
+    text = await runOcr([file], onProgress, language);
+  } catch {
+    throw new AttachmentExtractionError("OCR_FAILED");
+  }
   return makeTextResult(text, "ocr", undefined, language);
 }
 
@@ -110,3 +123,10 @@ type PdfRenderPageLike = {
   getViewport: (options: { scale: number }) => { width: number; height: number };
   render: (options: { canvasContext: CanvasRenderingContext2D; canvas: HTMLCanvasElement; viewport: { width: number; height: number } }) => { promise: Promise<void> };
 };
+
+class AttachmentExtractionError extends Error {
+  constructor(readonly code: "OCR_FAILED") {
+    super(code);
+    this.name = "AttachmentExtractionError";
+  }
+}

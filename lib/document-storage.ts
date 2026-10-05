@@ -1,49 +1,66 @@
+import { searchWorkspaceDocuments } from "@/lib/document-index.mjs";
+
 export interface WorkspaceDocument {
   id: string;
   name: string;
   mediaType: string;
   sizeBytes: number;
   addedAt: number;
+  hasTextIndex: boolean;
 }
 
 interface StoredDocument extends WorkspaceDocument {
   blob: Blob;
+  searchText: string;
 }
 
 const DB_NAME = "susan-ai-workspace";
 const STORE_NAME = "documents";
 const MAX_FILE_SIZE = 4 * 1024 * 1024;
 const SUPPORTED_EXTENSION = /\.(txt|md|csv|json|pdf|docx|xlsx)$/i;
+const INDEXED_TEXT_EXTENSION = /\.(txt|md|csv|json)$/i;
+const MAX_INDEXED_TEXT = 120_000;
 
 export function isSupportedWorkspaceDocument(file: File): boolean {
   return SUPPORTED_EXTENSION.test(file.name);
 }
 
-export async function listWorkspaceDocuments(): Promise<WorkspaceDocument[]> {
+export async function listWorkspaceDocuments(query = ""): Promise<WorkspaceDocument[]> {
   const records = await getAllRecords();
-  return records.map(({ id, name, mediaType, sizeBytes, addedAt }) => ({ id, name, mediaType, sizeBytes, addedAt })).sort((a, b) => b.addedAt - a.addedAt);
+  const matching = searchWorkspaceDocuments(records, query);
+  return matching.map(({ id, name, mediaType, sizeBytes, addedAt, hasTextIndex }) => ({ id, name, mediaType, sizeBytes, addedAt, hasTextIndex: Boolean(hasTextIndex) })).sort((a, b) => b.addedAt - a.addedAt);
 }
 
-export async function saveWorkspaceDocument(file: File): Promise<WorkspaceDocument> {
+export async function saveWorkspaceDocument(file: File, searchText = ""): Promise<WorkspaceDocument> {
   if (!isSupportedWorkspaceDocument(file)) throw new Error("Use TXT, Markdown, CSV, JSON, PDF, DOCX, or XLSX files.");
   if (file.size > MAX_FILE_SIZE) throw new Error("Each document must be 4 MB or smaller.");
   const db = await openDatabase();
+  const mediaType = file.type || inferMediaType(file.name);
+  const normalizedText = INDEXED_TEXT_EXTENSION.test(file.name) ? searchText.replace(/\u0000/g, "").replace(/\r\n?/g, "\n").trim().slice(0, MAX_INDEXED_TEXT) : "";
   const record: StoredDocument = {
     id: makeId(),
     name: file.name.slice(0, 180),
-    mediaType: file.type || inferMediaType(file.name),
+    mediaType,
     sizeBytes: file.size,
     addedAt: Date.now(),
-    blob: file.slice(0, file.size, file.type || inferMediaType(file.name)),
+    hasTextIndex: Boolean(normalizedText),
+    searchText: normalizedText,
+    blob: file.slice(0, file.size, mediaType),
   };
   await requestInTransaction(db, "readwrite", (store) => store.add(record));
-  return { id: record.id, name: record.name, mediaType: record.mediaType, sizeBytes: record.sizeBytes, addedAt: record.addedAt };
+  return { id: record.id, name: record.name, mediaType: record.mediaType, sizeBytes: record.sizeBytes, addedAt: record.addedAt, hasTextIndex: record.hasTextIndex };
 }
 
 export async function getWorkspaceDocumentBlob(id: string): Promise<Blob | null> {
   const db = await openDatabase();
   const record = await requestInTransaction<StoredDocument | undefined>(db, "readonly", (store) => store.get(id));
   return record?.blob ?? null;
+}
+
+export async function getWorkspaceDocumentText(id: string): Promise<{ name: string; searchText: string } | null> {
+  const db = await openDatabase();
+  const record = await requestInTransaction<StoredDocument | undefined>(db, "readonly", (store) => store.get(id));
+  return record ? { name: record.name, searchText: record.searchText || "" } : null;
 }
 
 export async function deleteWorkspaceDocument(id: string): Promise<void> {
@@ -58,7 +75,7 @@ function getAllRecords(): Promise<StoredDocument[]> {
 function openDatabase(): Promise<IDBDatabase> {
   if (typeof indexedDB === "undefined") return Promise.reject(new Error("This browser does not support local document storage."));
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, 1);
+    const request = indexedDB.open(DB_NAME, 2);
     request.onupgradeneeded = () => {
       const db = request.result;
       if (!db.objectStoreNames.contains(STORE_NAME)) db.createObjectStore(STORE_NAME, { keyPath: "id" });

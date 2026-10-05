@@ -13,12 +13,16 @@ Susan AI এখন একটি privacy-first, browser-local, multi-model AI wor
 - **Responsive UI:** desktop ও mobile layouts, mobile Settings/About sheets, safe-area spacing, PWA manifest এবং mobile responsive contract tests।
 - **Quality gates:** source-level mobile tests, Chromium mobile smoke tests, runtime smoke tests, lint, TypeScript এবং production build checks।
 
-### বর্তমান baseline
+### বর্তমান baseline — 2026-10-06
 
 - Source-level mobile suite: **6 tests passing**
-- Real-browser mobile smoke suite: **6 tests passing** across narrow ও standard mobile profiles
-- Full Node regression: **72 passing, 1 intentional skip**
-- Production build: passing
+- Real-browser mobile E2E suite: **16 tests passing**
+- Full Node regression: **126 passing, 1 intentional skip**
+- ESLint: passing; TypeScript check: passing
+- Next.js **16.3.8** production build: passing
+- Dependency audit policy: **no critical or unapproved high-severity findings**; the exact unpatched `braces` advisory in the development-only lint chain is temporarily allowlisted, while moderate `exceljs`/`uuid` advisories remain visible and non-blocking
+- GitHub Actions PR quality-gate workflow is configured; first hosted run is pending the follow-up PR
+- Phase 2 initial slice: TXT/Markdown/CSV/JSON document text is indexed locally (120,000-character cap), full-text search works in Documents, and “Use in chat” prepares an editable, prompt-injection-labeled excerpt with a user-selected 4k/8k/16k/32k character budget. PDF/DOCX/XLSX full-text indexing and richer excerpt/summary controls remain future work.
 - Live demo: [susan-ai.vercel.app](https://susan-ai.vercel.app/)
 
 ## 2. Product direction
@@ -86,7 +90,7 @@ Server-side request-এর জন্য redacted correlation ID থাকবে,
 
 ### 0.3 CI quality gate
 
-GitHub Actions-এ এই gates বাধ্যতামূলক করা হবে:
+GitHub Actions PR workflow-এ এই gates চালানো হবে:
 
 ```bash
 npm ci
@@ -96,10 +100,12 @@ npm run test:mobile
 npm run test:e2e:mobile
 npm test
 npm run build
-npm audit --audit-level=high
+node scripts/check-audit-policy.mjs
 ```
 
-**Exit gate:** reproducible green build, no untracked test artifacts, এবং failed E2E হলে screenshot/trace artifact পাওয়া যায়।
+Audit policy critical এবং unapproved high-severity findings block করে। বর্তমানে unpatched `braces` advisory শুধু development-only Next ESLint toolchain-এ reachable হওয়ায় exact advisory ও dependency chain-এ সীমিত temporary exception; নতুন বা unrelated high/critical finding fail করবে। Moderate findings report হয়, কিন্তু বর্তমান dependency tree-তে blocking নয়।
+
+**Exit gate:** reproducible green build, no untracked test artifacts, এবং failed E2E হলে screenshot/trace artifact পাওয়া যায়। Local gates pass; follow-up PR-এ hosted Actions run green হওয়া বাকি।
 
 ---
 

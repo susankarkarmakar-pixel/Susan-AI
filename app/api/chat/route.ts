@@ -6,6 +6,7 @@ import { assertCustomProviderHostResolvesSafely, UnsafeCustomProviderHostError }
 import { enforceRateLimit, getClientIdentifier, RateLimitUnavailableError, RATE_LIMIT_RETRY_AFTER_SECONDS } from "@/lib/rate-limit";
 import { mapProviderError } from "@/lib/provider-errors.mjs";
 import { normalizeGenerationOptions, normalizeSystemPrompt } from "@/lib/generation-settings.mjs";
+import { createCorrelationId, createErrorDiagnostic, formatDiagnosticMessage } from "@/lib/error-diagnostics.mjs";
 import { NextResponse } from "next/server";
 
 const MAX_MESSAGES = 100;
@@ -14,36 +15,38 @@ const MAX_MESSAGE_PARTS = 24;
 const MAX_BODY_BYTES = 20_000_000;
 const MAX_FILE_DATA_URL_LENGTH = 16_000_000;
 export async function POST(req: Request) {
+  const correlationId = createCorrelationId();
+  const respondError = (message: string, status: number, headers: Record<string, string> = {}, code?: string) => jsonError(message, status, headers, correlationId, code);
   let requestedProvider = "";
   try {
-    if (!req.headers.get("content-type")?.toLowerCase().includes("application/json")) return jsonError("Content-Type must be application/json.", 415);
+    if (!req.headers.get("content-type")?.toLowerCase().includes("application/json")) return respondError("Content-Type must be application/json.", 415);
     const contentLength = Number(req.headers.get("content-length") || 0);
-    if (contentLength > MAX_BODY_BYTES) return jsonError("Request is too large. Keep attachments under 20 MB total.", 413);
+    if (contentLength > MAX_BODY_BYTES) return respondError("Request is too large. Keep attachments under 20 MB total.", 413);
     const clientId = getClientIdentifier(req);
-    if (!(await enforceRateLimit(clientId))) return jsonError("Too many requests. Please wait a moment and try again.", 429, { "Retry-After": String(RATE_LIMIT_RETRY_AFTER_SECONDS) });
+    if (!(await enforceRateLimit(clientId))) return respondError("Too many requests. Please wait a moment and try again.", 429, { "Retry-After": String(RATE_LIMIT_RETRY_AFTER_SECONDS) }, "REQUEST_RATE_LIMITED");
 
     const body: unknown = await req.json();
     const parsedBodyBytes = new TextEncoder().encode(JSON.stringify(body)).byteLength;
-    if (parsedBodyBytes > MAX_BODY_BYTES) return jsonError("Request is too large. Keep attachments under 20 MB total.", 413);
-    if (!body || typeof body !== "object") return jsonError("Invalid request body.", 400);
+    if (parsedBodyBytes > MAX_BODY_BYTES) return respondError("Request is too large. Keep attachments under 20 MB total.", 413);
+    if (!body || typeof body !== "object") return respondError("Invalid request body.", 400);
     const { messages, provider, apiKey, language, customProvider, cloudflareAccountId, temperature, maxOutputTokens, effort, systemPrompt, researchContext } = body as { messages?: unknown; provider?: unknown; apiKey?: unknown; language?: unknown; customProvider?: unknown; cloudflareAccountId?: unknown; temperature?: unknown; maxOutputTokens?: unknown; effort?: unknown; systemPrompt?: unknown; researchContext?: unknown };
     requestedProvider = typeof provider === "string" ? provider : "";
     const isCustom = typeof provider === "string" && provider.startsWith("custom_");
     const isLocalCustom = isCustom && isLocalCustomProvider(customProvider);
-    if (typeof provider !== "string" || (!isInstantChatProvider(provider) && !isCustom)) return jsonError("This provider is not available for instant chat.", 400);
-    if ((!isLocalCustom && (typeof apiKey !== "string" || apiKey.trim().length < 8 || apiKey.length > 500)) || (isLocalCustom && apiKey !== "local")) return jsonError(isLocalCustom ? "Local provider authentication marker is invalid." : "A valid API key is required.", 400);
+    if (typeof provider !== "string" || (!isInstantChatProvider(provider) && !isCustom)) return respondError("This provider is not available for instant chat.", 400);
+    if ((!isLocalCustom && (typeof apiKey !== "string" || apiKey.trim().length < 8 || apiKey.length > 500)) || (isLocalCustom && apiKey !== "local")) return respondError(isLocalCustom ? "Local provider authentication marker is invalid." : "A valid API key is required.", 400, {}, "PROVIDER_AUTH");
     const normalizedApiKey = isLocalCustom ? "local" : (apiKey as string).trim();
-    if (provider === "cloudflare" && (typeof cloudflareAccountId !== "string" || !/^[a-f0-9]{32}$/i.test(cloudflareAccountId.trim()))) return jsonError("A valid 32-character Cloudflare Account ID is required. Add it in Settings.", 400);
+    if (provider === "cloudflare" && (typeof cloudflareAccountId !== "string" || !/^[a-f0-9]{32}$/i.test(cloudflareAccountId.trim()))) return respondError("A valid 32-character Cloudflare Account ID is required. Add it in Settings.", 400, {}, "PROVIDER_AUTH");
     const generation = normalizeGenerationOptions({ temperature, maxOutputTokens, effort } as { temperature?: unknown; maxOutputTokens?: unknown; effort?: unknown });
     const normalizedPrompt = normalizeSystemPrompt(systemPrompt);
-    if (!normalizedPrompt.valid) return jsonError("System instructions must be text under 6,000 characters.", 400);
+    if (!normalizedPrompt.valid) return respondError("System instructions must be text under 6,000 characters.", 400);
     const researchInstructions = buildResearchInstructions(researchContext);
-    if (!Array.isArray(messages) || messages.length === 0 || messages.length > MAX_MESSAGES) return jsonError("Messages must contain between 1 and 100 items.", 400);
+    if (!Array.isArray(messages) || messages.length === 0 || messages.length > MAX_MESSAGES) return respondError("Messages must contain between 1 and 100 items.", 400);
 
     const validMessages = messages.filter(isUIMessage).slice(-MAX_MESSAGES);
-    if (validMessages.length === 0) return jsonError("No valid messages found.", 400);
+    if (validMessages.length === 0) return respondError("No valid messages found.", 400);
     if ((!isCustom && !supportsProviderCapability(provider, "files")) && validMessages.some((message) => message.parts?.some(isFilePart))) {
-      return jsonError("The selected provider does not support file attachments. Choose a vision/file-capable provider.", 400);
+      return respondError("The selected provider does not support file attachments. Choose a vision/file-capable provider.", 400, {}, "ATTACHMENT_UNSUPPORTED");
     }
 
     const modelMessages = validMessages.some((message) => Array.isArray(message.parts))
@@ -51,17 +54,17 @@ export async function POST(req: Request) {
       : validMessages
           .filter((message) => typeof message.content === "string" && message.content.length <= MAX_MESSAGE_LENGTH)
           .map((message) => ({ role: message.role, content: message.content as string }));
-    if (modelMessages.length === 0) return jsonError("No valid message content found.", 400);
+    if (modelMessages.length === 0) return respondError("No valid message content found.", 400);
 
     const languageInstruction = language === "bn" ? "Respond in Bengali unless the user asks for another language." : language === "en" ? "Respond in English unless the user asks for another language." : "";
     const systemInstructions = [languageInstruction, normalizedPrompt.prompt, researchInstructions].filter(Boolean);
     let model: ReturnType<typeof getModelConfig>;
     if (isCustom) {
-      if (!isValidCustomProvider(customProvider, provider)) return jsonError("Custom provider configuration is invalid.", 400);
+      if (!isValidCustomProvider(customProvider, provider)) return respondError("Custom provider configuration is invalid.", 400);
       try {
         await assertCustomProviderHostResolvesSafely(customProvider.baseUrl);
       } catch (error) {
-        if (error instanceof UnsafeCustomProviderHostError) return jsonError(error.message, 400);
+        if (error instanceof UnsafeCustomProviderHostError) return respondError(error.message, 400);
         throw error;
       }
       model = getCustomModelConfig(customProvider, normalizedApiKey);
@@ -72,7 +75,7 @@ export async function POST(req: Request) {
     const modelId = typeof model === "string" ? model : "modelId" in model && typeof model.modelId === "string" ? model.modelId : requestedProvider;
     const anyResult = result as unknown as { toUIMessageStreamResponse?: (options?: { onError?: (error: unknown) => string; messageMetadata?: (options: { part: { type: string; totalUsage?: { inputTokens?: number; outputTokens?: number; totalTokens?: number } } }) => unknown }) => Response; toDataStreamResponse?: () => Response; toTextStreamResponse?: () => Response };
     const response = anyResult.toUIMessageStreamResponse?.({
-      onError: (error) => providerStreamError(error, requestedProvider),
+      onError: (error) => providerStreamError(error, requestedProvider, correlationId),
       messageMetadata: ({ part }) => {
         if (part.type !== "finish" || !part.totalUsage) return undefined;
         const usage = part.totalUsage;
@@ -89,18 +92,20 @@ export async function POST(req: Request) {
           totalTokens,
         } };
       },
-    }) ?? anyResult.toDataStreamResponse?.() ?? anyResult.toTextStreamResponse?.() ?? jsonError("Streaming is unavailable.", 500);
+    }) ?? anyResult.toDataStreamResponse?.() ?? anyResult.toTextStreamResponse?.() ?? respondError("Streaming is unavailable.", 500, {}, "INTERNAL_ERROR");
     response.headers.set("Cache-Control", "no-store");
+    response.headers.set("X-Correlation-ID", correlationId);
     return response;
   } catch (error: unknown) {
-    if (error instanceof RateLimitUnavailableError) return jsonError("Security rate limiting is temporarily unavailable. Please try again shortly.", 503, { "Retry-After": "30" });
+    if (error instanceof RateLimitUnavailableError) return respondError("Security rate limiting is temporarily unavailable. Please try again shortly.", 503, { "Retry-After": "30" }, "INTERNAL_ERROR");
     const rawMessage = error && typeof error === "object" && "message" in error && typeof error.message === "string" ? error.message : "";
-    if (rawMessage.toLowerCase().includes("json") || rawMessage.toLowerCase().includes("unexpected end")) return jsonError("Invalid JSON request body.", 400);
-    if (rawMessage.includes("asynchronous") || rawMessage.includes("instant chat")) return jsonError(rawMessage, 400);
+    if (rawMessage.toLowerCase().includes("json") || rawMessage.toLowerCase().includes("unexpected end")) return respondError("Invalid JSON request body.", 400);
+    if (rawMessage.includes("asynchronous") || rawMessage.includes("instant chat")) return respondError(rawMessage, 400);
     const diagnosis = mapProviderError(error, requestedProvider);
     const headers: Record<string, string> = {};
     if (diagnosis.retryAfterSeconds) headers["Retry-After"] = String(diagnosis.retryAfterSeconds || RATE_LIMIT_RETRY_AFTER_SECONDS);
-    return jsonError(diagnosis.message, diagnosis.status, headers);
+    console.error(JSON.stringify({ event: "chat_request_failed", code: diagnosis.code, correlationId, status: diagnosis.status }));
+    return respondError(diagnosis.message, diagnosis.status, headers, diagnosis.code);
   }
 }
 
@@ -137,12 +142,18 @@ function isLocalCustomProvider(value: unknown): value is CustomProvider {
   return Boolean(value && typeof value === "object" && (value as Partial<CustomProvider>).local === true && (value as Partial<CustomProvider>).requiresApiKey === false);
 }
 
-function jsonError(error: string, status: number, headers: Record<string, string> = {}) {
-  return NextResponse.json({ error }, { status, headers: { "Cache-Control": "no-store", ...headers } });
+function jsonError(error: string, status: number, headers: Record<string, string> = {}, correlationId = createCorrelationId(), code?: string) {
+  const diagnostic = createErrorDiagnostic(error, status, correlationId, code);
+  return NextResponse.json({ ...diagnostic, error: formatDiagnosticMessage(diagnostic.error, diagnostic.code, diagnostic.correlationId) }, {
+    status,
+    headers: { "Cache-Control": "no-store", "X-Correlation-ID": diagnostic.correlationId, ...headers },
+  });
 }
 
-function providerStreamError(error: unknown, provider: string): string {
-  return mapProviderError(error, provider).message;
+function providerStreamError(error: unknown, provider: string, correlationId: string): string {
+  const diagnosis = mapProviderError(error, provider);
+  console.error(JSON.stringify({ event: "chat_stream_failed", code: diagnosis.code, correlationId, status: diagnosis.status }));
+  return formatDiagnosticMessage(diagnosis.message, diagnosis.code, correlationId);
 }
 
 function safeTokenCount(value: unknown): number | null {

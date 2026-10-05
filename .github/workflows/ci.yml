@@ -1,0 +1,73 @@
+name: Pull request quality gates
+
+on:
+  pull_request:
+  push:
+    branches:
+      - add-sanket-cortex-branding-876027349327466032
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Lint, typecheck, tests, E2E, build, audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Audit production dependencies for high and critical issues
+        run: npm audit --omit=dev --audit-level=high
+
+      # The audit policy blocks critical issues and all high issues except the
+      # confirmed unpatched braces advisory in the development-only lint chain.
+      - name: Audit complete dependency tree
+        run: node scripts/check-audit-policy.mjs
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Source-level mobile regression tests
+        run: npm run test:mobile
+
+      - name: Install Chromium for Playwright
+        run: npx playwright install --with-deps chromium
+
+      - name: Mobile browser end-to-end tests
+        run: npm run test:e2e:mobile
+
+      - name: Upload Playwright diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-e2e-diagnostics
+          path: |
+            test-results/
+            playwright-report/
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Production build
+        run: npm run build
+
+      - name: Unit, integration, and runtime smoke tests
+        run: npm test
