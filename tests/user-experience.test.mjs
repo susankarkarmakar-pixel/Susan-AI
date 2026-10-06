@@ -183,6 +183,19 @@ test("search keeps provider availability transparent and persists saved results 
   assert.match(route, /unavailable\.push\(\{ provider: source/);
 });
 
+test("follow-up suggestions use the original prompt and answer signals instead of one fixed topic template", async () => {
+  const related = await read("lib/related-questions.ts");
+  const messages = await read("components/chat/message-bubble.tsx");
+  const chatMessages = await read("components/chat/chat-messages.tsx");
+  assert.match(related, /getRelatedQuestions\(answer: string, userPrompt = ""\)/);
+  assert.match(related, /extractHeadings\(answer\)/);
+  assert.match(related, /hasCode/);
+  assert.match(related, /hasSources/);
+  assert.match(related, /extractPromptTopic\(userPrompt\)/);
+  assert.match(messages, /getRelatedQuestions\(content, context\)/);
+  assert.match(chatMessages, /relatedContext=\{msg\.role === "assistant" \? lastUserMessage\?\.content : undefined\}/);
+});
+
 test("West Bengal schemes are hidden from users while source data is preserved for future work", async () => {
   const schemes = await read("lib/civic-schemes.ts");
   const sidebar = await read("components/sidebar/sidebar.tsx");

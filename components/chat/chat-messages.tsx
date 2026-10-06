@@ -149,6 +149,7 @@ export function ChatMessages({ messages, isStreaming, isPreparingResearch, onRet
               onEdit={msg.role === "user" && index === lastUserMessageIndex && msg.id ? () => onEditMessage?.(msg.id!, msg.content) : undefined}
               onDelete={msg.role === "assistant" && msg.id ? () => onDeleteMessage?.(msg.id!) : undefined}
               onRelatedQuestion={msg.role === "assistant" ? onRelatedQuestion : undefined}
+              relatedContext={msg.role === "assistant" ? lastUserMessage?.content : undefined}
             />
           );
         })}
