@@ -7,6 +7,7 @@ import { SearchProvider, SearchResponse, SearchResult } from "@/lib/web-search";
 import { SearchDiagnosticsPanel } from "./search-diagnostics-panel";
 
 const PROVIDER_LABELS: Record<Exclude<SearchProvider, "all">, string> = { google: "Google", bing: "Bing", duckduckgo: "DuckDuckGo", brave: "Brave" };
+const SAVED_SEARCHES_KEY = "susan_saved_search_results_v1";
 
 export function SearchWorkspace() {
   const [query, setQuery] = useState("");
@@ -19,6 +20,7 @@ export function SearchWorkspace() {
   const [saved, setSaved] = useState<string[]>([]);
   const [semanticSearch, setSemanticSearch] = useState(false);
   const isDevelopment = process.env.NODE_ENV !== "production";
+  const [savedReady, setSavedReady] = useState(false);
 
   useEffect(() => {
     window.setTimeout(() => setKeys(getKeys()), 0);
@@ -26,6 +28,23 @@ export function SearchWorkspace() {
     window.addEventListener("keys-updated", refresh);
     return () => window.removeEventListener("keys-updated", refresh);
   }, []);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      try {
+        const stored = JSON.parse(window.localStorage.getItem(SAVED_SEARCHES_KEY) || "[]");
+        if (Array.isArray(stored)) setSaved(stored.filter((item): item is string => typeof item === "string").slice(0, 100));
+      } catch {
+        // Keep search usable when browser storage is unavailable or corrupted.
+      } finally { setSavedReady(true); }
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    if (!savedReady) return;
+    try { window.localStorage.setItem(SAVED_SEARCHES_KEY, JSON.stringify(saved.slice(0, 100))); } catch { /* Best-effort local bookmark persistence. */ }
+  }, [saved, savedReady]);
 
   const connected = useMemo(() => ({ google: Boolean(keys.googleSearch && keys.googleSearchCx), bing: Boolean(keys.bingSearch), duckduckgo: true, brave: Boolean(keys.braveSearch) }), [keys]);
   const search = async (event?: React.FormEvent) => {

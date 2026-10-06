@@ -26,6 +26,10 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    if (!request.headers.get("content-type")?.toLowerCase().includes("application/json")) return NextResponse.json({ error: "Content-Type must be application/json." }, { status: 415, headers: { "Cache-Control": "no-store" } });
+    const contentLength = Number(request.headers.get("content-length") || 0);
+    if (contentLength > 32_000) return NextResponse.json({ error: "Search request is too large." }, { status: 413, headers: { "Cache-Control": "no-store" } });
+    if (!(await enforceRateLimit(getClientIdentifier(request)))) return NextResponse.json({ error: "Too many searches. Please wait a moment and try again." }, { status: 429, headers: { "Retry-After": String(RATE_LIMIT_RETRY_AFTER_SECONDS), "Cache-Control": "no-store" } });
     const body = await request.json() as { query?: unknown; provider?: unknown; keys?: Record<string, string | undefined>; googleCx?: unknown; semanticSearch?: unknown; diagnostics?: unknown };
     const query = typeof body.query === "string" ? body.query.trim().slice(0, 300) : "";
     const provider = isProvider(body.provider) ? body.provider : "all";
@@ -40,7 +44,7 @@ export async function POST(request: Request) {
 
     for (const source of selected) {
       if ((source === "google" && (!keys.googleSearch || !googleCx)) || (source === "bing" && !keys.bingSearch) || (source === "brave" && !keys.braveSearch)) {
-        if (provider !== "all") unavailable.push({ provider: source, reason: source === "google" ? "Google API key and Search Engine ID are required." : "This provider is not connected." });
+        unavailable.push({ provider: source, reason: source === "google" ? "Google API key and Search Engine ID are required." : "This provider is not connected." });
         continue;
       }
       try {
@@ -73,7 +77,8 @@ export async function POST(request: Request) {
     }
     const response: SearchResponse = { query, provider, results: finalResults.slice(0, MAX_RESULTS), providersUsed, unavailable, ...(diagnostics ? { diagnostics } : {}) };
     return NextResponse.json(response, { headers: { "Cache-Control": "no-store" } });
-  } catch {
+  } catch (error) {
+    if (error instanceof RateLimitUnavailableError) return NextResponse.json({ error: "Search protection is temporarily unavailable. Try again shortly." }, { status: 503, headers: { "Retry-After": "30", "Cache-Control": "no-store" } });
     return NextResponse.json({ error: "Search request could not be processed." }, { status: 400 });
   }
 }

@@ -82,6 +82,16 @@ test("search route rejects an empty query", async () => {
   assert.deepEqual(await response.json(), { error: "Enter a search query." });
 });
 
+test("search route rejects non-JSON requests before parsing a body", async () => {
+  const response = await fetch(`${baseUrl}/api/search`, {
+    method: "POST",
+    headers: { "content-type": "text/plain" },
+    body: "not-json",
+  });
+  assert.equal(response.status, 415);
+  assert.deepEqual(await response.json(), { error: "Content-Type must be application/json." });
+});
+
 test("chat route rejects non-JSON requests", async () => {
   const response = await fetch(`${baseUrl}/api/chat`, {
     method: "POST",

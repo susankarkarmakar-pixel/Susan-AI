@@ -45,6 +45,19 @@ const MODELS = INSTANT_CHAT_PROVIDERS.map((id) => {
 });
 const julesDescriptor = getProviderDescriptor("jules");
 const AGENT_MODELS = [{ id: "jules", name: julesDescriptor?.name || "Google Jules", description: julesDescriptor?.description || "", icon: MODEL_ICONS.jules, modeLabel: "Coding Agent" }];
+const MODEL_GROUPS = ["Connected", "Free-tier", "Local", "Coding Agents", "Needs setup"] as const;
+
+function isModelReady(modelId: string, keys: ApiKeys, customProviders: CustomProvider[]) {
+  return Boolean(getApiKey(modelId, keys) || customProviders.some((provider) => provider.id === modelId && provider.requiresApiKey === false));
+}
+
+function getModelGroup(model: { id: string; modeLabel: string }, keys: ApiKeys, customProviders: CustomProvider[]) {
+  const custom = customProviders.find((provider) => provider.id === model.id);
+  if (model.modeLabel === "Coding Agent") return "Coding Agents";
+  if (custom?.local || custom?.requiresApiKey === false) return "Local";
+  if (isModelReady(model.id, keys, customProviders)) return "Connected";
+  return getProviderDescriptor(model.id)?.tier === "free-tier" ? "Free-tier" : "Needs setup";
+}
 
 export function ModelSelector({ selected, onSelect, collapsed = false }: ModelSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -66,6 +79,7 @@ export function ModelSelector({ selected, onSelect, collapsed = false }: ModelSe
   }, []);
 
   const availableModels = [...MODELS, ...AGENT_MODELS, ...customProviders.map((provider) => ({ id: provider.id, name: provider.name, description: provider.model, icon: Globe, modeLabel: provider.local ? "Local" : "Custom Chat" }))];
+  const groupedModels = MODEL_GROUPS.map((group) => ({ group, models: availableModels.filter((model) => getModelGroup(model, keys, customProviders) === group) })).filter(({ models }) => models.length > 0);
   const selectedModel = availableModels.find(m => m.id === selected) || availableModels[0];
   const Icon = selectedModel.icon;
   const selectedIndex = Math.max(0, availableModels.findIndex((model) => model.id === selected));
@@ -116,7 +130,7 @@ export function ModelSelector({ selected, onSelect, collapsed = false }: ModelSe
             onClick={() => setIsOpen(false)}
           />
           <div role="listbox" aria-label="Available AI models" className="absolute z-20 mt-1.5 w-[min(300px,calc(100vw-2rem))] min-w-full overflow-hidden rounded-xl border border-border-main bg-white py-1 text-text-main shadow-lg">
-            {availableModels.map((model) => {
+            {groupedModels.map(({ group, models }) => <div key={group}><p className="border-b border-border-main/50 bg-bg-main px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-text-muted">{group}</p>{models.map((model) => {
               const ModelIcon = model.icon;
               const hasKey = !!getApiKey(model.id, keys) || customProviders.some((provider) => provider.id === model.id && provider.requiresApiKey === false);
               const modelIndex = availableModels.findIndex((candidate) => candidate.id === model.id);
@@ -172,7 +186,7 @@ export function ModelSelector({ selected, onSelect, collapsed = false }: ModelSe
                   </div>
                 </button>
               );
-            })}
+            })}</div>)}
           </div>
         </>
       )}

@@ -172,6 +172,17 @@ test("chat welcome state offers focused starter actions for writing, files, and 
   assert.match(messages, /lg:grid-cols-3/);
 });
 
+test("search keeps provider availability transparent and persists saved results locally", async () => {
+  const workspace = await read("components/search/search-workspace.tsx");
+  const route = await read("app/api/search/route.ts");
+  assert.match(workspace, /susan_saved_search_results_v1/);
+  assert.match(workspace, /localStorage\.setItem\(SAVED_SEARCHES_KEY/);
+  assert.match(workspace, /response\.unavailable/);
+  assert.match(route, /await enforceRateLimit\(getClientIdentifier\(request\)\)/);
+  assert.match(route, /Content-Type must be application\/json/);
+  assert.match(route, /unavailable\.push\(\{ provider: source/);
+});
+
 test("West Bengal schemes are hidden from users while source data is preserved for future work", async () => {
   const schemes = await read("lib/civic-schemes.ts");
   const sidebar = await read("components/sidebar/sidebar.tsx");
