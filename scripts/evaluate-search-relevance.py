@@ -124,7 +124,7 @@ def normalize_scores(values: list[float]) -> list[float]:
 
 def score_candidates(query: str, candidates: list[dict[str, Any]], mode: str,
                      semantic_weight: float, keyword_weight: float,
-                     stability_weight: float) -> list[tuple[dict[str, Any], float]]:
+                     stability_weight: float, prefer_explicit_hybrid: bool = True) -> list[tuple[dict[str, Any], float]]:
     keyword = [explicit_score(item, "lexicalScore", "keywordScore") for item in candidates]
     keyword = [lexical_score(query, item) if value is None else value for value, item in zip(keyword, candidates)]
     keyword = [clamp(value) for value in keyword]
@@ -145,7 +145,7 @@ def score_candidates(query: str, candidates: list[dict[str, Any]], mode: str,
             score = keyword[index]
         elif mode == "semantic":
             score = semantic[index]
-        elif explicit_hybrid is not None:
+        elif explicit_hybrid is not None and prefer_explicit_hybrid:
             score = explicit_hybrid
         else:
             score = (semantic[index] * semantic_weight + keyword[index] * keyword_weight + stability[index] * stability_weight)
@@ -229,7 +229,8 @@ def normalize_records(payload: Any) -> list[dict[str, Any]]:
 
 
 def evaluate(records: list[dict[str, Any]], ks: list[int], threshold: float,
-             semantic_weight: float, keyword_weight: float, stability_weight: float) -> dict[str, Any]:
+             semantic_weight: float, keyword_weight: float, stability_weight: float,
+             prefer_explicit_hybrid: bool = True) -> dict[str, Any]:
     modes = ("keyword", "semantic", "hybrid")
     per_query: list[dict[str, Any]] = []
     aggregate: dict[str, dict[str, float]] = defaultdict(dict)
@@ -238,7 +239,7 @@ def evaluate(records: list[dict[str, Any]], ks: list[int], threshold: float,
         total_relevant = sum(relevance_grade(qrels, key) >= threshold for key in qrels)
         query_result = {"id": record["id"], "query": record["query"], "candidateCount": len(record["candidates"]), "modes": {}}
         for mode in modes:
-            ranked = score_candidates(record["query"], record["candidates"], mode, semantic_weight, keyword_weight, stability_weight)
+            ranked = score_candidates(record["query"], record["candidates"], mode, semantic_weight, keyword_weight, stability_weight, prefer_explicit_hybrid)
             grades = [relevance_grade(qrels, candidate_id(item, str(index))) for index, (item, _) in enumerate(ranked)]
             query_result["modes"][mode] = {"ranking": [candidate_id(item, str(index)) for index, (item, _) in enumerate(ranked)], "metrics": {}}
             for k in ks:
