@@ -42,7 +42,7 @@ function makeResults(count) {
 
 async function loadImplementation() {
   const directory = await mkdtemp(join(tmpdir(), "susan-semantic-benchmark-"));
-  const files = ["web-search.ts", "search-diagnostics.ts", "semantic-rerank.ts"];
+  const files = ["web-search.ts", "search-diagnostics.ts", "embedding-cache.ts", "semantic-rerank.ts"];
   for (const filename of files) {
     const source = await readFile(new URL(`./lib/${filename}`, ROOT), "utf8");
     const output = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
@@ -52,23 +52,35 @@ async function loadImplementation() {
   implementation.filename = join(directory, "semantic-rerank.js");
   implementation.paths = Module._nodeModulePaths(directory);
   implementation._compile(await readFile(join(directory, "semantic-rerank.js"), "utf8"), implementation.filename);
-  return { directory, semanticRerank: implementation.exports.semanticRerank };
+  const cacheModule = new Module(join(directory, "embedding-cache.js"));
+  cacheModule.filename = join(directory, "embedding-cache.js");
+  cacheModule.paths = Module._nodeModulePaths(directory);
+  cacheModule._compile(await readFile(join(directory, "embedding-cache.js"), "utf8"), cacheModule.filename);
+  return { directory, semanticRerank: implementation.exports.semanticRerank, clearEmbeddingCache: cacheModule.exports.clearEmbeddingCache };
 }
 
-async function measure(semanticRerank, count, delayMs = 0) {
+async function measure(semanticRerank, clearEmbeddingCache, count, delayMs = 0) {
+  clearEmbeddingCache();
   const originalFetch = globalThis.fetch;
+  let providerCalls = 0;
   globalThis.fetch = async (_url, init) => {
+    providerCalls += 1;
     if (delayMs > 0) await new Promise((resolve) => setTimeout(resolve, delayMs));
     const inputs = JSON.parse(init.body).input;
     return { ok: true, json: async () => ({ data: responseFor(inputs).map((embedding, index) => ({ index, embedding })) }) };
   };
-  const durations = [];
+  const warmDurations = [];
   let diagnostics;
+  let coldMs = 0;
   try {
+    const started = process.hrtime.bigint();
+    const coldResult = await semanticRerank("official Bengali scholarship", makeResults(count), `benchmark-${count}-${delayMs}`);
+    coldMs = Number(process.hrtime.bigint() - started) / 1e6;
+    diagnostics = coldResult.diagnostics;
     for (let run = 0; run < RUNS; run += 1) {
-      const started = process.hrtime.bigint();
-      const result = await semanticRerank("official Bengali scholarship", makeResults(count), "benchmark-key");
-      durations.push(Number(process.hrtime.bigint() - started) / 1e6);
+      const warmStarted = process.hrtime.bigint();
+      const result = await semanticRerank("official Bengali scholarship", makeResults(count), `benchmark-${count}-${delayMs}`);
+      warmDurations.push(Number(process.hrtime.bigint() - warmStarted) / 1e6);
       diagnostics = result.diagnostics;
     }
   } finally {
@@ -78,21 +90,24 @@ async function measure(semanticRerank, count, delayMs = 0) {
     candidates: count,
     runs: RUNS,
     delayMs,
-    avgMs: average(durations),
-    p50Ms: percentile(durations, 50),
-    p95Ms: percentile(durations, 95),
+    coldMs,
+    warmAvgMs: average(warmDurations),
+    warmP50Ms: percentile(warmDurations, 50),
+    warmP95Ms: percentile(warmDurations, 95),
+    providerCalls,
     topKOverlap: diagnostics.topKOverlap,
     rerankedCount: diagnostics.rerankedCount,
   };
 }
 
-async function measureFallback(semanticRerank) {
+async function measureFallback(semanticRerank, clearEmbeddingCache) {
+  clearEmbeddingCache();
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async () => ({ ok: false, status: 503, json: async () => ({}) });
   const started = process.hrtime.bigint();
   let failed = false;
   try {
-    await semanticRerank("official Bengali scholarship", makeResults(20), "benchmark-key");
+    await semanticRerank("official Bengali scholarship", makeResults(20), "benchmark-failure");
   } catch {
     failed = true;
   } finally {
@@ -101,15 +116,15 @@ async function measureFallback(semanticRerank) {
   return { durationMs: Number(process.hrtime.bigint() - started) / 1e6, failed };
 }
 
-const { directory, semanticRerank } = await loadImplementation();
+const { directory, semanticRerank, clearEmbeddingCache } = await loadImplementation();
 try {
   const local = [];
   const withNetworkDelay = [];
   for (const count of CANDIDATE_COUNTS) {
-    local.push(await measure(semanticRerank, count));
-    withNetworkDelay.push(await measure(semanticRerank, count, 50));
+    local.push(await measure(semanticRerank, clearEmbeddingCache, count));
+    withNetworkDelay.push(await measure(semanticRerank, clearEmbeddingCache, count, 50));
   }
-  const fallback = await measureFallback(semanticRerank);
+  const fallback = await measureFallback(semanticRerank, clearEmbeddingCache);
   console.log(JSON.stringify({ benchmark: "semantic-rerank", dimensions: DIMENSIONS, local, withNetworkDelay, fallback }, null, 2));
 } finally {
   await rm(directory, { recursive: true, force: true });

@@ -1,5 +1,6 @@
 import type { SearchResult } from "./web-search";
 import { buildSearchDiagnostics, type RankedSearchResult, type SearchDiagnostics } from "./search-diagnostics";
+import { getCachedEmbeddings } from "./embedding-cache";
 
 const EMBEDDING_URL = "https://api.openai.com/v1/embeddings";
 const EMBEDDING_MODEL = "text-embedding-3-small";
@@ -22,18 +23,18 @@ export async function semanticRerank(query: string, results: SearchResult[], api
 }
 
 async function createEmbeddings(input: string[], apiKey: string): Promise<number[][]> {
-  const response = await fetch(EMBEDDING_URL, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ model: EMBEDDING_MODEL, input, encoding_format: "float", dimensions: 512 }),
-    cache: "no-store",
-    signal: AbortSignal.timeout(10_000),
+  return getCachedEmbeddings(input, apiKey, async (missingInputs) => {
+    const response = await fetch(EMBEDDING_URL, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ model: EMBEDDING_MODEL, input: missingInputs, encoding_format: "float", dimensions: 512 }),
+      cache: "no-store",
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!response.ok) throw new Error("Embedding provider request failed.");
+    const payload = await response.json() as { data?: Array<{ index?: number; embedding?: number[] }> };
+    return (payload.data || []).sort((a, b) => (a.index || 0) - (b.index || 0)).map((item) => item.embedding).filter((item): item is number[] => Array.isArray(item));
   });
-  if (!response.ok) throw new Error("Embedding provider request failed.");
-  const payload = await response.json() as { data?: Array<{ index?: number; embedding?: number[] }> };
-  const vectors = (payload.data || []).sort((a, b) => (a.index || 0) - (b.index || 0)).map((item) => item.embedding).filter((item): item is number[] => Array.isArray(item));
-  if (vectors.length !== input.length) throw new Error("Embedding provider returned incomplete vectors.");
-  return vectors;
 }
 
 function cosineSimilarity(first: number[], second: number[]): number {
