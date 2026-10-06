@@ -5,6 +5,9 @@ import { getCachedEmbeddings } from "./embedding-cache";
 const EMBEDDING_URL = "https://api.openai.com/v1/embeddings";
 const EMBEDDING_MODEL = "text-embedding-3-small";
 const MAX_EMBEDDING_TEXT = 2_000;
+const SEMANTIC_WEIGHT = 0.6;
+const KEYWORD_WEIGHT = 0.3;
+const RANK_STABILITY_WEIGHT = 0.1;
 
 export async function semanticRerank(query: string, results: SearchResult[], apiKey: string): Promise<{ results: RankedSearchResult[]; diagnostics: SearchDiagnostics }> {
   const lexical = results.map((result) => ({ ...result, lexicalScore: lexicalScore(query, result) }));
@@ -15,11 +18,17 @@ export async function semanticRerank(query: string, results: SearchResult[], api
   const queryVector = vectors[0];
   const reranked = lexical.map((result, index) => {
     const semanticScore = cosineSimilarity(queryVector, vectors[index + 1]);
-    const combinedScore = semanticScore * 0.65 + result.lexicalScore * 0.35;
-    return { ...result, semanticScore, combinedScore };
+    const semanticNormalizedScore = normalizeSemanticScore(semanticScore);
+    const lexicalRankScore = lexical.length === 1 ? 1 : 1 - index / (lexical.length - 1);
+    const hybridScore = semanticNormalizedScore * SEMANTIC_WEIGHT + result.lexicalScore * KEYWORD_WEIGHT + lexicalRankScore * RANK_STABILITY_WEIGHT;
+    return { ...result, semanticScore, semanticNormalizedScore, lexicalRankScore, hybridScore, combinedScore: hybridScore };
   }).sort((a, b) => (b.combinedScore || 0) - (a.combinedScore || 0));
 
   return { results: reranked, diagnostics: buildSearchDiagnostics(query, lexical, reranked, true) };
+}
+
+function normalizeSemanticScore(value: number): number {
+  return Math.max(0, Math.min(1, (value + 1) / 2));
 }
 
 async function createEmbeddings(input: string[], apiKey: string): Promise<number[][]> {

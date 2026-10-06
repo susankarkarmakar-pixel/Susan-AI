@@ -3,6 +3,9 @@ import type { SearchResult } from "./web-search";
 export interface RankedSearchResult extends SearchResult {
   lexicalScore: number;
   semanticScore?: number;
+  semanticNormalizedScore?: number;
+  lexicalRankScore?: number;
+  hybridScore?: number;
   combinedScore?: number;
 }
 

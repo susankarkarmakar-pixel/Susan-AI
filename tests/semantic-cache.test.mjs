@@ -91,3 +91,24 @@ test("embedding cache is partitioned by API-key fingerprint", async () => {
   }
   assert.equal(calls, 2);
 });
+
+test("hybrid reranking exposes bounded semantic, keyword, and stability components", async () => {
+  implementation.clearEmbeddingCache();
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (_url, init) => {
+    const inputs = JSON.parse(init.body).input;
+    return { ok: true, json: async () => ({ data: inputs.map((_, index) => ({ index, embedding: vector(index + 12) })) }) };
+  };
+  let reranked;
+  try {
+    reranked = await implementation.semanticRerank("Bengali scholarship", results, "cache-test-hybrid");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+  for (const item of reranked.results) {
+    assert.ok(item.semanticNormalizedScore >= 0 && item.semanticNormalizedScore <= 1);
+    assert.ok(item.lexicalRankScore >= 0 && item.lexicalRankScore <= 1);
+    assert.ok(Number.isFinite(item.hybridScore));
+    assert.equal(item.combinedScore, item.hybridScore);
+  }
+});
