@@ -1,4 +1,4 @@
-export type AttachmentExtractionSource = "text" | "pdf-text" | "ocr" | "none";
+export type AttachmentExtractionSource = "text" | "pdf-text" | "docx-text" | "xlsx-text" | "ocr" | "none";
 export type AttachmentExtractionStatus = "reading" | "ocr" | "ready" | "empty" | "failed";
 export type OcrLanguage = "eng" | "ben" | "hin" | "eng+ben" | "eng+hin";
 

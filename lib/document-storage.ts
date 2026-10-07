@@ -85,6 +85,14 @@ export async function deleteWorkspaceDocument(id: string): Promise<void> {
 }
 
 async function extractForIndex(file: File): Promise<AttachmentExtractionResult> {
+  if (/\.docx$/i.test(file.name) || file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
+    const { extractDocxText } = await import("@/lib/document-parsers");
+    return extractDocxText(file);
+  }
+  if (/\.xlsx$/i.test(file.name) || file.type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet") {
+    const { extractXlsxText } = await import("@/lib/document-parsers");
+    return extractXlsxText(file);
+  }
   if (/\.(txt|md|csv|json|pdf)$/i.test(file.name) || file.type === "application/pdf" || file.type.startsWith("text/")) {
     return extractAttachmentText(file, undefined, "eng");
   }

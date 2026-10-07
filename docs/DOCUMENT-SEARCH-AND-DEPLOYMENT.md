@@ -2,9 +2,9 @@
 
 ## Local document search
 
-Susan AI stores documents and their bounded search index in the browser's IndexedDB. Search never uploads document contents to the server. Plain text, Markdown, CSV, JSON and PDF text are indexed locally when a file is added; the UI also records the extraction source, status, language and character count. DOCX and XLSX remain downloadable and analyzable attachments, but currently fall back to filename-only search until dedicated parsers are added.
+Susan AI stores documents and their bounded search index in the browser's IndexedDB. Search never uploads document contents to the server. Plain text, Markdown, CSV, JSON and PDF text are indexed locally when a file is added; the UI also records the extraction source, status, language and character count. DOCX files are parsed with Mammoth and XLSX workbooks with ExcelJS, including worksheet names and bounded cell values.
 
-The index is schema-versioned and older documents remain readable. Search results rank exact filename matches above token matches in extracted text and include a short local snippet without exposing the full stored document.
+The index is schema-versioned and older documents remain readable. Search results rank exact filename matches above token matches in extracted text and include a short local snippet without exposing the full stored document. Office parsing is bounded to 120,000 indexed characters, 20 worksheets, 500 rows per worksheet, and 2,000 characters per cell.
 
 ## Vercel
 
