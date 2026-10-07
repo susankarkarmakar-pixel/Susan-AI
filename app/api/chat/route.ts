@@ -6,6 +6,7 @@ import { assertCustomProviderHostResolvesSafely, UnsafeCustomProviderHostError }
 import { enforceRateLimit, getClientIdentifier, RateLimitUnavailableError, RATE_LIMIT_RETRY_AFTER_SECONDS } from "@/lib/rate-limit";
 import { mapProviderError } from "@/lib/provider-errors.mjs";
 import { normalizeGenerationOptions, normalizeSystemPrompt } from "@/lib/generation-settings.mjs";
+import { getCorrelationId, reportServerError } from "@/lib/observability";
 import { NextResponse } from "next/server";
 
 const MAX_MESSAGES = 100;
@@ -15,6 +16,7 @@ const MAX_BODY_BYTES = 20_000_000;
 const MAX_FILE_DATA_URL_LENGTH = 16_000_000;
 export async function POST(req: Request) {
   let requestedProvider = "";
+  const correlationId = getCorrelationId(req);
   try {
     if (!req.headers.get("content-type")?.toLowerCase().includes("application/json")) return jsonError("Content-Type must be application/json.", 415);
     const contentLength = Number(req.headers.get("content-length") || 0);
@@ -74,6 +76,7 @@ export async function POST(req: Request) {
     response.headers.set("Cache-Control", "no-store");
     return response;
   } catch (error: unknown) {
+    reportServerError(error, { correlationId, route: "/api/chat" });
     if (error instanceof RateLimitUnavailableError) return jsonError("Security rate limiting is temporarily unavailable. Please try again shortly.", 503, { "Retry-After": "30" });
     const rawMessage = error && typeof error === "object" && "message" in error && typeof error.message === "string" ? error.message : "";
     if (rawMessage.toLowerCase().includes("json") || rawMessage.toLowerCase().includes("unexpected end")) return jsonError("Invalid JSON request body.", 400);
