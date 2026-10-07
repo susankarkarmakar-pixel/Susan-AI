@@ -43,20 +43,26 @@ Candidate-এ score না থাকলে title, snippet এবং URL থে�
 - `latest`, `current`, `news`, `সর্বশেষ`, `বর্তমান` → freshness-sensitive
 - `research`, `compare`, `references`, `তুলনা`, `গবেষণা` → research profile
 - `why`, `how`, `explain`, `guide` → semantic-context profile
-- Bengali/Hindi query → multilingual semantic boost
+- Bengali query → `bengali` profile, stronger semantic boost for inflection/spelling variation, Bengali freshness/navigation/explanation terms
+- Hindi query → `hindi` profile, semantic boost with a smaller keyword reduction to preserve named-entity precision, Hindi freshness/navigation/explanation terms
+- Explicit `context.language` (`bn`, `bengali`, `hi`, `hindi`) overrides script inference and supports Romanized Bengali/Hindi queries
 - Short follow-up + previous query/summary → contextual semantic boost
 - Login, official, docs, download, portal → navigational keyword boost
+
+Language profiles are currently calibrated deterministic priors, not claims of a final
+language-wide optimum. Bengali and Hindi qrels should be evaluated separately with the
+A/B framework before production weights are changed.
 
 ## Output
 
 ```json
 {
   "weights": {
-    "semantic": 0.62,
-    "keyword": 0.29,
-    "stability": 0.09,
-    "profile": "fresh-research",
-    "intents": ["research", "freshness-sensitive", "multilingual"],
+    "semantic": 0.52,
+    "keyword": 0.33,
+    "stability": 0.15,
+    "profile": "bn-exact",
+    "intents": ["research", "bengali", "freshness-sensitive"],
     "signals": {},
     "reasons": [],
     "confidence": 0.73
@@ -78,5 +84,6 @@ Candidate-এ score না থাকলে title, snippet এবং URL থে�
 - Context local রাখুন; conversationSummary-তে secret/API key পাঠাবেন না।
 - Weights-এর output observability-তে log করার সময় full query না রেখে hashed query বা intent metadata ব্যবহার করুন।
 - Offline qrels dataset দিয়ে প্রতি profile আলাদা evaluate করুন।
+- Bengali এবং Hindi qrels আলাদা করে evaluate করুন; একটি ভাষার uplift অন্য ভাষার জন্য ধরে নেবেন না।
 - Dynamic weights-এর উপর hard bounds রাখা আছে, এবং সব weights normalize হয়ে `1.0` হয়।
 - Profile changes deploy করার আগে default hybrid weights-এর সঙ্গে NDCG@5, MRR এবং MAP তুলনা করুন।

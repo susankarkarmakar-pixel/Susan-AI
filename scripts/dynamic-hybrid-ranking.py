@@ -48,10 +48,19 @@ STOP_WORDS = {
 }
 RESEARCH_TERMS = re.compile(r"\b(research|investigat(?:e|ing|ion)|deep dive|web search|search|latest|recent|current|up[- ]to[- ]date|news|citations?|references?|fact[- ]?check|verify|compare|versus|vs)\b", re.I)
 RESEARCH_TERMS_BN = re.compile(r"(সার্চ|খুঁজে|অনুসন্ধান|রিসার্চ|গবেষণা|সাম্প্রতিক|সর্বশেষ|বর্তমান|তথ্যসূত্র|উৎসসহ|তথ্যসহ|তুলনা|যাচাই|খবর|নিউজ)", re.U)
+RESEARCH_TERMS_HI = re.compile(r"(खोज|सर्च|अनुसंधान|रिसर्च|शोध|हालिया|नवीनतम|वर्तमान|स्रोत|संदर्भ|तुलना|सत्यापित|खबर|समाचार)", re.U)
 EXACT_TERMS = re.compile(r"(\"[^\"]+\"|'[^']+'|\bhttps?://|\bsite:|\bfiletype:|\bHTTP\s*\d{3}\b|\b[A-Z]{2,}[-_]\d+\b|\b\d+\.\d+(?:\.\d+)?\b)", re.I)
 NAVIGATION_TERMS = re.compile(r"\b(login|sign[ -]?in|official|homepage|documentation|docs|download|portal|website|address|contact)\b", re.I)
+NAVIGATION_TERMS_BN = re.compile(r"(অফিসিয়াল|সরকারি|ওয়েবসাইট|প্রবেশ|লগইন|ডাউনলোড|পোর্টাল|ঠিকানা)", re.U)
+NAVIGATION_TERMS_HI = re.compile(r"(आधिकारिक|सरकारी|वेबसाइट|लॉग[ -]?इन|डाउनलोड|पोर्टल|पता)", re.U)
 EXPLANATORY_TERMS = re.compile(r"\b(why|how does|explain|meaning|difference|overview|guide|tutorial|what is)\b", re.I)
+EXPLANATORY_TERMS_BN = re.compile(r"(কেন|কীভাবে|ব্যাখ্যা|অর্থ|পার্থক্য|গাইড|নির্দেশিকা|কি)", re.U)
+EXPLANATORY_TERMS_HI = re.compile(r"(क्यों|कैसे|समझाइए|अर्थ|अंतर|गाइड|मार्गदर्शिका|क्या)", re.U)
 FRESHNESS_TERMS = re.compile(r"\b(today|tonight|yesterday|latest|recent|current|now|this week|this month|202[4-9]|20[3-9]\d)\b", re.I)
+FRESHNESS_TERMS_BN = re.compile(r"(আজ|গতকাল|সর্বশেষ|সাম্প্রতিক|বর্তমান|এখন|এই সপ্তাহ|এই মাস|20[2-9]\d)", re.U)
+FRESHNESS_TERMS_HI = re.compile(r"(आज|कल|नवीनतम|हालिया|वर्तमान|अभी|इस सप्ताह|इस महीने|20[2-9]\d)", re.U)
+ROMANIZED_HI_TERMS = re.compile(r"\b(sarkari|yojana|haal|haal hi|navinatam|vartaman|khoj|samachar|tulna|srot|adhikarik|kaise|kyon)\b", re.I)
+ROMANIZED_BN_TERMS = re.compile(r"\b(sorkar|sarkari|shorbosesh|sorbosesh|samprotik|bortoman|khujun|gobeshona|tulona|utso|adhikarik|kivabe|keno)\b", re.I)
 
 
 def clamp(value: float, low: float = 0.0, high: float = 1.0) -> float:
@@ -110,6 +119,32 @@ def normalize_scores(values: list[float]) -> list[float]:
     return [clamp((value - low) / (high - low)) for value in values]
 
 
+def detect_language(query: str, explicit_language: str = "") -> tuple[str, float, list[str]]:
+    """Return a language profile, confidence, and evidence labels.
+
+    Explicit request context wins; otherwise script and conservative lexical
+    evidence are used. Mixed Latin text remains ``unknown`` unless context
+    identifies it, avoiding overconfident Bengali/Hindi guesses.
+    """
+    explicit = normalize_text(explicit_language)
+    aliases = {"bn": "bengali", "bengali": "bengali", "বাংলা": "bengali", "hi": "hindi", "hindi": "hindi", "हिंदी": "hindi"}
+    if explicit in aliases:
+        return aliases[explicit], 1.0, ["explicit-context"]
+    bn_count = len(re.findall(r"[\u0980-\u09ff]", query))
+    hi_count = len(re.findall(r"[\u0900-\u097f]", query))
+    if bn_count and bn_count >= hi_count:
+        return "bengali", clamp(0.65 + min(0.3, bn_count / max(1, len(query)))), ["bengali-script"]
+    if hi_count:
+        return "hindi", clamp(0.65 + min(0.3, hi_count / max(1, len(query)))), ["devanagari-script"]
+    bn_roman = bool(ROMANIZED_BN_TERMS.search(query))
+    hi_roman = bool(ROMANIZED_HI_TERMS.search(query))
+    if bn_roman and not hi_roman:
+        return "bengali", 0.58, ["romanized-bengali-lexicon"]
+    if hi_roman and not bn_roman:
+        return "hindi", 0.58, ["romanized-hindi-lexicon"]
+    return "unknown", 0.0, []
+
+
 @dataclass(frozen=True)
 class DynamicWeights:
     semantic: float
@@ -126,16 +161,16 @@ def assign_dynamic_weights(query: str, context: dict[str, Any] | None = None) ->
     context = context or {}
     text = f"{query} {context.get('conversationSummary', '')}"
     terms = tokenize(query)
-    language = str(context.get("language") or "")
+    language, language_confidence, language_evidence = detect_language(query, str(context.get("language") or ""))
     mode = normalize_text(context.get("mode"))
     previous_queries = context.get("previousQueries") or []
     has_context = bool(context.get("conversationSummary") or previous_queries)
-    research = bool(RESEARCH_TERMS.search(text) or RESEARCH_TERMS_BN.search(text) or mode in {"research", "search"})
+    research = bool(RESEARCH_TERMS.search(text) or RESEARCH_TERMS_BN.search(text) or RESEARCH_TERMS_HI.search(text) or mode in {"research", "search"})
     exact = bool(EXACT_TERMS.search(query))
-    navigation = bool(NAVIGATION_TERMS.search(query))
-    explanatory = bool(EXPLANATORY_TERMS.search(query))
-    freshness = bool(FRESHNESS_TERMS.search(query) or context.get("freshnessRequested"))
-    multilingual = bool(language.lower() in {"bn", "bengali", "hi", "hindi"} or re.search(r"[\u0980-\u09ff\u0900-\u097f]", query))
+    navigation = bool(NAVIGATION_TERMS.search(query) or (language == "bengali" and NAVIGATION_TERMS_BN.search(query)) or (language == "hindi" and NAVIGATION_TERMS_HI.search(query)))
+    explanatory = bool(EXPLANATORY_TERMS.search(query) or (language == "bengali" and EXPLANATORY_TERMS_BN.search(query)) or (language == "hindi" and EXPLANATORY_TERMS_HI.search(query)))
+    freshness = bool(FRESHNESS_TERMS.search(query) or (language == "bengali" and FRESHNESS_TERMS_BN.search(query)) or (language == "hindi" and FRESHNESS_TERMS_HI.search(query)) or context.get("freshnessRequested"))
+    multilingual = language in {"bengali", "hindi"}
     short_follow_up = has_context and len(terms) <= 6
 
     semantic = 0.60
@@ -173,10 +208,18 @@ def assign_dynamic_weights(query: str, context: dict[str, Any] | None = None) ->
         intents.append("freshness-sensitive")
         reasons.append("Current/latest intent favors explicit terms and provider ordering that often carries recency.")
     if multilingual:
-        semantic += 0.08
-        keyword -= 0.05
-        intents.append("multilingual")
-        reasons.append("Bengali/Hindi or other multilingual phrasing benefits from semantic coverage.")
+        intents.append(language)
+        if language == "bengali":
+            semantic += 0.10
+            keyword -= 0.06
+            reasons.append("Bengali calibration increases semantic coverage for inflection and spelling variation.")
+        elif language == "hindi":
+            semantic += 0.07
+            keyword -= 0.03
+            reasons.append("Hindi calibration favors semantic matching while retaining stronger keyword evidence for named entities.")
+        if language_confidence < 0.7:
+            stability += 0.03
+            reasons.append("Language evidence is uncertain, so rank stability is slightly increased.")
     if short_follow_up:
         semantic += 0.10
         keyword -= 0.06
@@ -194,7 +237,9 @@ def assign_dynamic_weights(query: str, context: dict[str, Any] | None = None) ->
 
     matched_signal_count = sum([exact, navigation, research, explanatory, freshness, multilingual, short_follow_up])
     confidence = clamp(0.52 + matched_signal_count * 0.07 + (0.08 if context.get("mode") else 0.0))
-    profile = "exact" if exact or navigation else "fresh-research" if freshness and research else "semantic-context" if explanatory or short_follow_up or multilingual else "research" if research else "general"
+    language_prefix = {"bengali": "bn", "hindi": "hi"}.get(language, "")
+    base_profile = "exact" if exact or navigation else "fresh-research" if freshness and research else "semantic-context" if explanatory or short_follow_up or multilingual else "research" if research else "general"
+    profile = f"{language_prefix}-{base_profile}" if language_prefix else base_profile
     return DynamicWeights(
         semantic=round(semantic, 6),
         keyword=round(keyword, 6),
@@ -202,7 +247,7 @@ def assign_dynamic_weights(query: str, context: dict[str, Any] | None = None) ->
         profile=profile,
         intents=intents,
         signals={
-            "termCount": len(terms), "language": language or ("bn-hi" if multilingual else "unknown"),
+            "termCount": len(terms), "language": language, "languageConfidence": round(language_confidence, 3), "languageEvidence": language_evidence,
             "research": research, "exact": exact, "navigation": navigation, "explanatory": explanatory,
             "freshness": freshness, "multilingual": multilingual, "shortFollowUp": short_follow_up,
         },
