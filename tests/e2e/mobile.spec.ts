@@ -164,12 +164,19 @@ test.describe("mobile Susan AI smoke flow", () => {
     await expect(documentCard.getByText("Text indexed locally")).toBeVisible();
     await page.getByRole("textbox", { name: "Search documents" }).fill("sunlit-indexable-cedar");
     await expect(documentCard).toBeVisible();
-    await page.getByLabel("Document context budget").selectOption("4000");
+    const contextBudget = page.getByLabel("Document context budget");
+    await contextBudget.selectOption("4000");
+    await expect(contextBudget).toHaveValue("4000");
     await documentCard.getByRole("button", { name: "Use in chat" }).tap();
 
     const composer = page.getByRole("textbox", { name: "Message Susan AI" });
     await expect(composer).toHaveValue(/sunlit-indexable-cedar/);
     await expect(composer).toHaveValue(/untrusted reference material/);
+    await expect(composer).toHaveValue(/<untrusted_document_context>[\s\S]*<\/untrusted_document_context>/);
+    const preparedPrompt = await composer.inputValue();
+    await composer.fill(`${preparedPrompt}\nSummarize this document.`);
+    await expect(composer).toHaveValue(/Summarize this document\./);
+    await expect(composer).toHaveValue(/<untrusted_document_context>[\s\S]*<\/untrusted_document_context>/);
     await expectNoHorizontalOverflow(page);
   });
 });
