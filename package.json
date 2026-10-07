@@ -12,6 +12,7 @@
     "test": "node --test tests/*.test.mjs",
     "test:mobile": "node --test tests/mobile-responsive.test.mjs",
     "test:e2e:mobile": "playwright test",
+    "benchmark:office": "node scripts/benchmark-office-parsers.mjs",
     "test:providers": "node --test tests/provider-live.test.mjs",
     "desktop": "electron .",
     "desktop:build:win": "npm run build && electron-builder --win nsis portable"

@@ -6,6 +6,14 @@ Susan AI stores documents and their bounded search index in the browser's Indexe
 
 The index is schema-versioned and older documents remain readable. Search results rank exact filename matches above token matches in extracted text and include a short local snippet without exposing the full stored document. Office parsing is bounded to 120,000 indexed characters, 20 worksheets, 500 rows per worksheet, and 2,000 characters per cell.
 
+Run the reproducible fixture benchmark with:
+
+```bash
+npm run benchmark:office
+```
+
+The benchmark reports DOCX/XLSX extraction latency, indexed character counts, and process memory for generated fixtures. Results depend on the build machine; use them for regression comparisons rather than as a hosted latency SLA.
+
 ## Vercel
 
 `vercel.json` is valid for the Next.js app: it uses `npm ci` and `npm run build`. `next.config.ts` uses `output: "standalone"`, which is compatible with Vercel and is also used by the Docker image. Configure Sentry DSN variables and Upstash variables in the Vercel project settings; never commit them.
