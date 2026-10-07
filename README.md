@@ -132,6 +132,8 @@ For offline search relevance experiments, generate a semantic/keyword weight gri
 
 For query-aware ranking, the [Dynamic Hybrid Search guide](docs/DYNAMIC-HYBRID-SEARCH.md) documents the offline intent/context implementation that adjusts semantic, keyword, and rank-stability weights per request.
 
+Before rollout, use the [Dynamic Hybrid A/B Testing guide](docs/DYNAMIC-HYBRID-AB-TESTING.md) to compare fixed and dynamic ranking with deterministic assignment, uplift, bootstrap confidence intervals, and guardrails.
+
 ### Qwen local downloads
 
 Settings includes official Qwen3 download links for practical local sizes. For Ollama, use the official [Qwen3 library](https://ollama.com/library/qwen3) and commands such as `ollama pull qwen3:4b`, `ollama pull qwen3:8b`, or `ollama pull qwen3:30b`. For LM Studio, use the official [Qwen3 catalog](https://lmstudio.ai/models/qwen3), where the 4B, 30B MoE, and larger thinking variants are available. After downloading/loading models, click **Detect & add all models** in Susan AI.
