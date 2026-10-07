@@ -16,6 +16,38 @@ env:
   NODE_VERSION: "22"
 
 jobs:
+  office-benchmark:
+    name: DOCX/XLSX parser benchmark
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run office parser benchmark
+        run: |
+          set -o pipefail
+          npm run --silent benchmark:office 2>office-parser-benchmark.log | tee office-parser-benchmark.json
+
+      - name: Upload benchmark result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: office-parser-benchmark
+          path: |
+            office-parser-benchmark.json
+            office-parser-benchmark.log
+          if-no-files-found: error
+
   quality:
     name: Lint, typecheck, tests, mobile, E2E, build and audit
     runs-on: ubuntu-latest
