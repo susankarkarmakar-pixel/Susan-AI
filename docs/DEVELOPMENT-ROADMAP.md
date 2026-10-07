@@ -21,7 +21,7 @@ Susan AI এখন একটি privacy-first, browser-local, multi-model AI wor
 - ESLint: passing; TypeScript check: passing
 - Next.js **16.3.8** production build: passing
 - Dependency audit policy: **no production high/critical or unapproved full-tree high/critical findings**; compatible updates cleared the `sharp` and `source-map-js` high advisories. The exact unpatched `braces` advisory in the development-only lint chain remains temporarily allowlisted; moderate transitive findings in document/export and desktop packaging dependencies are reported, not suppressed.
-- GitHub Actions PR quality-gate workflow is configured and its checks pass on the feature branch; the latest lockfile-security update is awaiting a fresh hosted run
+- GitHub Actions PR quality-gate workflow is configured; the latest hosted run passes on the feature branch, including the updated dependency lockfile
 - Phase 2 initial slice: TXT/Markdown/CSV/JSON document text is indexed locally (120,000-character cap), full-text search works in Documents, and “Use in chat” prepares an editable, prompt-injection-labeled excerpt with a user-selected 4k/8k/16k/32k character budget. PDF/DOCX/XLSX full-text indexing and richer excerpt/summary controls remain future work.
 - Live demo: [susan-ai.vercel.app](https://susan-ai.vercel.app/)
 
@@ -105,7 +105,7 @@ node scripts/check-audit-policy.mjs
 
 Audit policy critical এবং unapproved high-severity findings block করে। বর্তমানে unpatched `braces` advisory শুধু development-only Next ESLint toolchain-এ reachable হওয়ায় exact advisory ও dependency chain-এ সীমিত temporary exception; নতুন বা unrelated high/critical finding fail করবে। Moderate findings report হয়, কিন্তু বর্তমান dependency tree-তে blocking নয়।
 
-**Exit gate:** reproducible green build, no untracked test artifacts, এবং failed E2E হলে screenshot/trace artifact পাওয়া যায়। Local gates pass; follow-up PR-এ hosted Actions run green হওয়া বাকি।
+**Exit gate:** reproducible green build, no untracked test artifacts, এবং failed E2E হলে screenshot/trace artifact পাওয়া যায়। Local gates and the follow-up PR's hosted Actions run pass.
 
 ---
 
