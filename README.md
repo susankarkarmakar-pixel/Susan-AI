@@ -128,6 +128,8 @@ Local requests use OpenAI-compatible `/v1` endpoints and do not send an API key.
 
 For AirLLM installation, model selection, privacy guidance, and troubleshooting, see the [Susan AI + AirLLM guide](docs/AIRLLM-GUIDE.md). AirLLM is available through **Settings → AI Providers → Local AI servers → AirLLM (Local)** at `http://localhost:8000/v1`.
 
+For offline search relevance experiments, generate a semantic/keyword weight grid report and open it in the [Search Weight Grid Dashboard](docs/SEARCH-WEIGHT-DASHBOARD.md). The dashboard visualizes heatmaps, top configurations, and default-vs-best metric deltas without making embedding API calls.
+
 ### Qwen local downloads
 
 Settings includes official Qwen3 download links for practical local sizes. For Ollama, use the official [Qwen3 library](https://ollama.com/library/qwen3) and commands such as `ollama pull qwen3:4b`, `ollama pull qwen3:8b`, or `ollama pull qwen3:30b`. For LM Studio, use the official [Qwen3 catalog](https://lmstudio.ai/models/qwen3), where the 4B, 30B MoE, and larger thinking variants are available. After downloading/loading models, click **Detect & add all models** in Susan AI.
