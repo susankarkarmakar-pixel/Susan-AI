@@ -13,15 +13,15 @@ Susan AI এখন একটি privacy-first, browser-local, multi-model AI wor
 - **Responsive UI:** desktop ও mobile layouts, mobile Settings/About sheets, safe-area spacing, PWA manifest এবং mobile responsive contract tests।
 - **Quality gates:** source-level mobile tests, Chromium mobile smoke tests, runtime smoke tests, lint, TypeScript এবং production build checks।
 
-### বর্তমান baseline — 2026-10-06
+### বর্তমান baseline — 2026-10-07
 
 - Source-level mobile suite: **6 tests passing**
 - Real-browser mobile E2E suite: **16 tests passing**
 - Full Node regression: **126 passing, 1 intentional skip**
 - ESLint: passing; TypeScript check: passing
 - Next.js **16.3.8** production build: passing
-- Dependency audit policy: **no critical or unapproved high-severity findings**; the exact unpatched `braces` advisory in the development-only lint chain is temporarily allowlisted, while moderate `exceljs`/`uuid` advisories remain visible and non-blocking
-- GitHub Actions PR quality-gate workflow is configured; first hosted run is pending the follow-up PR
+- Dependency audit policy: **no production high/critical or unapproved full-tree high/critical findings**; compatible updates cleared the `sharp` and `source-map-js` high advisories. The exact unpatched `braces` advisory in the development-only lint chain remains temporarily allowlisted; moderate transitive findings in document/export and desktop packaging dependencies are reported, not suppressed.
+- GitHub Actions PR quality-gate workflow is configured and its checks pass on the feature branch; the latest lockfile-security update is awaiting a fresh hosted run
 - Phase 2 initial slice: TXT/Markdown/CSV/JSON document text is indexed locally (120,000-character cap), full-text search works in Documents, and “Use in chat” prepares an editable, prompt-injection-labeled excerpt with a user-selected 4k/8k/16k/32k character budget. PDF/DOCX/XLSX full-text indexing and richer excerpt/summary controls remain future work.
 - Live demo: [susan-ai.vercel.app](https://susan-ai.vercel.app/)
 
