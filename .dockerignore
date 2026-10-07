@@ -1,0 +1,12 @@
+node_modules
+.next
+.git
+.github
+.env*
+!.env.example
+playwright-report
+test-results
+release
+android
+coverage
+*.log

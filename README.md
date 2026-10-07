@@ -206,6 +206,18 @@ The current production demo is available at [susan-ai.vercel.app](https://susan-
 1. Open [Vercel](https://vercel.com/new) and import this GitHub repository.
 2. Keep the detected framework as **Next.js** and deploy with the default settings.
 3. After deployment, verify `https://your-domain.example/api/health` and then configure provider keys in the app's Settings.
+
+### Docker deployment
+
+The repository includes a production `Dockerfile` for the Next.js standalone output. Build the app before building the image, then run it with your deployment environment:
+
+```bash
+npm ci && npm run build
+docker build -t susan-ai .
+docker run --rm -p 3000:3000 --env-file .env.local susan-ai
+```
+
+The container runs as a non-root user and listens on `0.0.0.0:3000`. See `docs/DOCUMENT-SEARCH-AND-DEPLOYMENT.md` for the local document index and deployment details.
 4. Add any required server-side secrets—such as `BRAVE_SEARCH_API_KEY` or Upstash rate-limit variables—in the hosting provider's environment settings, never in the repository.
 
 ## Production validation

@@ -9,7 +9,7 @@ import { getProviderDescriptor } from "@/lib/provider-capabilities";
 import { getCustomProviders } from "@/lib/custom-providers";
 import { clearPluginActivities, isPluginToolEnabled, listPluginActivities, PluginActivity, recordPluginActivity, setPluginToolEnabled } from "@/lib/plugin-settings";
 import { deleteKnowledgeNote, deleteProject, getKnowledgeNotes, getProjects, KnowledgeNote, saveKnowledgeNote, saveProject, setProjectStatus, WorkspaceProject } from "@/lib/workspace-storage";
-import { deleteWorkspaceDocument, getWorkspaceDocumentBlob, isSupportedWorkspaceDocument, listWorkspaceDocuments, saveWorkspaceDocument, WorkspaceDocument } from "@/lib/document-storage";
+import { deleteWorkspaceDocument, getWorkspaceDocumentBlob, isSupportedWorkspaceDocument, listWorkspaceDocuments, saveWorkspaceDocument, searchWorkspaceDocuments, WorkspaceDocument, WorkspaceDocumentSearchResult } from "@/lib/document-storage";
 import { AgentAttachment } from "@/lib/agent/types";
 
 export type WorkspaceSection = "home" | "chat" | "agent" | "projects" | "workflows" | "knowledge" | "plugins" | "documents" | "history";
@@ -196,6 +196,7 @@ function ActivityPanel({ activities, onClear, onManageKeys }: { activities: Plug
 
 function DocumentsWorkspace({ onStartAgent, onOpenSidebar }: { onStartAgent: (goal: string, attachments?: AgentAttachment[]) => void; onOpenSidebar: () => void }) {
   const [documents, setDocuments] = useState<WorkspaceDocument[]>([]);
+  const [searchResults, setSearchResults] = useState<WorkspaceDocumentSearchResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -203,7 +204,11 @@ function DocumentsWorkspace({ onStartAgent, onOpenSidebar }: { onStartAgent: (go
   const fileInputRef = useRef<HTMLInputElement>(null);
   const load = useCallback(async () => { try { setDocuments(await listWorkspaceDocuments()); setError(null); } catch (reason) { setError(reason instanceof Error ? reason.message : "Could not read local documents."); } finally { setLoading(false); } }, []);
   useEffect(() => { const timer = window.setTimeout(() => void load(), 0); return () => window.clearTimeout(timer); }, [load]);
-  const visible = documents.filter((document) => document.name.toLowerCase().includes(searchText.toLowerCase()));
+  useEffect(() => {
+    let active = true;
+    void searchWorkspaceDocuments(searchText).then((results) => { if (active) setSearchResults(results); }).catch(() => { if (active) setSearchResults(documents.map((document) => ({ document, score: 0, matches: 0, snippet: "" }))); });
+    return () => { active = false; };
+  }, [documents, searchText]);
 
   const upload = async (files: FileList | null) => {
     if (!files?.length) return;
@@ -240,7 +245,7 @@ function DocumentsWorkspace({ onStartAgent, onOpenSidebar }: { onStartAgent: (go
     <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-border-main/60 bg-bg-main px-4 py-3 text-xs text-text-muted"><span>TXT · MD · CSV · JSON · PDF · DOCX · XLSX · up to 4 MB per file</span><span className="shrink-0">{documents.length} saved</span></div>
     <div className="mb-4 flex items-center gap-2"><Search className="h-4 w-4 text-text-muted" /><input value={searchText} onChange={(event) => setSearchText(event.target.value)} placeholder="Search documents" aria-label="Search documents" className="w-full max-w-md rounded-lg border border-border-main/70 bg-surface px-3 py-2 text-sm outline-none focus:border-accent/50" /></div>
     {error && <p role="alert" className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
-    {loading ? <div className="flex items-center justify-center gap-2 py-12 text-sm text-text-muted"><Loader2 className="h-4 w-4 animate-spin" />Loading local documents…</div> : visible.length ? <div className="space-y-2">{visible.map((document) => <article key={document.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-border-main/70 bg-surface p-3 shadow-sm"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-cream-highlight text-accent"><FileText className="h-5 w-5" /></span><div className="min-w-0 flex-1"><h2 className="truncate text-sm font-semibold text-text-main">{document.name}</h2><p className="mt-0.5 text-[10px] text-text-muted">{formatBytes(document.sizeBytes)} · Added {new Date(document.addedAt).toLocaleDateString()}</p></div><button type="button" onClick={() => void analyze(document)} className="rounded-lg border border-border-main/70 px-3 py-2 text-xs font-semibold text-text-main hover:bg-cream-highlight hover:text-accent">Analyze</button><button type="button" onClick={() => void download(document)} className="rounded-lg border border-border-main/70 px-3 py-2 text-xs font-semibold text-text-main hover:bg-bg-main">Download</button><button type="button" onClick={() => void remove(document)} aria-label={`Delete ${document.name}`} title="Delete document" className="rounded-lg p-2 text-text-muted hover:bg-red-50 hover:text-red-700"><Trash2 className="h-4 w-4" /></button></article>)}</div> : <EmptyState icon={Archive} title={searchText ? "No matching documents" : "No documents saved"} body={searchText ? "Try another search term." : "Upload a small document to keep it available in this browser and optionally analyze it with the Agent."} />}
+    {loading ? <div className="flex items-center justify-center gap-2 py-12 text-sm text-text-muted"><Loader2 className="h-4 w-4 animate-spin" />Loading local documents…</div> : searchResults.length ? <div className="space-y-2">{searchResults.map(({ document, snippet }) => <article key={document.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-border-main/70 bg-surface p-3 shadow-sm"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-cream-highlight text-accent"><FileText className="h-5 w-5" /></span><div className="min-w-0 flex-1"><h2 className="truncate text-sm font-semibold text-text-main">{document.name}</h2><p className="mt-0.5 text-[10px] text-text-muted">{formatBytes(document.sizeBytes)} · Added {new Date(document.addedAt).toLocaleDateString()} · {document.extractionStatus === "ready" ? `${document.characterCount?.toLocaleString() ?? 0} indexed characters` : "filename indexed"}</p>{searchText && <p className="mt-1 line-clamp-2 text-xs leading-5 text-text-muted">{snippet}</p>}</div><button type="button" onClick={() => void analyze(document)} className="rounded-lg border border-border-main/70 px-3 py-2 text-xs font-semibold text-text-main hover:bg-cream-highlight hover:text-accent">Analyze</button><button type="button" onClick={() => void download(document)} className="rounded-lg border border-border-main/70 px-3 py-2 text-xs font-semibold text-text-main hover:bg-bg-main">Download</button><button type="button" onClick={() => void remove(document)} aria-label={`Delete ${document.name}`} title="Delete document" className="rounded-lg p-2 text-text-muted hover:bg-red-50 hover:text-red-700"><Trash2 className="h-4 w-4" /></button></article>)}</div> : <EmptyState icon={Archive} title={searchText ? "No matching documents" : "No documents saved"} body={searchText ? "Try another search term." : "Upload a small document to keep it available in this browser and optionally analyze it with the Agent."} />}
   </WorkspaceFrame>;
 }
 
