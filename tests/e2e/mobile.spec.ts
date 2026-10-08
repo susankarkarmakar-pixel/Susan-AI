@@ -15,6 +15,34 @@ test.beforeEach(async ({ page }) => {
 });
 
 test.describe("mobile Susan AI smoke flow", () => {
+  test("ranks search results by query relevance rather than freshness alone", async ({ page }) => {
+    await page.route("**/api/search", (route) => route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        query: "India visa requirements for Japan 2026",
+        provider: "all",
+        providersUsed: ["duckduckgo"],
+        unavailable: [],
+        results: [
+          { id: "topic-match", title: "Japan visa requirements for Indian citizens in 2026", url: "https://example.com/japan-visa", snippet: "Entry documents and eligibility for Indian passport holders visiting Japan.", source: "duckduckgo" },
+          { id: "fresh-generic", title: "Japan travel news and 2026 updates", url: "https://example.com/japan-travel", snippet: "Latest travel headlines for visitors.", source: "duckduckgo", publishedAt: "1 hour ago" },
+        ],
+      }),
+    }));
+    await page.goto("/");
+    await page.getByRole("group", { name: "Workspace mode" }).getByRole("button", { name: "Search" }).tap();
+    await page.getByPlaceholder("Search the web...").fill("India visa requirements for Japan 2026");
+    await page.locator("form").getByRole("button", { name: "Search", exact: true }).tap();
+
+    await expect(page.getByText("Sorted by relevance")).toBeVisible();
+    const resultCards = page.getByRole("article");
+    await expect(resultCards).toHaveCount(2);
+    await expect(resultCards.nth(0).getByRole("heading", { name: "Japan visa requirements for Indian citizens in 2026" })).toBeVisible();
+    await expect(resultCards.nth(1).getByRole("heading", { name: "Japan travel news and 2026 updates" })).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+  });
+
   test("renders the chat shell and composer without horizontal overflow", async ({ page }) => {
     await page.goto("/");
 
