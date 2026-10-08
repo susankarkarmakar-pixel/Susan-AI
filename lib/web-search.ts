@@ -1,3 +1,5 @@
+import { rankSearchResults } from "./search-ranking.mjs";
+
 export type SearchProvider = "all" | "google" | "bing" | "duckduckgo" | "brave";
 
 export interface SearchResult {
@@ -33,6 +35,6 @@ export function dedupeSearchResults(results: SearchResult[]): SearchResult[] {
   });
 }
 
-export function sortSearchResults(results: SearchResult[]): SearchResult[] {
-  return [...results].sort((a, b) => Number(Boolean(b.publishedAt)) - Number(Boolean(a.publishedAt)));
+export function sortSearchResults(results: SearchResult[], query: string): SearchResult[] {
+  return rankSearchResults(results, query);
 }

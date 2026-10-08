@@ -57,7 +57,7 @@ export async function POST(request: Request) {
       }
     }
 
-    const response: SearchResponse = { query, provider, results: sortSearchResults(dedupeSearchResults(results)).slice(0, MAX_RESULTS), providersUsed, unavailable };
+    const response: SearchResponse = { query, provider, results: sortSearchResults(dedupeSearchResults(results), query).slice(0, MAX_RESULTS), providersUsed, unavailable };
     return NextResponse.json(response, { headers: { "Cache-Control": "no-store" } });
   } catch {
     return NextResponse.json({ error: "Search request could not be processed." }, { status: 400 });

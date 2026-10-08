@@ -15,6 +15,34 @@ test.beforeEach(async ({ page }) => {
 });
 
 test.describe("mobile Susan AI smoke flow", () => {
+  test("ranks search results by query relevance rather than freshness alone", async ({ page }) => {
+    await page.route("**/api/search", (route) => route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        query: "India visa requirements for Japan 2026",
+        provider: "all",
+        providersUsed: ["duckduckgo"],
+        unavailable: [],
+        results: [
+          { id: "topic-match", title: "Japan visa requirements for Indian citizens in 2026", url: "https://example.com/japan-visa", snippet: "Entry documents and eligibility for Indian passport holders visiting Japan.", source: "duckduckgo" },
+          { id: "fresh-generic", title: "Japan travel news and 2026 updates", url: "https://example.com/japan-travel", snippet: "Latest travel headlines for visitors.", source: "duckduckgo", publishedAt: "1 hour ago" },
+        ],
+      }),
+    }));
+    await page.goto("/");
+    await page.getByRole("group", { name: "Workspace mode" }).getByRole("button", { name: "Search" }).tap();
+    await page.getByPlaceholder("Search the web...").fill("India visa requirements for Japan 2026");
+    await page.locator("form").getByRole("button", { name: "Search", exact: true }).tap();
+
+    await expect(page.getByText("Sorted by relevance")).toBeVisible();
+    const resultCards = page.getByRole("article");
+    await expect(resultCards).toHaveCount(2);
+    await expect(resultCards.nth(0).getByRole("heading", { name: "Japan visa requirements for Indian citizens in 2026" })).toBeVisible();
+    await expect(resultCards.nth(1).getByRole("heading", { name: "Japan travel news and 2026 updates" })).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+  });
+
   test("renders the chat shell and composer without horizontal overflow", async ({ page }) => {
     await page.goto("/");
 
@@ -145,6 +173,38 @@ test.describe("mobile Susan AI smoke flow", () => {
     await projectFilter.selectOption("none");
     await expect(page.getByText(/No project ·/)).toBeVisible();
     await expect(page.getByText(/Alpha research ·/)).toHaveCount(0);
+    await expectNoHorizontalOverflow(page);
+  });
+
+  test("indexes local text documents for search and adds bounded context to an editable chat", async ({ page }) => {
+    await page.goto("/");
+    await page.getByRole("button", { name: "Open sidebar" }).tap();
+    const sidebar = page.getByRole("complementary", { name: "Main sidebar" });
+    await sidebar.getByRole("button", { name: "Expand library" }).tap();
+    await sidebar.getByRole("button", { name: "Documents" }).tap();
+    await page.locator('input[type="file"]').setInputFiles({
+      name: "phase-two-notes.txt",
+      mimeType: "text/plain",
+      buffer: Buffer.from("Private canary phrase: sunlit-indexable-cedar. This text should remain local until the user sends the message."),
+    });
+
+    const documentCard = page.getByRole("article").filter({ hasText: "phase-two-notes.txt" });
+    await expect(documentCard.getByText("Text indexed locally")).toBeVisible();
+    await page.getByRole("textbox", { name: "Search documents" }).fill("sunlit-indexable-cedar");
+    await expect(documentCard).toBeVisible();
+    const contextBudget = page.getByLabel("Document context budget");
+    await contextBudget.selectOption("4000");
+    await expect(contextBudget).toHaveValue("4000");
+    await documentCard.getByRole("button", { name: "Use in chat" }).tap();
+
+    const composer = page.getByRole("textbox", { name: "Message Susan AI" });
+    await expect(composer).toHaveValue(/sunlit-indexable-cedar/);
+    await expect(composer).toHaveValue(/untrusted reference material/);
+    await expect(composer).toHaveValue(/<untrusted_document_context>[\s\S]*<\/untrusted_document_context>/);
+    const preparedPrompt = await composer.inputValue();
+    await composer.fill(`${preparedPrompt}\nSummarize this document.`);
+    await expect(composer).toHaveValue(/Summarize this document\./);
+    await expect(composer).toHaveValue(/<untrusted_document_context>[\s\S]*<\/untrusted_document_context>/);
     await expectNoHorizontalOverflow(page);
   });
 });

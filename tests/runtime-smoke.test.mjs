@@ -89,7 +89,10 @@ test("chat route rejects non-JSON requests", async () => {
     body: "not-json",
   });
   assert.equal(response.status, 415);
-  assert.deepEqual(await response.json(), { error: "Content-Type must be application/json." });
+  const payload = await response.json();
+  assert.match(payload.error, /^Content-Type must be application\/json\./);
+  assert.equal(payload.code, "REQUEST_INVALID");
+  assert.equal(response.headers.get("x-correlation-id"), payload.correlationId);
 });
 
 test("chat route rejects oversized system prompts before calling a provider", async () => {
@@ -99,7 +102,9 @@ test("chat route rejects oversized system prompts before calling a provider", as
     body: JSON.stringify({ provider: "openai", apiKey: "dummy-test-key-123", systemPrompt: "x".repeat(6001), messages: [{ role: "user", content: "test" }] }),
   });
   assert.equal(response.status, 400);
-  assert.deepEqual(await response.json(), { error: "System instructions must be text under 6,000 characters." });
+  const payload = await response.json();
+  assert.match(payload.error, /^System instructions must be text under 6,000 characters\./);
+  assert.equal(payload.code, "REQUEST_INVALID");
 });
 
 test("chat route rejects async-only providers", async () => {
@@ -113,7 +118,9 @@ test("chat route rejects async-only providers", async () => {
     }),
   });
   assert.equal(response.status, 400);
-  assert.deepEqual(await response.json(), { error: "This provider is not available for instant chat." });
+  const payload = await response.json();
+  assert.match(payload.error, /^This provider is not available for instant chat\./);
+  assert.equal(payload.code, "REQUEST_INVALID");
 });
 
 test("Jules route requires JSON and a valid API key", async () => {
@@ -171,7 +178,10 @@ test("provider connection route validates content type, keys, and instant-chat s
     body: JSON.stringify({ provider: "openai" }),
   });
   assert.equal(missingKey.status, 400);
-  assert.deepEqual(await missingKey.json(), { error: "A valid provider API key is required." });
+  const payload = await missingKey.json();
+  assert.match(payload.error, /^A valid provider API key is required\./);
+  assert.equal(payload.code, "PROVIDER_AUTH");
+  assert.equal(missingKey.headers.get("x-correlation-id"), payload.correlationId);
 
   const asyncOnly = await fetch(`${baseUrl}/api/providers/test`, {
     method: "POST",
@@ -179,7 +189,10 @@ test("provider connection route validates content type, keys, and instant-chat s
     body: JSON.stringify({ provider: "jules", apiKey: "placeholder-test-key" }),
   });
   assert.equal(asyncOnly.status, 400);
-  assert.deepEqual(await asyncOnly.json(), { error: "This provider does not support an instant connection test." });
+  const unsupported = await asyncOnly.json();
+  assert.match(unsupported.error, /^This provider does not support an instant connection test\./);
+  assert.equal(unsupported.code, "REQUEST_INVALID");
+  assert.equal(asyncOnly.headers.get("x-correlation-id"), unsupported.correlationId);
 });
 
 test("chat route recognizes every instant-chat provider before credential validation", async () => {
@@ -191,7 +204,11 @@ test("chat route recognizes every instant-chat provider before credential valida
       body: JSON.stringify({ provider, apiKey: "short", messages: [{ role: "user", content: "test" }] }),
     });
     assert.equal(response.status, 400, `${provider} should reach credential validation`);
-    assert.deepEqual(await response.json(), { error: "A valid API key is required." });
+    const payload = await response.json();
+    assert.match(payload.error, /^A valid API key is required\./);
+    assert.equal(payload.code, "PROVIDER_AUTH");
+    assert.match(payload.correlationId, /^req_[a-zA-Z0-9_-]{16,80}$/);
+    assert.equal(response.headers.get("x-correlation-id"), payload.correlationId);
   }
 });
 
@@ -209,7 +226,10 @@ test("Cloudflare connection tests require its separate account ID before any ups
     body: JSON.stringify({ provider: "cloudflare", apiKey: "placeholder-test-key" }),
   });
   assert.equal(response.status, 400);
-  assert.deepEqual(await response.json(), { error: "A valid 32-character Cloudflare Account ID is required. Add it in Settings." });
+  const payload = await response.json();
+  assert.match(payload.error, /^A valid 32-character Cloudflare Account ID is required/);
+  assert.equal(payload.code, "PROVIDER_AUTH");
+  assert.equal(response.headers.get("x-correlation-id"), payload.correlationId);
 });
 
 test("chat route rejects malformed message parts", async () => {
@@ -223,7 +243,10 @@ test("chat route rejects malformed message parts", async () => {
     }),
   });
   assert.equal(response.status, 400);
-  assert.deepEqual(await response.json(), { error: "No valid messages found." });
+  const payload = await response.json();
+  assert.match(payload.error, /^No valid messages found\./);
+  assert.equal(payload.code, "REQUEST_INVALID");
+  assert.equal(response.headers.get("x-correlation-id"), payload.correlationId);
 });
 
 test("chat route rejects valid file parts for providers without file support", async () => {
@@ -237,7 +260,10 @@ test("chat route rejects valid file parts for providers without file support", a
     }),
   });
   assert.equal(response.status, 400);
-  assert.deepEqual(await response.json(), { error: "The selected provider does not support file attachments. Choose a vision/file-capable provider." });
+  const payload = await response.json();
+  assert.match(payload.error, /^The selected provider does not support file attachments/);
+  assert.equal(payload.code, "ATTACHMENT_UNSUPPORTED");
+  assert.equal(response.headers.get("x-correlation-id"), payload.correlationId);
 });
 
 test("chat errors are not cacheable", async () => {
@@ -265,4 +291,7 @@ test("rate limiting returns Retry-After after the configured burst", async () =>
   }
   assert.ok(throttled, "expected the memory limiter to throttle the burst");
   assert.equal(throttled.headers.get("retry-after"), "60");
+  const payload = await throttled.json();
+  assert.equal(payload.code, "REQUEST_RATE_LIMITED");
+  assert.equal(throttled.headers.get("x-correlation-id"), payload.correlationId);
 });
