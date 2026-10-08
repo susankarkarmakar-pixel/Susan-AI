@@ -46,6 +46,9 @@ jobs:
       - name: Typecheck
         run: npx tsc --noEmit
 
+      - name: Search relevance and synonym ranking tests
+        run: npm run test:search
+
       - name: Source-level mobile regression tests
         run: npm run test:mobile
 

@@ -17,12 +17,13 @@ Susan AI এখন একটি privacy-first, browser-local, multi-model AI wor
 
 - Source-level mobile suite: **6 tests passing**
 - Real-browser mobile E2E suite: **18 tests passing**
-- Full Node regression: **129 passing, 1 intentional skip**
+- Full Node regression: **134 passing, 1 intentional skip**
+- Search ranking suite: **8 tests passing**, including exact phrase, synonym priority, title-vs-snippet evidence, Bengali tokenization, and stable ties; run explicitly with `npm run test:search`
 - ESLint: passing; TypeScript check: passing
 - Next.js **16.3.8** production build: passing
 - Dependency audit policy: **no production high/critical or unapproved full-tree high/critical findings**; compatible updates cleared the `sharp` and `source-map-js` high advisories. The exact unpatched `braces` advisory in the development-only lint chain remains temporarily allowlisted; moderate transitive findings in document/export and desktop packaging dependencies are reported, not suppressed.
-- GitHub Actions PR quality-gate workflow is configured with the required check on the stacked feature target; every new PR commit must pass the hosted gates before merging.
-- Phase 2 initial slice: TXT/Markdown/CSV/JSON document text is indexed locally (120,000-character cap), full-text search works in Documents, and “Use in chat” prepares an editable, prompt-injection-labeled excerpt with a user-selected 4k/8k/16k/32k character budget. Web Search now ranks by query phrase and title/snippet/URL term coverage (including Bengali Unicode) instead of favoring results only because they include a publication date. PDF/DOCX/XLSX full-text indexing and richer excerpt/summary controls remain future work.
+- GitHub Actions PR quality-gate workflow is configured with the required check on the stacked feature target; every PR runs `npm run test:search` as a dedicated quality step in addition to the full regression suite.
+- Phase 2 initial slice: TXT/Markdown/CSV/JSON document text is indexed locally (120,000-character cap), full-text search works in Documents, and “Use in chat” prepares an editable, prompt-injection-labeled excerpt with a user-selected 4k/8k/16k/32k character budget. Web Search ranks by exact phrase, title/snippet/URL term coverage, and a deliberately small English–Bengali synonym map; Bengali combining marks are preserved during tokenization. Freshness alone no longer outranks relevance. PDF/DOCX/XLSX full-text indexing and richer excerpt/summary controls remain future work.
 - Live demo: [susan-ai.vercel.app](https://susan-ai.vercel.app/)
 
 ## 2. Product direction
